@@ -12,3 +12,7 @@ def accuracy(predictions, labels):
     predictions = np.concatenate(predictions, axis = 0)
     labels = np.concatenate(labels, axis = 0)
     return np.mean(predictions == labels)
+
+
+def negative_accuracy(predictions, labels):
+    return -accuracy(predictions, labels)
