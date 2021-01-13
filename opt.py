@@ -8,7 +8,7 @@ from utils import MultiAttempt
 
 from space.tdw_space import TRAIN_FEAT_SPACE, HUMAN_FEAT_SPACE, METRICS_SPACE
 from search.grid_search import suggest
-import physics_metrics.test_metrics as test_metrics
+import metrics.physics.test_metrics as test_metrics
 
 
 from models.RPIN import Objective as RPINObjective
