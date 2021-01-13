@@ -2,6 +2,8 @@ from metrics.base.feature_extractor import FeatureExtractor
 from metrics.base.readout_model import ReadoutModel
 import numpy as np
 
+from sklearn.model_selection import GridSearchCV
+
 class MetricModel(object):
     """
     Fits and evaluates readout_model on features to predict labels using metric_fn
@@ -53,7 +55,13 @@ class BatchMetricModel(MetricModel):
             feature_extractor,
             readout_model,
             metric_fn,
-            label_fn = lambda x: x):
+            label_fn = lambda x: x,
+            grid_search_params = None):
+
+        if grid_search_params:
+            readout_model.score = metric_fn
+            readout_model = GridSearchCV(readout_model, grid_search_params)
+
         super(BatchMetricModel, self).__init__(feature_extractor, readout_model, metric_fn)
         self._label_fn = label_fn
 
@@ -80,17 +88,32 @@ class BatchMetricModel(MetricModel):
         return features, labels
 
 
+    def flatten_features_labels(self, features, labels):
+        labels = np.array(labels)
+        features = np.array(features)
+
+        self.labels_shape = labels.shape
+        self.features_shape = features.shape
+
+        labels = np.reshape(labels, [-1])
+        features = np.reshape(features, [labels.shape[0], -1])
+
+        return features, labels
+
+
     def fit(self,
             data,
             num_steps = 2**10000):
         features, labels = self.extract_features_labels(data, num_steps)
+        features, labels = self.flatten_features_labels(features, labels)
         self._readout_model.fit(features, labels)
 
 
     def predict(self,
             data,
             num_steps = 2**10000):
-        features, _ = self.extract_features_labels(data, num_steps)
+        features, labels = self.extract_features_labels(data, num_steps)
+        features, _ = self.flatten_features_labels(features, labels)
         predictions = self._readout_model.predict(features)
         return predictions
 
@@ -98,7 +121,8 @@ class BatchMetricModel(MetricModel):
     def predict_proba(self,
             data,
             num_steps = 2**10000):
-        features, _ = self.extract_features_labels(data, num_steps)
+        features, labels = self.extract_features_labels(data, num_steps)
+        features, _ = self.flatten_features_labels(features, labels)
         features = [np.reshape(feat, [-1]) if feat.ndim > 1 else feat for feat in features]
         proba = self._readout_model.predict_proba(features)
         return proba
@@ -108,6 +132,9 @@ class BatchMetricModel(MetricModel):
             data,
             num_steps = 2**10000):
         features, labels = self.extract_features_labels(data, num_steps)
+        features, _ = self.flatten_features_labels(features, labels)
         predictions = self._readout_model.predict(features)
+        if not isinstance(predictions, list):
+            predictions = predictions.reshape(self.labels_shape)
         metric = self._metric_fn(predictions, labels)
         return metric

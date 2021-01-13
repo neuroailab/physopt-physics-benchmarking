@@ -24,6 +24,14 @@ class ReadoutModel(object):
         return self._model.predict_proba(data, **kwargs)
 
 
+    def get_params(self, *args, **kwargs):
+        return self._model.get_params(*args, **kwargs)
+
+
+    def set_params(self, *args, **kwargs):
+        return self._model.set_params(*args, **kwargs)
+
+
 
 class IdentityModel(ReadoutModel):
     """

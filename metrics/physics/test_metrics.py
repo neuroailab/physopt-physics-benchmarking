@@ -9,6 +9,7 @@ from metrics.base.metric_model import BatchMetricModel
 
 from metrics.physics.linear_readout_model import LinearRegressionReadoutModel, \
         LogisticRegressionReadoutModel
+
 from metrics.physics.metric_fns import accuracy, squared_error
 
 from hyperopt import STATUS_OK
@@ -267,6 +268,7 @@ def run(
         test_feat_name,
         base_dir,
         settings,
+        grid_search_params = {'C': [0.01, 0.1, 1.0, 10.0, 100.0]},
         ):
     model_dir = get_model_dir(train_name, seed, base_dir)
     train_path = os.path.join(model_dir, 'features', train_feat_name, 'feat.pkl')
@@ -300,8 +302,9 @@ def run(
 
     # Score unfitted predictions
     metric_model = BatchMetricModel(feature_extractor, readout_model,
-            accuracy, label_fn,
+            accuracy, label_fn, grid_search_params,
             )
+
     metric_model.fit(train_data)
     result = metric_model.score(test_data)
 
