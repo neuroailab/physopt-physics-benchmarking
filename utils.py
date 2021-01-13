@@ -22,6 +22,6 @@ class MultiAttempt():
             except Exception as e:
                 print("Error:", e)
                 print("Optimization attempt %d for func failed: %s" % \
-                        (num_attempts + 1, self.func.__name__))
+                        (num_attempts + 1, self.func))
 
         return results

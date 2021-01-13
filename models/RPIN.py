@@ -300,32 +300,41 @@ def test(args, model_dir, test_name):
     return
 
 
-def objective(args,
-        base_dir = '/mnt/fs4/mrowca/hyperopt/rpin',
-        ):
-    print(args)
-    seed, (train_name, train_data), (test_name, test_data) = args
 
-    if test_name:
-        write_feat = 'human' if 'human' in test_name else 'train'
-        run(train_name=train_name, test_name=test_name, datasets=test_data, seed=seed,
-                data_root='', base_dir=base_dir, write_feat=write_feat)
-    else:
-        run(train_name=train_name, test_name=test_name, datasets=train_data, seed=seed,
-                data_root='', base_dir=base_dir, write_feat='')
+class Objective():
+    def __init__(self,
+            seed,
+            train_data,
+            feat_data,
+            output_dir,
+            extract_feat):
+        self.seed = seed
+        self.train_data = train_data
+        self.feat_data = feat_data
+        self.output_dir = output_dir
+        self.extract_feat = extract_feat
 
-    status = STATUS_OK
-    loss = 0.0
-    return {
-            'loss': loss,
-            'status': STATUS_OK,
-            'seed': seed,
-            'train_name': train_name,
-            'train_data': train_data,
-            'test_name': test_name,
-            'test_data': test_data,
-            'base_dir': base_dir,
-            }
+
+    def __call__(self, *args, **kwargs):
+        if self.extract_feat:
+            write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
+            run(train_name=self.train_data['name'], test_name=self.feat_data['name'],
+                    datasets=self.feat_data['data'], seed=self.seed, data_root='',
+                    base_dir=self.output_dir, write_feat=write_feat)
+
+        else:
+            run(train_name=self.train_data['name'], test_name=self.feat_data['name'],
+                    datasets=self.train_data['data'], seed=self.seed, data_root='',
+                    base_dir=self.output_dir, write_feat='')
+
+        return {
+                'loss': 0.0,
+                'status': STATUS_OK,
+                'seed': self.seed,
+                'train_data': self.train_data,
+                'feat_data': self.feat_data,
+                'output_dir': self.output_dir,
+                }
 
 
 
