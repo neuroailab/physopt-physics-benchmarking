@@ -19,7 +19,12 @@ def get_combined_but_one_subsets(subsets):
 
 
 def get_all_subsets(subsets):
-    all_subsets = subsets \
-            + get_combined_but_one_subsets(subsets) \
-            + [get_combined_subset(subsets)]
+    if not isinstance(subsets, list):
+        subsets = list(subsets)
+    if len(subsets) > 1:
+        all_subsets = subsets \
+                + get_combined_but_one_subsets(subsets) \
+                + [get_combined_subset(subsets)]
+    else:
+        all_subsets = subsets
     return all_subsets

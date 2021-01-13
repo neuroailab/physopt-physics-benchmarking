@@ -5,8 +5,9 @@ from sklearn.multioutput import MultiOutputClassifier
 
 
 class LinearRegressionReadoutModel(ReadoutModel):
-    def __init__(self, **kwargs):
-        self._model = LinearRegression(**kwargs)
+    def __init__(self, *args, **kwargs):
+        super(ReadoutModel, self).__init__()
+        self._model = LinearRegression(*args, **kwargs)
         self.feat_dim = None
 
 
@@ -34,15 +35,15 @@ class LinearRegressionReadoutModel(ReadoutModel):
 
 
 class MultiOutputLinearRegressionReadoutModel(LinearRegressionReadoutModel):
-    def __init__(self, **kwargs):
-        super(MultiOutputLinearRegressionReadoutModel, self).__init__(**kwargs)
+    def __init__(self, *args, **kwargs):
+        super(MultiOutputLinearRegressionReadoutModel, self).__init__(*args, **kwargs)
         self._model = MultiOutputClassifier(self._model)
 
 
 
 class LogisticRegressionReadoutModel(ReadoutModel):
-    def __init__(self, scaler=None, **kwargs):
-        self._model = LogisticRegression(**kwargs)
+    def __init__(self, scaler=None, *args, **kwargs):
+        self._model = LogisticRegression(*args, **kwargs)
         self._scaler = scaler
 
 
@@ -76,6 +77,6 @@ class LogisticRegressionReadoutModel(ReadoutModel):
 
 
 class MultiOutputLogisticRegressionReadoutModel(LogisticRegressionReadoutModel):
-    def __init__(self, **kwargs):
-        super(MultiOutputLogisticRegressionReadoutModel, self).__init__(**kwargs)
+    def __init__(self, *args, **kwargs):
+        super(MultiOutputLogisticRegressionReadoutModel, self).__init__(*args, **kwargs)
         self._model = MultiOutputClassifier(self._model)
