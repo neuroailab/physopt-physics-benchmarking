@@ -18,6 +18,7 @@ _CONTAIN = {'name': 'contain', 'data': [TRAIN['contain']]}
 _TOWER = {'name': 'tower', 'data': [TRAIN['unstable3_tower']]}
 _ROLL_SLIDE = {'name': 'roll_slide', 'data': [TRAIN['roll_cube'], TRAIN['roll_sphere'],
     TRAIN['slide_cube'], TRAIN['slide_sphere']]}
+#_RANDOM = {'name': 'random', 'data': [TRAIN['random_push'], TRAIN['random_tower']]}
 
 _HUMAN_CLOTH = {'name': 'human_cloth', 'data': [HUMAN['cloth_on_object']]}
 _HUMAN_COLLIDE_0 = {'name': 'human_collide_0', 'data': [HUMAN['collide2_new_0']]}
@@ -32,6 +33,7 @@ SEEDS = list(range(_NUM_SEEDS))
 EMPTY_DATA = [{'name': '', 'data': []}]
 
 TRAIN_DATA = get_all_subsets([_CLOTH, _COLLIDE, _CONTAIN, _TOWER, _ROLL_SLIDE])
+#TRAIN_DATA += [_RANDOM]
 
 TEST_FEAT_DATA = [_CLOTH, _COLLIDE, _CONTAIN, _ROLL_SLIDE, _TOWER]
 
