@@ -1,5 +1,7 @@
 # physopt
 
+## How To Run
+
 Physopt uses [Hyperopt](https://github.com/neuroailab/hyperopt) to train and evaluate physics prediction models on one or many different datasets. In order to evaluate a model, you first need to launch a MongoDB database, then a optimization server that distributes jobs across workers, and finally as many workers as you want that execute the server jobs.
 
 For example,
@@ -22,5 +24,7 @@ and then start up as many workers as you want with:
 `hyperopt/scripts/hyperopt-mongo-worker --mongo=localhost:25555/svg --logfile=logfile.txt`
 
 etc.
+
+## Dataset Specification
 
 Physopt will then first train the selected model on all the datasets defined in `TRAIN_SPACE`, then extract the train features for the datasets defined in `TRAIN_FEAT_SPACE` and test features for the datasets defined in `HUMAN_FEAT_SPACE` and finally use the extracted features to calculate the evaluation metrics for the datasets defined in `METRICS_SPACE`. Each `SPACE` consists of a tuple `(SEEDS, TRAIN_DATA, FEAT_DATA)` which specify a list of possible seeds, train datasets, and feature datasets respectively. A seed is an integer. A dataset is a dictionary of `{'name': dataset\_name, 'data': list(dataset_paths)}`. The feature space `FEAT_DATA` of `METRICS_SPACE` is a tuple of `(TRAIN_FEAT_DATA, TEST_FEAT_DATA)`, otherwise a feature dataset `FEAT_DATA`. Please refer to [space/tdw\_space.py](https://github.com/neuroailab/physopt/blob/main/space/tdw_space.py) for an example implementation.
