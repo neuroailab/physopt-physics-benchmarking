@@ -269,21 +269,16 @@ def remap_and_filter(data, label_fn):
     return iter(remapped_data)
 
 
-def get_model_dir(run_name, seed, base_dir = '/mnt/fs4/mrowca/hyperopt/rpin'):
-    return os.path.join(base_dir, run_name, str(seed), 'model')
-
-
 def run(
         seed,
         train_name,
         train_feat_name,
         test_feat_name,
-        base_dir,
+        model_dir,
         settings,
         grid_search_params = {'C': [0.01, 0.1, 1.0, 10.0, 100.0]},
         calculate_correlation = False,
         ):
-    model_dir = get_model_dir(train_name, seed, base_dir)
     train_path = os.path.join(model_dir, 'features', train_feat_name, 'feat.pkl')
     test_path = os.path.join(model_dir, 'features', test_feat_name, 'feat.pkl')
 
@@ -346,10 +341,9 @@ def write_results(
         train_name,
         train_feat_name,
         test_feat_name,
-        base_dir,
+        model_dir,
         results,
         ):
-    model_dir = get_model_dir(train_name, seed, base_dir)
     write_path = os.path.join(model_dir, 'features', test_feat_name,
             'metrics_results.pkl')
     data = {
@@ -357,7 +351,7 @@ def write_results(
             'train_name': train_name,
             'train_feat_name': train_feat_name,
             'test_feat_name': test_feat_name,
-            'base_dir': base_dir,
+            'model_dir': model_dir,
             'results': results,
             }
     with open(write_path, 'wb') as f:
@@ -367,30 +361,38 @@ def write_results(
 
 class Objective():
     def __init__(self,
+            exp_key,
             seed,
             train_data,
             feat_data,
             output_dir,
             extract_feat):
         assert len(feat_data) == 2, feat_data
+        self.exp_key = exp_key
         self.seed = seed
         self.train_data = train_data
         self.train_feat_data = feat_data[0]
         self.test_feat_data = feat_data[1]
         self.output_dir = output_dir
+        self.model_dir = self.get_model_dir()
+
+
+    def get_model_dir(self):
+        return os.path.join(self.output_dir, self.train_data['name'],
+                str(self.seed), 'model')
 
 
     def __call__(self, *args, **kwargs):
         results = []
         for settings in SETTINGS:
             result = run(self.seed, self.train_data['name'], self.train_feat_data['name'],
-                    self.test_feat_data['name'], self.output_dir, settings)
+                    self.test_feat_data['name'], self.model_dir, settings)
             result = {'result': result}
             result.update(settings)
             results.append(result)
             # Write every iteration to be safe
             write_results(self.seed, self.train_data['name'], self.train_feat_data['name'],
-                    self.test_feat_data['name'], self.output_dir, results)
+                    self.test_feat_data['name'], self.model_dir, results)
 
         return {
                 'loss': 0.0,
@@ -399,7 +401,7 @@ class Objective():
                 'train_data': self.train_data,
                 'train_feat_data': self.train_feat_data,
                 'test_feat_data': self.test_feat_data,
-                'base_dir': self.output_dir,
+                'model_dir': self.model_dir,
                 'results': results,
                 }
 
@@ -417,5 +419,6 @@ if __name__ == '__main__':
             }
         )
     output_dir = '/mnt/fs4/mrowca/hyperopt/RPIN/'
-    objective = Objective(seed, train_data, feat_data, output_dir, False)
+    exp_key = '0_cloth_human_cloth_metrics'
+    objective = Objective(exp_key, seed, train_data, feat_data, output_dir, False)
     objective()

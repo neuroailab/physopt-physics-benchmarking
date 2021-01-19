@@ -119,16 +119,12 @@ def get_shift_selector(subsets):
     return train_shift_selector, val_shift_selector
 
 
-def get_model_dir(run_name, seed, base_dir = '/mnt/fs4/mrowca/hyperopt/rpin'):
-    return os.path.join(base_dir, run_name, str(seed), 'model')
-
-
 def run(
         train_name = 'collide',
         datasets = ['collide2_new'],
         seed = 0,
         data_root = '/mnt/fs4/mrowca/neurips/images/rigid',
-        base_dir = '/mnt/fs4/mrowca/hyperopt/rpin',
+        model_dir = '/mnt/fs4/mrowca/hyperopt/rpin/default/0/model',
         write_feat = '',
         test_name = 'default',
         ):
@@ -177,7 +173,6 @@ def run(
     #TODO might want to adjust prediction length to 10 frames only in config
     #TODO Config cannot be frozen for parallel processing
     #C.freeze()
-    model_dir = get_model_dir(train_name, seed, base_dir)
     if not os.path.exists(model_dir):
         os.makedirs(model_dir, exist_ok=True)
 
@@ -303,16 +298,24 @@ def test(args, model_dir, test_name):
 
 class Objective():
     def __init__(self,
+            exp_key,
             seed,
             train_data,
             feat_data,
             output_dir,
             extract_feat):
+        self.exp_key = exp_key
         self.seed = seed
         self.train_data = train_data
         self.feat_data = feat_data
         self.output_dir = output_dir
         self.extract_feat = extract_feat
+        self.model_dir = self.get_model_dir()
+
+
+    def get_model_dir(self):
+        return os.path.join(self.output_dir, self.train_data['name'],
+                str(self.seed), 'model')
 
 
     def __call__(self, *args, **kwargs):
@@ -320,12 +323,12 @@ class Objective():
             write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
             run(train_name=self.train_data['name'], test_name=self.feat_data['name'],
                     datasets=self.feat_data['data'], seed=self.seed, data_root='',
-                    base_dir=self.output_dir, write_feat=write_feat)
+                    model_dir=self.model_dir, write_feat=write_feat)
 
         else:
             run(train_name=self.train_data['name'], test_name=self.feat_data['name'],
                     datasets=self.train_data['data'], seed=self.seed, data_root='',
-                    base_dir=self.output_dir, write_feat='')
+                    model_dir=self.model_dir, write_feat='')
 
         return {
                 'loss': 0.0,
@@ -333,7 +336,7 @@ class Objective():
                 'seed': self.seed,
                 'train_data': self.train_data,
                 'feat_data': self.feat_data,
-                'output_dir': self.output_dir,
+                'model_dir': self.model_dir,
                 }
 
 

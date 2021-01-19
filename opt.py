@@ -10,7 +10,6 @@ from space.tdw_space import TRAIN_FEAT_SPACE, HUMAN_FEAT_SPACE, METRICS_SPACE
 from search.grid_search import suggest
 import metrics.physics.test_metrics as test_metrics
 
-
 from models.RPIN import Objective as RPINObjective
 
 
@@ -81,7 +80,7 @@ def run(
             Objective = get_Objective('metrics')
         else:
             Objective = get_Objective(model)
-        objective = Objective(seed, train_data, feat_data, output_dir, extract_feat)
+        objective = Objective(exp_key, seed, train_data, feat_data, output_dir, extract_feat)
 
         try:
             fmin(#objective,
