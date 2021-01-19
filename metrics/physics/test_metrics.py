@@ -157,6 +157,18 @@ def pos_label_fn(data, time_steps, dim = 2):
     return labels.astype(np.float32).reshape([-1])
 
 
+def correlation_label_fn(data):
+    x = data['human_prob']
+    # Format: [0]: Definitely Not, [1]: Probably Not, [2]: Probably, [3]: Definitely
+    if len(x) == 4:
+        neg = np.nan_to_num(x[0] / (x[0] + x[3]))
+        pos = np.nan_to_num(x[3] / (x[0] + x[3]))
+        return np.stack([neg, pos])
+    # Format: [0]: Category 0, [1]: Category 1, [2]: Category 2, ...
+    else:
+        return np.nan_to_num(x / np.sum(x, keepdims=True))
+
+
 def get_num_samples(data, label_fn):
     pos = []
     neg = []
@@ -269,6 +281,7 @@ def run(
         base_dir,
         settings,
         grid_search_params = {'C': [0.01, 0.1, 1.0, 10.0, 100.0]},
+        calculate_correlation = False,
         ):
     model_dir = get_model_dir(train_name, seed, base_dir)
     train_path = os.path.join(model_dir, 'features', train_feat_name, 'feat.pkl')
@@ -306,9 +319,24 @@ def run(
             )
 
     metric_model.fit(train_data)
-    result = metric_model.score(test_data)
+    acc = metric_model.score(test_data)
 
-    print("Categorization accuracy: %f" % result)
+    print("Categorization accuracy: %f" % acc)
+
+    result = {'accuracy': acc}
+
+    # Calculate human correlation
+    if calculate_correlation:
+        model_proba = metric_model.predict_proba(build_data(test_path))
+        _, human_proba = metric_model.extract_features_labels(build_data(test_path), \
+                label_fn = correlation_label_fn)
+        human_proba = np.stack(human_proba)
+        corr_coeff, p = scipy.stats.pearsonr(model_proba.flatten(), human_proba.flatten())
+
+        print("Correlation coefficient: %f, p-value: %f" % (corr_coeff, p))
+
+        result['corr_coeff'] = corr_coeff
+        result['p_value'] = p
 
     return result
 
@@ -388,6 +416,6 @@ if __name__ == '__main__':
             'data': ['/mnt/fs4/mrowca/neurips/images/rigid/cloth_on_object']
             }
         )
-    output_dir = '/mnt/fs4/mrowca/hyperopt/rpin/'
+    output_dir = '/mnt/fs4/mrowca/hyperopt/RPIN/'
     objective = Objective(seed, train_data, feat_data, output_dir, False)
     objective()
