@@ -397,6 +397,7 @@ class Objective():
         return {
                 'loss': 0.0,
                 'status': STATUS_OK,
+                'exp_key': self.exp_key,
                 'seed': self.seed,
                 'train_data': self.train_data,
                 'train_feat_data': self.train_feat_data,
@@ -404,6 +405,8 @@ class Objective():
                 'model_dir': self.model_dir,
                 'results': results,
                 }
+
+
 
 if __name__ == '__main__':
     seed = 0

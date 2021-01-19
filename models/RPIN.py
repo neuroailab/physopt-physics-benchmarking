@@ -333,6 +333,7 @@ class Objective():
         return {
                 'loss': 0.0,
                 'status': STATUS_OK,
+                'exp_key': self.exp_key,
                 'seed': self.seed,
                 'train_data': self.train_data,
                 'feat_data': self.feat_data,
