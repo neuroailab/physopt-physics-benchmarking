@@ -374,3 +374,20 @@ class Objective():
                 'base_dir': self.output_dir,
                 'results': results,
                 }
+
+if __name__ == '__main__':
+    seed = 0
+    train_data = {'name': 'cloth',
+            'data': ['/mnt/fs4/mrowca/neurips/images/rigid/cloth_on_object']
+            }
+    feat_data = (
+        {'name': 'cloth',
+            'data': ['/mnt/fs4/mrowca/neurips/images/rigid/cloth_on_object']
+            },
+        {'name': 'human_cloth',
+            'data': ['/mnt/fs4/mrowca/neurips/images/rigid/cloth_on_object']
+            }
+        )
+    output_dir = '/mnt/fs4/mrowca/hyperopt/rpin/'
+    objective = Objective(seed, train_data, feat_data, output_dir, False)
+    objective()
