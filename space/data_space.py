@@ -14,7 +14,7 @@ def get_combined_but_one_subsets(subsets):
     for subset in subsets:
         combined_data = get_combined_subset(subsets)['data']
         [combined_data.remove(s) for s in subset['data']]
-        combined_but_one.append(('no_{0}'.format(subset['name']), combined_data))
+        combined_but_one.append({'name': 'no_{0}'.format(subset['name']), 'data': combined_data})
     return combined_but_one
 
 
