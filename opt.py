@@ -10,10 +10,7 @@ from space.tdw_space import TRAIN_FEAT_SPACE, HUMAN_FEAT_SPACE, METRICS_SPACE
 from search.grid_search import suggest
 import metrics.physics.test_metrics as test_metrics
 
-from models.RPIN import Objective as RPINObjective
-from models.SVG import VGGObjective as SVGObjective
-
-
+import pdb
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])
 
@@ -21,9 +18,9 @@ NO_PARAM_SPACE = hp.choice('dummy', [0])
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
 
-    parser.add_argument('--model', required=True,
+    parser.add_argument('-m', '--model', required=True,
             help='model: RPIN | SVG', type=str)
-    parser.add_argument('--output', default='/mnt/fs4/mrowca/hyperopt/',
+    parser.add_argument('--output', default='/mnt/fs4/eliwang/hyperopt/',
             help='output directory', type=str)
     parser.add_argument('--host', default='localhost', help='mongo host', type=str)
     parser.add_argument('--port', default='25555', help='mongo port', type=str)
@@ -37,9 +34,14 @@ def get_Objective(model):
     if model == 'metrics':
         return test_metrics.Objective
     elif model == 'RPIN':
+        from models.RPIN import Objective as RPINObjective
         return RPINObjective
     elif model == 'SVG':
+        from models.SVG import VGGObjective as SVGObjective
         return SVGObjective
+    elif model == 'CSWM':
+        from models.CSWM import Objective as CSWMObjective
+        return CSWMObjective
     else:
         raise ValueError('Unknown model: {0}'.format(model))
 
@@ -73,11 +75,13 @@ def run(
 
     def run_once(data):
         seed, train_data, feat_data = data
+        if isinstance(train_data, tuple):
+            print(train_data)
         exp_key = get_exp_key(seed, train_data, feat_data, exp_key_suffix)
         print("Experiment: {0}".format(exp_key))
 
-        #trials = Trials()
-        trials = MongoTrials(mongo_path, exp_key)
+        trials = Trials()
+        # trials = MongoTrials(mongo_path, exp_key)
 
         if compute_metrics:
             Objective = get_Objective('metrics')
@@ -87,7 +91,8 @@ def run(
 
         try:
             fmin(#objective,
-                    MultiAttempt(objective),
+                    # MultiAttempt(objective),
+                    objective,
                     space=optimization_space, trials=trials,
                     algo=algo, max_evals=max_evals,
                     )
