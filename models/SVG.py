@@ -160,6 +160,11 @@ def run(
             import svg_models.deit_pretrained_224 as model
         else:
             raise NotImplementedError('Not Implemented!')
+    elif opt.model == 'clip_pretrained':
+        if opt.image_width == 224:
+            import svg_models.clip_pretrained_224 as model
+        else:
+            raise NotImplementedError('Not Implemented!')
     else:
         raise ValueError('Unknown model: %s' % opt.model)
 
@@ -169,7 +174,10 @@ def run(
     else:
         encoder = model.encoder(opt.g_dim, opt.channels)
         decoder = model.decoder(opt.g_dim, opt.channels)
-        encoder.apply(utils.init_weights)
+        if 'clip' in opt.model:
+            encoder.c5.apply(utils.init_weights)
+        else:
+            encoder.apply(utils.init_weights)
         decoder.apply(utils.init_weights)
 
     frame_predictor_optimizer = opt.optimizer(frame_predictor.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
@@ -190,6 +198,9 @@ def run(
             encoder.c2.requires_grad_(False)
             encoder.c3.requires_grad_(False)
             encoder.c4.requires_grad_(False)
+            print("Encoder weights frozen.")
+        elif opt.model == 'clip_pretrained' and opt.image_width == 224:
+            encoder.c1.requires_grad_(False)
             print("Encoder weights frozen.")
         else:
             raise ValueError("This encoder cannot be frozen")
