@@ -11,18 +11,18 @@ from torch.utils import data
 import torch.nn.functional as F
 
 from cswm import modules, utils
+from collections import defaultdict
 
-
-def run():
+def arg_parse():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch-size', type=int, default=1024,
+    parser.add_argument('--batch-size', type=int, default=64,
                         help='Batch size.')
-    parser.add_argument('--epochs', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=200,
                         help='Number of training epochs.')
     parser.add_argument('--learning-rate', type=float, default=5e-4,
                         help='Learning rate.')
 
-    parser.add_argument('--encoder', type=str, default='small',
+    parser.add_argument('--encoder', type=str, default='medium',
                         help='Object extrator CNN size (e.g., `small`).')
     parser.add_argument('--sigma', type=float, default=0.5,
                         help='Energy scale.')
@@ -45,7 +45,7 @@ def run():
     parser.add_argument('--decoder', action='store_true', default=False,
                         help='Train model using decoder and pixel-based loss.')
 
-    parser.add_argument('--no-cuda', action='store_true', default=False,
+    parser.add_argument('--no-cuda', action='store_true', default=True,
                         help='Disable CUDA training.')
     parser.add_argument('--seed', type=int, default=42,
                         help='Random seed (default: 42).')
@@ -62,29 +62,33 @@ def run():
                         help='Path to checkpoints.')
 
     args, unknown = parser.parse_known_args()
+    return args
+
+def run(
+    name,
+    datasets,
+    seed,
+    # data_root,
+    model_dir,
+    write_feat='',
+    ):
+    args = arg_parse() # TODO: change to cfg obj?
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
-    now = datetime.datetime.now()
-    timestamp = now.isoformat()
-
-    if args.name == 'none':
-        exp_name = timestamp
-    else:
-        exp_name = args.name
+    # overwrite args
+    args.seed = seed if not write_feat else 0
+    args.epochs = 10
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
 
-    exp_counter = 0
-    save_folder = '{}/{}/'.format(args.save_folder, exp_name)
-
-    if not os.path.exists(save_folder):
-        os.makedirs(save_folder)
-    meta_file = os.path.join(save_folder, 'metadata.pkl')
-    model_file = os.path.join(save_folder, 'model.pt')
-    log_file = os.path.join(save_folder, 'log.txt')
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
+    meta_file = os.path.join(model_dir, 'metadata.pkl')
+    # TODO: implement loading of saved model
+    log_file = os.path.join(model_dir, 'log.txt')
 
     logging.basicConfig(level=logging.INFO, format='%(message)s')
     logger = logging.getLogger()
@@ -93,11 +97,18 @@ def run():
 
     pickle.dump({'args': args}, open(meta_file, "wb"))
 
-    device = torch.device('cuda' if args.cuda else 'cpu')
 
+    if write_feat:
+        test(args, model_dir, name)
+    else:
+        train(args, model_dir)
+
+def train(args, model_dir):
+    model_file = os.path.join(model_dir, 'model.pt')
+    device = torch.device('cuda' if args.cuda else 'cpu')
     dataset = utils.TDWDataset(
-        data_root=['/mnt/fs4/mrowca/neurips/images/rigid/collide2_new/new_tfdata'],
-        label_key='is_colliding_dynamic',
+        data_root=['/mnt/fs4/mrowca/neurips/images/rigid/collide2_new/new_tfdata'], # TODO: pass as arg
+        label_key='is_colliding_dynamic', # TODO: don't need label for training
         )
     train_loader = data.DataLoader(
         dataset, batch_size=args.batch_size, shuffle=True)
@@ -207,6 +218,145 @@ def run():
             best_loss = avg_loss
             torch.save(model.state_dict(), model_file)
 
+def test(args, model_dir, name):
+    model_file = os.path.join(model_dir, 'model.pt')
+    device = torch.device('cuda' if args.cuda else 'cpu')
+    dataset = utils.TDWDataset(
+        data_root=['/mnt/fs4/mrowca/neurips/images/rigid/collide2_new/new_tfvaldata'],
+        label_key='is_colliding_dynamic',
+        size=100,
+        )
+    eval_loader = data.DataLoader(
+        dataset, batch_size=args.batch_size, shuffle=False)
+
+    # Get data sample
+    obs = eval_loader.__iter__().next()['obs']
+    input_shape = obs[0].size()
+
+    model = modules.ContrastiveSWM(
+        embedding_dim=args.embedding_dim,
+        hidden_dim=args.hidden_dim,
+        action_dim=args.action_dim,
+        input_dims=input_shape,
+        num_objects=args.num_objects,
+        sigma=args.sigma,
+        hinge=args.hinge,
+        ignore_action=args.ignore_action,
+        copy_action=args.copy_action,
+        encoder=args.encoder).to(device)
+
+    model.load_state_dict(torch.load(model_file))
+    model.eval()
+
+    # topk = [1, 5, 10]
+    topk = [1]
+    hits_at = defaultdict(int)
+    num_samples = 0
+    rr_sum = 0
+
+    pred_states = []
+    next_states = []
+
+    with torch.no_grad():
+
+        extracted_feats = []
+        for batch_idx, data_batch in enumerate(eval_loader):
+            labels  = data_batch['binary_labels']
+            data_batch = [data_batch['all_obs'], [data_batch['action']]] # to match format of PathDataset
+            data_batch = [[t.to(
+                device) for t in tensor] for tensor in data_batch]
+            observations, actions = data_batch
+
+            if observations[0].size(0) != args.batch_size:
+                continue
+
+            obs = observations[0]
+            next_obs = observations[-1]
+            rollout_steps = len(observations) - 1
+
+            state = model.obj_encoder(model.obj_extractor(obs))
+            next_state = model.obj_encoder(model.obj_extractor(next_obs))
+
+            encoded_states = [model.obj_encoder(model.obj_extractor(obs)) for obs in observations]
+            rollout_states = [state]
+
+            pred_state = state
+            for i in range(rollout_steps): # TODO
+                pred_trans = model.transition_model(pred_state, actions[0]) # just use first action since it's always 0
+                pred_state = pred_state + pred_trans
+                rollout_states.append(pred_state)
+
+            extracted_feats.append({
+                'rollout_states': rollout_states,
+                'encoded_states': encoded_states,
+                'binary_labels': labels, 
+            })
+
+            pred_states.append(pred_state.cpu())
+            next_states.append(next_state.cpu())
+
+        # save out features
+        feat_path = os.path.join(model_dir, 'features')
+        if not os.path.exists(feat_path):
+            os.makedirs(feat_path, exist_ok=True)
+        feat_fn = os.path.join(feat_path, name+'.pkl')
+        pickle.dump(extracted_feats, open(feat_fn, 'wb')) 
+        print('Saved features to {}'.format(feat_fn))
+
+        pred_state_cat = torch.cat(pred_states, dim=0)
+        next_state_cat = torch.cat(next_states, dim=0)
+
+        full_size = pred_state_cat.size(0)
+
+        # Flatten object/feature dimensions
+        next_state_flat = next_state_cat.view(full_size, -1)
+        pred_state_flat = pred_state_cat.view(full_size, -1)
+
+        dist_matrix = utils.pairwise_distance_matrix(
+            next_state_flat, pred_state_flat)
+        dist_matrix_diag = torch.diag(dist_matrix).unsqueeze(-1)
+        dist_matrix_augmented = torch.cat(
+            [dist_matrix_diag, dist_matrix], dim=1)
+
+        # Workaround to get a stable sort in numpy.
+        dist_np = dist_matrix_augmented.numpy()
+        indices = []
+        for row in dist_np:
+            keys = (np.arange(len(row)), row)
+            indices.append(np.lexsort(keys))
+        indices = np.stack(indices, axis=0)
+        indices = torch.from_numpy(indices).long()
+
+        print('Processed {} batches of size {}'.format(
+            batch_idx + 1, args.batch_size))
+
+        labels = torch.zeros(
+            indices.size(0), device=indices.device,
+            dtype=torch.int64).unsqueeze(-1)
+
+        num_samples += full_size
+        print('Size of current topk evaluation batch: {}'.format(
+            full_size))
+
+        for k in topk:
+            match = indices[:, :k] == labels
+            num_matches = match.sum()
+            hits_at[k] += num_matches.item()
+
+        match = indices == labels
+        _, ranks = match.max(1)
+
+        reciprocal_ranks = torch.reciprocal(ranks.double() + 1)
+        rr_sum += reciprocal_ranks.sum()
+
+        pred_states = []
+        next_states = []
+
+    for k in topk:
+        print('Hits @ {}: {}'.format(k, hits_at[k] / float(num_samples)))
+
+    print('MRR: {}'.format(rr_sum / float(num_samples)))
+
 class Objective():
     def __init__(self,
             exp_key,
@@ -230,9 +380,22 @@ class Objective():
 
     def __call__(self, *args, **kwargs):
         if self.extract_feat: # save out model features from trained model
-            pass
+            write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
+            run(
+                name=self.feat_data['name'],
+                datasets=self.feat_data['data'],
+                seed=self.seed,
+                model_dir=self.model_dir,
+                write_feat=write_feat,
+                ) # TODO: add args
+
         else: # run model training
-            run()
+            run(
+                name=self.train_data['name'],
+                datasets=self.train_data['data'],
+                seed=self.seed,
+                model_dir=self.model_dir,
+                ) # TODO: add args
 
         return {
                 'loss': 0.0,
