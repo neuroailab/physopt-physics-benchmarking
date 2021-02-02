@@ -25,23 +25,27 @@ def arg_parse():
     parser.add_argument('--host', default='localhost', help='mongo host', type=str)
     parser.add_argument('--port', default='25555', help='mongo port', type=str)
     parser.add_argument('--database', default='physopt', help='mongo database name', type=str)
-    parser.add_argument('--num_threads', default=16, help='number of parallel threads', type=int)
+    parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
 
     return parser.parse_args()
 
 
 def get_Objective(model):
+    # import from _models to avoid collision with models in hubconf.py
     if model == 'metrics':
         return test_metrics.Objective
     elif model == 'RPIN':
-        from models.RPIN import Objective as RPINObjective
+        from _models.RPIN import Objective as RPINObjective
         return RPINObjective
     elif model == 'SVG':
-        from models.SVG import VGGObjective as SVGObjective
+        from _models.SVG import VGGObjective as SVGObjective
         return SVGObjective
     elif model == 'CSWM':
-        from models.CSWM import Objective as CSWMObjective
+        from _models.CSWM import Objective as CSWMObjective
         return CSWMObjective
+    elif model == 'SVG_FROZEN':
+        from _models.SVG_FROZEN import Objective as SVGFObjective
+        return SVGFObjective
     else:
         raise ValueError('Unknown model: {0}'.format(model))
 
@@ -131,12 +135,12 @@ def main():
     mongo_path = get_mongo_path(args.host, args.port, args.database)
     pool = Pool(args.num_threads) if args.num_threads > 1 else None
 
-    print('Training models on data subsets...')
-    train_model(args.model, TRAIN_FEAT_SPACE, output_dir,
-            mongo_path, exp_key_suffix = 'train',
-            multiprocessing_pool = pool,
-            )
-    print('...all models trained!')
+    # print('Training models on data subsets...')
+    # train_model(args.model, TRAIN_FEAT_SPACE, output_dir,
+    #         mongo_path, exp_key_suffix = 'train',
+    #         multiprocessing_pool = pool,
+    #         )
+    # print('...all models trained!')
 
     print('Extracting train features...')
     extract_features(args.model, TRAIN_FEAT_SPACE, output_dir,
