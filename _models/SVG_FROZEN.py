@@ -175,11 +175,9 @@ def train(config):
             best_loss = avg_loss
             torch.save(model.state_dict(), model_file)
 
-def get_label_key(subsets):
-    if len(subsets) > 1:
-        raise NotImplementedError('label key is not used for training')
-    else:
-        return get_config(subsets[0])['binary_labels'][0]
+def get_label_key(name):
+    print(name, get_config(name)['binary_labels'][0])
+    return get_config(name)['binary_labels'][0]
 
 def test(config):
     device = config['device']
@@ -187,10 +185,9 @@ def test(config):
     state_len = config['state_len']
     model = config['model']
 
-    subsets = [subset.split('/')[-1] for subset in config['datapaths']]
     dataset = TDWDataset(
         data_root=config['datapaths'],
-        label_key=get_label_key(subsets),
+        label_key=get_label_key(config['name']),
         train=False,
         DATA_PARAMS=DATA_PARAMS,
         size=10, # TODO
@@ -203,7 +200,7 @@ def test(config):
         labels = data['binary_labels']
 
         encoded_states = model.get_seq_enc_feats(images)
-        rollout_states = encoded_states[:state_len]
+        rollout_states = encoded_states[:state_len] # copy over feats for seed frames
         rollout_steps = images.shape[1] - state_len 
 
         for step in range(rollout_steps):
