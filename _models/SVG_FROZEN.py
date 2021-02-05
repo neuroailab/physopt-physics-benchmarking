@@ -8,6 +8,7 @@ from hyperopt import STATUS_OK
 
 import physion.modules
 from physion.data import TDWDataset, TDWHumanDataset
+from physion.config import get_cfg_defaults
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn 
@@ -16,6 +17,7 @@ import tensorflow as tf
 
 TRAIN_EPOCHS = 1
 
+# TODO: move these into default cfg?
 COLLIDE_CONFIG = {
         'binary_labels': ['is_colliding_dynamic'],
         'train_shift': [30, 1024, 1],
@@ -73,28 +75,6 @@ def get_config(subset):
     else:
         raise ValueError("Unkown config for subset: %s" % subset)
 
-def filter_rule(data, keys):
-    assert all(k in keys for k in ['is_moving', 'is_acting']), keys
-    return tf.logical_and(data['is_moving'], tf.logical_not(data['is_acting']))
-
-DATA_PARAMS = { # TODO: move to config?
-    'enqueue_batch_size': 256,
-    'map_pcall_num': 4,
-    'sequence_len': 10,
-    'buffer_size': 16,
-    'batch_size': 1,
-    'shift_selector': slice(30, 1024, 1), # remove falling part of sequence TODO: have different settings for each dataset
-    'test': False, # True, # determines if tf dataset doesn't loop
-    'main_source_key': 'full_particles',
-    'sources': ['images', 'reference_ids', 'object_data'],
-    'delta_time': 1,
-    'filter_rule': (filter_rule, ['is_moving', 'is_acting']),
-    'shuffle': False,
-    'seed': 0,
-    'use_legacy_sequence_mode': 1,
-    'subsources': [],
-    }
-
 def run(
     name,
     datasets,
@@ -102,6 +82,11 @@ def run(
     model_dir,
     write_feat='',
     ):
+    cfg = get_cfg_defaults()
+    # TODO: merge_from_list here - shift, etc.
+    cfg.freeze()
+    data_cfg = cfg.DATA
+
     print(name, datasets, model_dir)
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
@@ -115,6 +100,7 @@ def run(
         'model_dir': model_dir,
         'state_len': 4, # number of images as input
         'device': device,
+        'data_cfg': data_cfg, # TODO: use merge_from_list/file method
     }
     model =  get_model(config['regressor'], config['encoder']).to(device)
     config['model'] = model
@@ -148,8 +134,8 @@ def train(config):
     dataset = TDWDataset(
         data_root=config['datapaths'],
         label_key='object_data', # just use object_data here since it doesn't really matter
-        DATA_PARAMS=DATA_PARAMS,
-        size=1000, # TODO
+        data_cfg=config['data_cfg'],
+        size=100, # TODO
         )
     trainloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True)
 
@@ -190,14 +176,14 @@ def test(config):
         dataset = TDWHumanDataset(
             data_root=config['datapaths'],
             label_key=get_label_key(config['name']),
-            DATA_PARAMS=DATA_PARAMS,
+            data_cfg=config['data_cfg'],
             )
     else:
         dataset = TDWDataset(
             data_root=config['datapaths'],
             label_key=get_label_key(config['name']),
-            DATA_PARAMS=DATA_PARAMS,
-            size=1000, # TODO
+            data_cfg=config['data_cfg'],
+            size=100, # TODO
             )
     testloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=False)
 
