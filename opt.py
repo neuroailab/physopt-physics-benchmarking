@@ -135,12 +135,12 @@ def main():
     mongo_path = get_mongo_path(args.host, args.port, args.database)
     pool = Pool(args.num_threads) if args.num_threads > 1 else None
 
-    # print('Training models on data subsets...')
-    # train_model(args.model, TRAIN_FEAT_SPACE, output_dir,
-    #         mongo_path, exp_key_suffix = 'train',
-    #         multiprocessing_pool = pool,
-    #         )
-    # print('...all models trained!')
+    print('Training models on data subsets...')
+    train_model(args.model, TRAIN_FEAT_SPACE, output_dir,
+            mongo_path, exp_key_suffix = 'train',
+            multiprocessing_pool = pool,
+            )
+    print('...all models trained!')
 
     print('Extracting train features...')
     extract_features(args.model, TRAIN_FEAT_SPACE, output_dir,

@@ -141,9 +141,10 @@ def select_label_fn(time_steps, experiment):
             return contain_label_fn(data, time_steps)
         elif 'cloth' in experiment:
             return object_category_label_fn(data, time_steps)
-        elif 'roll_vs_slide' in experiment:
+        elif 'roll_vs_slide' in experiment: # TODO: should this be roll_slide
             return rolling_label_fn(data, time_steps)
-        return labels
+        else:
+            raise NotImplementedError(experiment)
     return label_fn
 
 

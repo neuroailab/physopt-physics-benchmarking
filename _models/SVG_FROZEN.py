@@ -7,14 +7,14 @@ import logging
 from hyperopt import STATUS_OK
 
 import physion.modules
-from physion.data import TDWDataset
+from physion.data import TDWDataset, TDWHumanDataset
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn 
 import torch.optim as optim
 import tensorflow as tf
 
-TRAIN_EPOCHS = 5
+TRAIN_EPOCHS = 1
 
 COLLIDE_CONFIG = {
         'binary_labels': ['is_colliding_dynamic'],
@@ -149,6 +149,7 @@ def train(config):
         data_root=config['datapaths'],
         label_key='object_data', # just use object_data here since it doesn't really matter
         DATA_PARAMS=DATA_PARAMS,
+        size=1000, # TODO
         )
     trainloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True)
 
@@ -174,9 +175,9 @@ def train(config):
         if avg_loss < best_loss:
             best_loss = avg_loss
             torch.save(model.state_dict(), model_file)
+            print('Saved model checkpoint to: {}'.format(model_file))
 
 def get_label_key(name):
-    print(name, get_config(name)['binary_labels'][0])
     return get_config(name)['binary_labels'][0]
 
 def test(config):
@@ -185,40 +186,51 @@ def test(config):
     state_len = config['state_len']
     model = config['model']
 
-    dataset = TDWDataset(
-        data_root=config['datapaths'],
-        label_key=get_label_key(config['name']),
-        train=False,
-        DATA_PARAMS=DATA_PARAMS,
-        size=10, # TODO
-        )
+    if 'human' in config['name']:
+        dataset = TDWHumanDataset(
+            data_root=config['datapaths'],
+            label_key=get_label_key(config['name']),
+            DATA_PARAMS=DATA_PARAMS,
+            )
+    else:
+        dataset = TDWDataset(
+            data_root=config['datapaths'],
+            label_key=get_label_key(config['name']),
+            DATA_PARAMS=DATA_PARAMS,
+            size=1000, # TODO
+            )
     testloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=False)
 
     extracted_feats = []
-    for i, data in enumerate(testloader):
-        images = data['images'].to(device)
-        labels = data['binary_labels']
 
-        encoded_states = model.get_seq_enc_feats(images)
-        rollout_states = encoded_states[:state_len] # copy over feats for seed frames
-        rollout_steps = images.shape[1] - state_len 
+    with torch.no_grad():
+        for i, data in enumerate(testloader):
+            images = data['images'].to(device)
 
-        for step in range(rollout_steps):
-            input_feats = rollout_states[-state_len:]
-            pred_state  = model.dynamics(input_feats) # dynamics model predicts next latent from past latents
-            rollout_states.append(pred_state)
+            encoded_states = model.get_seq_enc_feats(images)
+            rollout_states = encoded_states[:state_len] # copy over feats for seed frames
+            rollout_steps = images.shape[1] - state_len 
 
-        extracted_feats.append({ # TODO: to cpu?
-            'encoded_states': encoded_states,
-            'rollout_states': rollout_states,
-            'binary_labels': labels,
-        })
+            for step in range(rollout_steps):
+                input_feats = rollout_states[-state_len:]
+                pred_state  = model.dynamics(input_feats) # dynamics model predicts next latent from past latents
+                rollout_states.append(pred_state)
+
+            encoded_states = torch.stack(encoded_states, axis=1).cpu().numpy() # TODO: cpu vs detach?
+            rollout_states = torch.stack(rollout_states, axis=1).cpu().numpy()
+            labels = data['binary_labels'].cpu().numpy()
+            print(encoded_states.shape, rollout_states.shape, labels.shape)
+            extracted_feats.append({ # TODO: to cpu?
+                'encoded_states': encoded_states,
+                'rollout_states': rollout_states,
+                'binary_labels': labels,
+            })
 
     # Save out features
-    feat_path = os.path.join(config['model_dir'], 'features')
+    feat_path = os.path.join(config['model_dir'], 'features', config['name'])
     if not os.path.exists(feat_path):
         os.makedirs(feat_path)
-    feat_fn = os.path.join(feat_path, config['name']+'.pkl')
+    feat_fn = os.path.join(feat_path, 'feat.pkl')
     pickle.dump(extracted_feats, open(feat_fn, 'wb')) 
     print('Saved features to {}'.format(feat_fn))
 
