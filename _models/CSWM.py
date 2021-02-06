@@ -11,6 +11,7 @@ from torch.utils import data
 import torch.nn.functional as F
 
 from cswm import modules, utils
+from physion.config import get_cfg_defaults
 from collections import defaultdict
 
 def arg_parse():
@@ -68,7 +69,6 @@ def run(
     name,
     datasets,
     seed,
-    # data_root,
     model_dir,
     write_feat='',
     ):
@@ -77,7 +77,7 @@ def run(
 
     # overwrite args
     args.seed = seed if not write_feat else 0
-    args.epochs = 10
+    args.epochs = 1
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -104,11 +104,17 @@ def run(
         train(args, model_dir)
 
 def train(args, model_dir):
+    cfg = get_cfg_defaults()
+    #  TODO: change imsize?
+    cfg.freeze()
+    data_cfg = cfg.DATA
     model_file = os.path.join(model_dir, 'model.pt')
     device = torch.device('cuda' if args.cuda else 'cpu')
     dataset = utils.TDWDataset(
-        data_root=['/mnt/fs4/mrowca/neurips/images/rigid/collide2_new/new_tfdata'], # TODO: pass as arg
-        label_key='is_colliding_dynamic', # TODO: don't need label for training
+        data_root=['/mnt/fs4/mrowca/neurips/images/rigid/collide2_new/'], # TODO: pass as arg
+        label_key='object_data', # just use object_data here since it doesn't really matter
+        data_cfg=data_cfg,
+        size=100, # TODO
         )
     train_loader = data.DataLoader(
         dataset, batch_size=args.batch_size, shuffle=True)
@@ -217,17 +223,29 @@ def train(args, model_dir):
         if avg_loss < best_loss:
             best_loss = avg_loss
             torch.save(model.state_dict(), model_file)
+            print('Saved model checkpoint to: {}'.format(model_file))
 
 def test(args, model_dir, name):
+    cfg = get_cfg_defaults()
+    cfg.freeze()
+    data_cfg = cfg.DATA
     model_file = os.path.join(model_dir, 'model.pt')
     device = torch.device('cuda' if args.cuda else 'cpu')
-    dataset = utils.TDWDataset(
-        data_root=['/mnt/fs4/mrowca/neurips/images/rigid/collide2_new/new_tfvaldata'],
-        label_key='is_colliding_dynamic',
-        size=100,
-        )
-    eval_loader = data.DataLoader(
-        dataset, batch_size=args.batch_size, shuffle=False)
+    if 'human' in name:
+        dataset = utils.TDWHumanDataset(
+            data_root=['/mnt/fs4/fanyun/human_stimulis/collide2_new'],
+            label_key='is_colliding_dynamic',
+            data_cfg=data_cfg,
+            )
+    else:
+        dataset = utils.TDWDataset(
+            data_root=['/mnt/fs4/mrowca/neurips/images/rigid/collide2_new/'],
+            label_key='is_colliding_dynamic',
+            data_cfg=data_cfg,        
+            train=False,
+            size=100, # TODO
+            )
+    eval_loader = data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
 
     # Get data sample
     obs = eval_loader.__iter__().next()['obs']

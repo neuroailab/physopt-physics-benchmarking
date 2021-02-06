@@ -110,7 +110,7 @@ def run(
     else:
         train(config)
 
-def init_seed(seed):
+def init_seed(seed): # TODO: move to utils in physion package?
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
