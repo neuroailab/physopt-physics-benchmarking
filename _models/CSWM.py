@@ -6,13 +6,15 @@ import pickle
 import numpy as np
 import logging
 from hyperopt import STATUS_OK
+from collections import defaultdict
+import pdb
 
 from torch.utils import data
 import torch.nn.functional as F
 
 from cswm import modules, utils
 from physion.config import get_cfg_defaults
-from collections import defaultdict
+from .SVG_FROZEN import get_label_key # TODO: hacky
 
 def arg_parse():
     parser = argparse.ArgumentParser()
@@ -32,11 +34,11 @@ def arg_parse():
 
     parser.add_argument('--hidden-dim', type=int, default=512,
                         help='Number of hidden units in transition MLP.')
-    parser.add_argument('--embedding-dim', type=int, default=2,
+    parser.add_argument('--embedding-dim', type=int, default=2, # TODO: might want to increase this 
                         help='Dimensionality of embedding.')
     parser.add_argument('--action-dim', type=int, default=4,
                         help='Dimensionality of action space.')
-    parser.add_argument('--num-objects', type=int, default=5,
+    parser.add_argument('--num-objects', type=int, default=5, # TODO: should we make this consistent across models, e.g. 8?
                         help='Number of object slots in model.')
     parser.add_argument('--ignore-action', action='store_true', default=False,
                         help='Ignore action in GNN transition model.')
@@ -86,34 +88,40 @@ def run(
 
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
-    meta_file = os.path.join(model_dir, 'metadata.pkl')
-    # TODO: implement loading of saved model
-    log_file = os.path.join(model_dir, 'log.txt')
 
+    model_file = os.path.join(model_dir, 'model.pt')
+    meta_file = os.path.join(model_dir, 'metadata.pkl')
+    pickle.dump({'args': args}, open(meta_file, "wb"))
+
+    log_file = os.path.join(model_dir, 'log.txt')
     logging.basicConfig(level=logging.INFO, format='%(message)s')
     logger = logging.getLogger()
     logger.addHandler(logging.FileHandler(log_file, 'a'))
     print = logger.info
 
-    pickle.dump({'args': args}, open(meta_file, "wb"))
-
-
-    if write_feat:
-        test(args, model_dir, name)
-    else:
-        train(args, model_dir)
-
-def train(args, model_dir):
     cfg = get_cfg_defaults()
     #  TODO: change imsize?
     cfg.freeze()
-    data_cfg = cfg.DATA
-    model_file = os.path.join(model_dir, 'model.pt')
+    config = {
+        'name': name,
+        'datapaths': datasets,
+        'model_dir': model_dir,
+        'model_file': model_file,
+        'data_cfg': cfg.DATA,
+    }
+
+    if write_feat:
+        test(args, config)
+    else:
+        train(args, config)
+
+def train(args, config):
+    # TODO: implement loading of saved model
     device = torch.device('cuda' if args.cuda else 'cpu')
     dataset = utils.TDWDataset(
-        data_root=['/mnt/fs4/mrowca/neurips/images/rigid/collide2_new/'], # TODO: pass as arg
-        label_key='object_data', # just use object_data here since it doesn't really matter
-        data_cfg=data_cfg,
+        data_root=config['datapaths'],
+        label_key='object_data', # TODO: just use object_data here since it doesn't really matter
+        data_cfg=config['data_cfg'],
         size=100, # TODO
         )
     train_loader = data.DataLoader(
@@ -222,26 +230,22 @@ def train(args, model_dir):
 
         if avg_loss < best_loss:
             best_loss = avg_loss
-            torch.save(model.state_dict(), model_file)
-            print('Saved model checkpoint to: {}'.format(model_file))
+            torch.save(model.state_dict(), config['model_file'])
+            print('Saved model checkpoint to: {}'.format(config['model_file']))
 
-def test(args, model_dir, name):
-    cfg = get_cfg_defaults()
-    cfg.freeze()
-    data_cfg = cfg.DATA
-    model_file = os.path.join(model_dir, 'model.pt')
+def test(args, config):
     device = torch.device('cuda' if args.cuda else 'cpu')
-    if 'human' in name:
+    if 'human' in config['name']:
         dataset = utils.TDWHumanDataset(
-            data_root=['/mnt/fs4/fanyun/human_stimulis/collide2_new'],
-            label_key='is_colliding_dynamic',
-            data_cfg=data_cfg,
+            data_root=config['datapaths'],
+            label_key=get_label_key(config['name']),
+            data_cfg=config['data_cfg'],
             )
     else:
         dataset = utils.TDWDataset(
-            data_root=['/mnt/fs4/mrowca/neurips/images/rigid/collide2_new/'],
-            label_key='is_colliding_dynamic',
-            data_cfg=data_cfg,        
+            data_root=config['datapaths'],
+            label_key=get_label_key(config['name']),
+            data_cfg=config['data_cfg'],
             train=False,
             size=100, # TODO
             )
@@ -263,23 +267,17 @@ def test(args, model_dir, name):
         copy_action=args.copy_action,
         encoder=args.encoder).to(device)
 
-    model.load_state_dict(torch.load(model_file))
+    model.load_state_dict(torch.load(config['model_file']))
     model.eval()
-
-    # topk = [1, 5, 10]
-    topk = [1]
-    hits_at = defaultdict(int)
-    num_samples = 0
-    rr_sum = 0
-
-    pred_states = []
-    next_states = []
 
     with torch.no_grad():
 
         extracted_feats = []
         for batch_idx, data_batch in enumerate(eval_loader):
-            labels  = data_batch['binary_labels']
+            labels = data_batch['binary_labels'].cpu().numpy() # get labels before we overwrite batch data 
+            labels = np.split(labels, labels.shape[1], axis=1) # split into list along timesteps dim so we can copy states later, each element in list is (BS, 1, x)
+            labels = [np.squeeze(lbl, axis=1) for lbl in labels] # remove dim of 1 after split, each element in list is (BS, x)
+
             data_batch = [data_batch['all_obs'], [data_batch['action']]] # to match format of PathDataset
             data_batch = [[t.to(
                 device) for t in tensor] for tensor in data_batch]
@@ -292,88 +290,46 @@ def test(args, model_dir, name):
             next_obs = observations[-1]
             rollout_steps = len(observations) - 1
 
-            state = model.obj_encoder(model.obj_extractor(obs))
+            state = model.obj_encoder(model.obj_extractor(obs)) # (BS, no, embedding_dim)
             next_state = model.obj_encoder(model.obj_extractor(next_obs))
 
-            encoded_states = [model.obj_encoder(model.obj_extractor(obs)) for obs in observations]
-            rollout_states = [state]
+            encoded_states = [torch.flatten(model.obj_encoder(model.obj_extractor(obs)), start_dim=1) for obs in observations] # each element in list is (BS, n_o * embedding_dim)
+            rollout_states = [torch.flatten(state, 1)] 
 
             pred_state = state
             for i in range(rollout_steps): # TODO
                 pred_trans = model.transition_model(pred_state, actions[0]) # just use first action since it's always 0
                 pred_state = pred_state + pred_trans
-                rollout_states.append(pred_state)
+                rollout_states.append(torch.flatten(pred_state, 1))
 
+            # Copy initial state to match seq_len, TODO
+            state_len = config['data_cfg'].SEQ_LEN - rollout_steps
+            encoded_states = _state_copy_helper(encoded_states, state_len)
+            rollout_states = _state_copy_helper(rollout_states, state_len)
+            labels = _state_copy_helper(labels, state_len)
+            
+
+            # TODO: this is duplicated code
+            encoded_states = torch.stack(encoded_states, axis=1).cpu().numpy() # TODO: cpu vs detach?
+            rollout_states = torch.stack(rollout_states, axis=1).cpu().numpy()
+            labels = np.stack(labels, axis=1)
+            print(encoded_states.shape, rollout_states.shape, labels.shape)
             extracted_feats.append({
-                'rollout_states': rollout_states,
+                'rollout_states': rollout_states, # (BS, seq_len , n_o*embedding_dim)
                 'encoded_states': encoded_states,
                 'binary_labels': labels, 
             })
 
-            pred_states.append(pred_state.cpu())
-            next_states.append(next_state.cpu())
-
-        # save out features
-        feat_path = os.path.join(model_dir, 'features')
+        # save out features, TODO: move this to utils?
+        feat_path = os.path.join(config['model_dir'], 'features', config['name'])
         if not os.path.exists(feat_path):
             os.makedirs(feat_path, exist_ok=True)
-        feat_fn = os.path.join(feat_path, name+'.pkl')
+        feat_fn = os.path.join(feat_path, 'feat.pkl')
         pickle.dump(extracted_feats, open(feat_fn, 'wb')) 
         print('Saved features to {}'.format(feat_fn))
 
-        pred_state_cat = torch.cat(pred_states, dim=0)
-        next_state_cat = torch.cat(next_states, dim=0)
-
-        full_size = pred_state_cat.size(0)
-
-        # Flatten object/feature dimensions
-        next_state_flat = next_state_cat.view(full_size, -1)
-        pred_state_flat = pred_state_cat.view(full_size, -1)
-
-        dist_matrix = utils.pairwise_distance_matrix(
-            next_state_flat, pred_state_flat)
-        dist_matrix_diag = torch.diag(dist_matrix).unsqueeze(-1)
-        dist_matrix_augmented = torch.cat(
-            [dist_matrix_diag, dist_matrix], dim=1)
-
-        # Workaround to get a stable sort in numpy.
-        dist_np = dist_matrix_augmented.numpy()
-        indices = []
-        for row in dist_np:
-            keys = (np.arange(len(row)), row)
-            indices.append(np.lexsort(keys))
-        indices = np.stack(indices, axis=0)
-        indices = torch.from_numpy(indices).long()
-
-        print('Processed {} batches of size {}'.format(
-            batch_idx + 1, args.batch_size))
-
-        labels = torch.zeros(
-            indices.size(0), device=indices.device,
-            dtype=torch.int64).unsqueeze(-1)
-
-        num_samples += full_size
-        print('Size of current topk evaluation batch: {}'.format(
-            full_size))
-
-        for k in topk:
-            match = indices[:, :k] == labels
-            num_matches = match.sum()
-            hits_at[k] += num_matches.item()
-
-        match = indices == labels
-        _, ranks = match.max(1)
-
-        reciprocal_ranks = torch.reciprocal(ranks.double() + 1)
-        rr_sum += reciprocal_ranks.sum()
-
-        pred_states = []
-        next_states = []
-
-    for k in topk:
-        print('Hits @ {}: {}'.format(k, hits_at[k] / float(num_samples)))
-
-    print('MRR: {}'.format(rr_sum / float(num_samples)))
+def _state_copy_helper(states, state_len):
+    return states[:1]*state_len + states[1:]
 
 class Objective():
     def __init__(self,
