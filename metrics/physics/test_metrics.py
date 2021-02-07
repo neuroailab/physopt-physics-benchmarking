@@ -14,7 +14,7 @@ from metrics.physics.metric_fns import accuracy, squared_error
 
 from hyperopt import STATUS_OK
 
-SETTINGS = [
+SETTINGS = [ # TODO: might not want this to be hardcoded
         {
             'inp_time_steps': (0, 10, 1),
             'val_time_steps': (4, 10, 1),

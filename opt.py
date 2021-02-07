@@ -46,6 +46,9 @@ def get_Objective(model):
     elif model == 'SVG_FROZEN':
         from _models.SVG_FROZEN import Objective as SVGFObjective
         return SVGFObjective
+    elif model == 'OP3':
+        from _models.OP3 import Objective as OP3Objective
+        return OP3Objective
     else:
         raise ValueError('Unknown model: {0}'.format(model))
 

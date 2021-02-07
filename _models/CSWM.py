@@ -79,7 +79,7 @@ def run(
 
     # overwrite args
     args.seed = seed if not write_feat else 0
-    args.epochs = 1
+    args.epochs = 5
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -122,7 +122,7 @@ def train(args, config):
         data_root=config['datapaths'],
         label_key='object_data', # TODO: just use object_data here since it doesn't really matter
         data_cfg=config['data_cfg'],
-        size=100, # TODO
+        # size=100, # TODO
         )
     train_loader = data.DataLoader(
         dataset, batch_size=args.batch_size, shuffle=True)
