@@ -13,7 +13,8 @@ import tensorflow as tf
 from op3.launchers.launcher_util import run_experiment
 import op3.torch.op3_modules.op3_model as op3_model
 from op3.torch.op3_modules.op3_trainer import TrainingScheduler, OP3Trainer
-from op3.torch.data_management.dataset import BlocksDataset, CollideDataset #TODO
+from op3.torch.data_management.dataset import BlocksDataset, CollideDataset, CollideHumanDataset #TODO
+from physion.config import get_cfg_defaults
 
 from .SVG_FROZEN import get_label_key # TODO: hacky
 
@@ -22,8 +23,11 @@ def init_seed(seed): # TODO: move to utils in physion package?
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
 
-def load_dataset(data_path, label_key, train=True, size=None, batchsize=8, static=True):
-    tf_dataset = CollideDataset(data_path, label_key, size=size)
+def load_dataset(data_path, label_key, data_cfg, train=True, size=None, batchsize=8, static=True, human=False):
+    if human:
+        tf_dataset = CollideHumanDataset(data_path, label_key, data_cfg)
+    else:
+        tf_dataset = CollideDataset(data_path, label_key, data_cfg, size=size, train=train)
     dataset = BlocksDataset(tf_dataset, batchsize=batchsize, shuffle=True)
     T = dataset.dataset.seq_len
     print('Dataset Size: {}'.format(len(dataset.dataset)))
@@ -34,15 +38,16 @@ def train_vae(variant):
     from op3.core import logger
 
     ######Dataset loading######
-    train_path = [os.path.join(path, 'new_tfdata') for path in variant['datapath']]
-    test_path = train_path
+    train_path = variant['datapath']
+    test_path = train_path # TODO
     bs = variant['training_args']['batch_size']
     train_size = 100 if variant['debug'] == 1 else None
     label_key = 'object_data' # TODO: unused for training
+    data_cfg = variant['data_cfg']
 
     static = (variant['schedule_args']['schedule_type'] == 'static_iodine')  # Boolean
-    train_dataset, max_T = load_dataset(train_path, label_key, train=True, batchsize=bs, size=train_size, static=static)
-    test_dataset, _ = load_dataset(test_path, label_key, train=False, batchsize=bs, size=100, static=static)
+    train_dataset, max_T = load_dataset(train_path, label_key, data_cfg, train=True, batchsize=bs, size=train_size, static=static)
+    test_dataset, _ = load_dataset(test_path, label_key, data_cfg, train=False, batchsize=bs, size=100, static=static)
     print(logger.get_snapshot_dir())
 
     ######Model loading######
@@ -77,16 +82,18 @@ def test_vae(variant):
     from op3.core import logger
 
     ######Dataset loading######
-    train_path = [os.path.join(path, 'new_tfdata') for path in variant['datapath']]
-    test_path = [os.path.join(path, 'new_tfvaldata') for path in variant['datapath']]
+    train_path = variant['datapath']
+    test_path = train_path # TODO
     bs = 2 # variant['training_args']['batch_size'] TODO: reduce gpu memory usage
-    train_size = 4 # TODO
-    test_size = 4 # TODO
+    train_size = 10 # TODO
+    test_size = 10 # TODO
     label_key = variant['label_key']
+    data_cfg = variant['data_cfg']
 
     static = (variant['schedule_args']['schedule_type'] == 'static_iodine')  # Boolean
-    train_dataset, max_T = load_dataset(train_path, label_key, train=True, batchsize=bs, size=train_size, static=static)
-    test_dataset, _ = load_dataset(test_path, label_key, train=False, batchsize=bs, size=test_size, static=static)
+    human = 'human' in variant['name']
+    train_dataset, max_T = load_dataset(train_path, label_key, data_cfg, train=True, batchsize=bs, size=train_size, static=static, human=human)
+    test_dataset, _ = load_dataset(test_path, label_key, data_cfg, train=False, batchsize=bs, size=test_size, static=static, human=human)
     print(logger.get_snapshot_dir())
 
     ######Model loading######
@@ -153,6 +160,11 @@ def run(
     parser.add_argument('-m', '--mode', type=str, default='here_no_doodad')  # Relevant options: 'here_no_doodad', 'local_docker', 'ec2'
     args = parser.parse_args()
     args.variant = 'collide' # TODO, just for exp_prefix since variant is already hardcoded below
+
+    cfg = get_cfg_defaults()
+    cfg.DATA.IMSIZE = 64
+    cfg.freeze()
+    data_cfg = cfg.DATA
     
     variant = dict( # TODO
         op3_args=dict(
@@ -186,6 +198,7 @@ def run(
         model_dir=model_dir,
         model_file=os.path.join(model_dir, 'model.pt'),
         name=name,
+        data_cfg=data_cfg,
     )
 
     variant['debug'] = args.debug
