@@ -4,17 +4,17 @@
 The goal of this repository is to train and evaluate different physics prediction models on one or many different physics scenarios. The inputs are model specific, however all currently implemented models predict from images. The output metrics are dataset specific, however all currently used datasets are evaluated on some form of binary prediction task. The procedure to extract metrics for each dataset and model is as follows:
 
 1. Train the physics prediction model on its specific prediction task on the specific train dataset.
-  Input: Model-specific train data (e.g. images and bounding boxes)
-  Output: Model-specific trained checkpoint file
+  - Input: Model-specific train data (e.g. images and bounding boxes)
+  - Output: Model-specific trained checkpoint file
 2. Extract latent model features on the specific train dataset.
-  Input: Model-specific train data and labels and trained checkpoint file
-  Output: Latent train features and labels per data example
+  - Input: Model-specific train data and labels and trained checkpoint file
+  - Output: Latent train features and labels per data example
 3. Extract latent model features on the specific test dataset.
-  Input: Model-specific test data and labels and trained checkpoint file
-  Output: Latent test features and labels per data example
+  - Input: Model-specific test data and labels and trained checkpoint file
+  - Output: Latent test features and labels per data example
 4. Train a classifier / regressor to predict the task using extracted latent train features and ground truth train labels, and test the trained classifier on the extracted latent test features to predict the test labels and evaluate them against the ground truth test labels using the the dataset specific test metric.
-  Input: Latent train and test features and labels
-  Output: Test dataset specific metrics
+  - Input: Latent train and test features and labels
+  - Output: Test dataset specific metrics
 
 ## How To Run
 
