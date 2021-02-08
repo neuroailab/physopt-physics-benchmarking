@@ -14,6 +14,8 @@ from op3.launchers.launcher_util import run_experiment
 import op3.torch.op3_modules.op3_model as op3_model
 from op3.torch.op3_modules.op3_trainer import TrainingScheduler, OP3Trainer
 from op3.torch.data_management.dataset import BlocksDataset, CollideDataset, CollideHumanDataset #TODO
+from op3.core import logger
+
 from physion.config import get_cfg_defaults
 
 from .SVG_FROZEN import get_label_key # TODO: hacky
@@ -23,7 +25,7 @@ def init_seed(seed): # TODO: move to utils in physion package?
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
 
-def load_dataset(data_path, label_key, data_cfg, train=True, size=None, batchsize=8, static=True, human=False):
+def load_dataset(data_path, label_key, data_cfg, train=True, size=None, batchsize=8, human=False):
     if human:
         tf_dataset = CollideHumanDataset(data_path, label_key, data_cfg)
     else:
@@ -35,19 +37,15 @@ def load_dataset(data_path, label_key, data_cfg, train=True, size=None, batchsiz
     return dataset, T
 
 def train_vae(variant):
-    from op3.core import logger
-
     ######Dataset loading######
-    train_path = variant['datapath']
-    test_path = train_path # TODO
+    datapaths = variant['datapath']
     bs = variant['training_args']['batch_size']
     train_size = 100 if variant['debug'] == 1 else None
     label_key = 'object_data' # TODO: unused for training
     data_cfg = variant['data_cfg']
 
-    static = (variant['schedule_args']['schedule_type'] == 'static_iodine')  # Boolean
-    train_dataset, max_T = load_dataset(train_path, label_key, data_cfg, train=True, batchsize=bs, size=train_size, static=static)
-    test_dataset, _ = load_dataset(test_path, label_key, data_cfg, train=False, batchsize=bs, size=100, static=static)
+    train_dataset, max_T = load_dataset(datapaths, label_key, data_cfg, train=True, batchsize=bs, size=train_size)
+    test_dataset, _ = load_dataset(datapaths, label_key, data_cfg, train=False, batchsize=bs, size=100)
     print(logger.get_snapshot_dir())
 
     ######Model loading######
@@ -63,10 +61,6 @@ def train_vae(variant):
 
     save_period = variant['save_period']
     for epoch in range(variant['num_epochs']):
-        # save model
-        torch.save(t.model.state_dict(), variant['model_file'])
-        print('Saved model ckpt to: {}'.format(variant['model_file']))
-
         print('Starting epoch {}'.format(epoch))
         should_save_imgs = (epoch % save_period == 0)
         print('Start training')
@@ -78,22 +72,22 @@ def train_vae(variant):
             logger.record_tabular(k, v)
         logger.dump_tabular()
 
-def test_vae(variant):
-    from op3.core import logger
+        # save model
+        torch.save(t.model.state_dict(), variant['model_file'])
+        print('Saved model ckpt to: {}'.format(variant['model_file']))
 
+def test_vae(variant):
     ######Dataset loading######
-    train_path = variant['datapath']
-    test_path = train_path # TODO
+    datapaths = variant['datapath']
     bs = 2 # variant['training_args']['batch_size'] TODO: reduce gpu memory usage
-    train_size = 10 # TODO
+    train_size = 10 # TODO: size should just be set based on actualy dataset size
     test_size = 10 # TODO
     label_key = variant['label_key']
     data_cfg = variant['data_cfg']
 
-    static = (variant['schedule_args']['schedule_type'] == 'static_iodine')  # Boolean
     human = 'human' in variant['name']
-    train_dataset, max_T = load_dataset(train_path, label_key, data_cfg, train=True, batchsize=bs, size=train_size, static=static, human=human)
-    test_dataset, _ = load_dataset(test_path, label_key, data_cfg, train=False, batchsize=bs, size=test_size, static=static, human=human)
+    train_dataset, max_T = load_dataset(datapaths, label_key, data_cfg, train=True, batchsize=bs, size=train_size, human=human)
+    test_dataset, _ = load_dataset(datapaths, label_key, data_cfg, train=False, batchsize=bs, size=test_size, human=human)
     print(logger.get_snapshot_dir())
 
     ######Model loading######
@@ -118,18 +112,7 @@ def test_vae(variant):
     scheduler = TrainingScheduler(**variant["schedule_args"], max_T = max_T)
     t = OP3Trainer(train_dataset, test_dataset, m, scheduler, **variant["training_args"])
 
-    # t.test_epoch(0, train=False, batches=1, save_reconstruction=True)
-    # t.test_epoch(0, train=True, batches=1, save_reconstruction=True)
-
-    # rollout_hidden_states, encoded_hidden_states, binary_labels = t.test_discriminative_epoch(train=False, batches=test_size//bs) # (N*B, T*K*R)
-    # print('Num samples:{}'.format(binary_labels.shape[0]))
-    # test_feat = {
-    #     'rollout_states': rollout_hidden_states,
-    #     'encoded_states': encoded_hidden_states,
-    #     'binary_labels': binary_labels,
-    #     }
-    # pickle.dump(test_feat, open(logger.get_snapshot_dir()+'/test_feat.pkl', 'wb'))
-
+    # extracts feature from training dataset
     rollout_hidden_states, encoded_hidden_states, binary_labels = t.test_discriminative_epoch(train=True, batches=train_size//bs) # (N*B, T*K*R)
     print('Num samples:{}'.format(binary_labels.shape[0]))
     extracted_feats = [{
@@ -159,7 +142,6 @@ def run(
     parser.add_argument('-de', '--debug', type=int, default=1)  # Note: Change this to 0 to run on the entire dataset!
     parser.add_argument('-m', '--mode', type=str, default='here_no_doodad')  # Relevant options: 'here_no_doodad', 'local_docker', 'ec2'
     args = parser.parse_args()
-    args.variant = 'collide' # TODO, just for exp_prefix since variant is already hardcoded below
 
     cfg = get_cfg_defaults()
     cfg.DATA.IMSIZE = 64
@@ -205,7 +187,7 @@ def run(
     if write_feat:
         run_experiment(
             test_vae,
-            exp_prefix='{}'.format(args.variant),
+            exp_prefix='{}'.format(name),
             mode=args.mode,
             variant=variant,
             use_gpu=False,  # Turn on if you have a GPU TODO
@@ -214,14 +196,14 @@ def run(
     else:
         run_experiment(
             train_vae,
-            exp_prefix='{}'.format(args.variant),
+            exp_prefix='{}'.format(name),
             mode=args.mode,
             variant=variant,
             use_gpu=False,  # Turn on if you have a GPU TODO
             seed=None, # TODO
         )
 
-class Objective():
+class Objective(): # TODO: create base Objective class
     def __init__(self,
             exp_key,
             seed,

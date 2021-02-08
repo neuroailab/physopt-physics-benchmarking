@@ -246,7 +246,7 @@ def test(args, config):
             data_root=config['datapaths'],
             label_key=get_label_key(config['name']),
             data_cfg=config['data_cfg'],
-            train=False,
+            train=False, # TODO: this should actually still be true, since we want to extract features from the training set
             size=100, # TODO
             )
     eval_loader = data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
