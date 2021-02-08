@@ -88,8 +88,7 @@ def run(
     data_cfg = cfg.DATA
 
     print(name, datasets, model_dir)
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
+    model_file = os.path.join(model_dir, 'model.pt')
     device = torch.device('cpu') # TODO
     config = {
         'name': name,
@@ -98,6 +97,7 @@ def run(
         'regressor': 'lstm',
         'batch_size': 64,
         'model_dir': model_dir,
+        'model_file': model_file,
         'state_len': 4, # number of images as input
         'device': device,
         'data_cfg': data_cfg, # TODO: use merge_from_list/file method
@@ -126,7 +126,6 @@ def get_model(regressor, encoder):
 def train(config):
     device = config['device']
     model = config['model']
-    model_file = os.path.join(config['model_dir'], 'model.pt')
 
     criterion = nn.MSELoss()
     optimizer = optim.SGD(model.parameters(), lr=1e-3, momentum=0.9)
@@ -160,7 +159,7 @@ def train(config):
         # save model
         if avg_loss < best_loss:
             best_loss = avg_loss
-            torch.save(model.state_dict(), model_file)
+            torch.save(model.state_dict(), config['model_file'])
             print('Saved model checkpoint to: {}'.format(model_file))
 
 def get_label_key(name):
@@ -171,6 +170,10 @@ def test(config):
     encoder = config['encoder']
     state_len = config['state_len']
     model = config['model']
+
+    # load weights
+    model.load_state_dict(torch.load(config['model_file']))
+    model.eval()
 
     if 'human' in config['name']:
         dataset = TDWHumanDataset(
@@ -206,7 +209,7 @@ def test(config):
             rollout_states = torch.stack(rollout_states, axis=1).cpu().numpy()
             labels = data['binary_labels'].cpu().numpy()
             print(encoded_states.shape, rollout_states.shape, labels.shape)
-            extracted_feats.append({ # TODO: to cpu?
+            extracted_feats.append({
                 'encoded_states': encoded_states,
                 'rollout_states': rollout_states,
                 'binary_labels': labels,
@@ -238,8 +241,10 @@ class Objective():
 
 
     def get_model_dir(self):
-        return os.path.join(self.output_dir, self.train_data['name'],
-                str(self.seed), 'model')
+        model_dir = os.path.join(self.output_dir, self.train_data['name'], str(self.seed), 'model')
+        if not os.path.exists(model_dir):
+            os.makedirs(model_dir)
+        return model_dir
 
     def __call__(self, *args, **kwargs):
         if self.extract_feat: # save out model features from trained model
