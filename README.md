@@ -92,7 +92,9 @@ The input arguments are
   - if `True` indicates to extract features from a trained model on `feat_data`
   
 Your task is then to implement the [`__call__(self, *args, **kwargs)`](https://github.com/neuroailab/physopt/blob/main/physopt/models/RPIN.py#L308-L322) method which
+
 a) if `extract_feat == False` executes a method to train a model on `train_data` and stores it under [`self.model_dir`](https://github.com/neuroailab/physopt/blob/main/physopt/utils.py#L77-L78).
+
 b) if `extract_feat == True` executes a method to extract latent features from a trained model on `feat_data` and stores it under [`self.feature_file`](https://github.com/neuroailab/physopt/blob/main/physopt/utils.py#L83-L84).
 
 Don't forget to call `results = super().__call__()` at the beginning of your `__call__` method which returns a dictionary in which you can store your results in the mongo database.
