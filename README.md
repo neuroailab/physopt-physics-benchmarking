@@ -49,7 +49,7 @@ and then start up as many workers as you want with:
 
 etc.
 
-To train multiple models at the same time you can loop over all models in a shell script. Although currently not a problem, potential library conflicts between models might make this impossible in the future without separate python environments. 
+You can also put all models into the same database and point all mongo-workers to that database with the advantage of not needing multiple sets of workers per model. To train multiple models at the same time you can loop over all models in a shell script. Although currently not a problem, potential library conflicts between models might make this impossible in the future without separate python environments. 
 
 To see all available argument options including currently implemented models use
 
