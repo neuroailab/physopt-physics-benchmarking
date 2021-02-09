@@ -97,7 +97,7 @@ a) if `extract_feat == False` executes a method to train a model on `train_data`
 
 b) if `extract_feat == True` executes a method to extract latent features from a trained model on `feat_data` and stores it under [`self.feature_file`](https://github.com/neuroailab/physopt/blob/main/physopt/utils.py#L83-L84).
 
-Don't forget to call `results = super().__call__()` at the beginning of your `__call__` method which returns a dictionary in which you can store your results in the mongo database.
+Don't forget to call `results = super().__call__()` at the beginning of your `__call__(self, *args, **kwargs)` method which returns a dictionary in which you can store your results in the mongo database.
 
 The rest is taken care of. The pipeline will then execute the 4 steps described in "Overview" store the results in a pickle file stored at `{output_directory}/{train_data_name}/{seed}/model/features/{test_feat_data_name}/metrics_results.pkl`.
 
@@ -107,4 +107,9 @@ An overview over all available datasets can be found in [physopt/data/\_\_init\_
 
 To add a new dataset simply follow the format outlined in [physopt/data/tdw\_space.py](https://github.com/neuroailab/physopt/blob/main/physopt/data/tdw_space.py) and add the newly created dataset to `get_data_space` in [physopt/data/\_\_init\_\_.py](https://github.com/neuroailab/physopt/blob/main/physopt/data/__init__.py).
 
-Physopt first trains a selected model on all the datasets defined in `TRAIN_DATA` and seeds defined in `SEEDS`, then extracts the train features for the datasets defined in `TRAIN_FEAT_DATA` and test features for the datasets defined in `TEST_FEAT_DATA` and finally use the extracted features to calculate the evaluation metrics for the train-test dataset pairs defined in `METRICS_DATA`. A seed is an integer. Each `DATA` is a list of single datasets. A single dataset is a dictionary of `{'name': dataset_name, 'data': list(dataset_paths)}`. `METRICS_DATA` is a tuple of `(TRAIN_FEAT_DATA, TEST_FEAT_DATA)`.
+Physopt 
+- first trains a selected model on all the datasets defined in `TRAIN_DATA` and seeds defined in `SEEDS`,
+- then extracts the train features for the datasets defined in `TRAIN_FEAT_DATA` and 
+- then extracts test features for the datasets defined in `TEST_FEAT_DATA` and 
+- finally uses the extracted features to calculate the evaluation metrics for the train-test dataset pairs defined in `METRICS_DATA`. 
+A seed is an integer. Each `DATA` is a list of single datasets. A single dataset is a dictionary of `{'name': dataset_name, 'data': list(dataset_paths)}`. `METRICS_DATA` is a tuple of `(TRAIN_FEAT_DATA, TEST_FEAT_DATA)`.
