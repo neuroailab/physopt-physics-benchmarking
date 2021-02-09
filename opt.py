@@ -52,9 +52,10 @@ def get_mongo_path(host, port, database):
     return 'mongo://{0}:{1}/{2}/jobs'.format(host, port, database)
 
 
-def get_exp_key(seed, train_data, feat_data, suffix=''):
+def get_exp_key(model, seed, train_data, feat_data, suffix=''):
     feat_data = feat_data if isinstance(feat_data, dict) else feat_data[-1]
-    return '{0}_{1}_{2}_{3}'.format(seed, train_data['name'], feat_data['name'], suffix)
+    return '{0}_{1}_{2}_{3}_{4}'.format(model, seed, train_data['name'],
+            feat_data['name'], suffix)
 
 
 def run(
@@ -73,7 +74,7 @@ def run(
 
     def run_once(data):
         seed, train_data, feat_data = data
-        exp_key = get_exp_key(seed, train_data, feat_data, exp_key_suffix)
+        exp_key = get_exp_key(model, seed, train_data, feat_data, exp_key_suffix)
         print("Experiment: {0}".format(exp_key))
 
         #trials = Trials()
