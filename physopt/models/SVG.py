@@ -75,6 +75,10 @@ def run(
     opt.model_dir = model_dir
     opt.log_dir = os.path.join(opt.model_dir, 'logs')
 
+    if opt.model in ['deit_pretrained', 'clip_pretrained']:
+        opt.image_width = 224
+        opt.batch_size = 2
+
     write_feat = opt.write_feat
     data_subsets = opt.data_subsets
     data_root = opt.data_root
@@ -612,6 +616,18 @@ class DEITPretrainedFrozenObjective(Objective):
     def __init__(self, *args, **kwargs):
         super(DEITPretrainedFrozenObjective, self).__init__(*args, **kwargs,
                 model='deit_pretrained', freeze_encoder_weights=True)
+
+
+class CLIPPretrainedObjective(Objective):
+    def __init__(self, *args, **kwargs):
+        super(CLIPPretrainedObjective, self).__init__(*args, **kwargs,
+                model='clip_pretrained', freeze_encoder_weights=False)
+
+
+class CLIPPretrainedFrozenObjective(Objective):
+    def __init__(self, *args, **kwargs):
+        super(CLIPPretrainedFrozenObjective, self).__init__(*args, **kwargs,
+                model='clip_pretrained', freeze_encoder_weights=True)
 
 
 
