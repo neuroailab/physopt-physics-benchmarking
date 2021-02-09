@@ -1,8 +1,8 @@
 # physopt
 
-## Overview
-
 ![](overview-figure.png)
+
+## Overview
 
 The goal of this repository is to train and evaluate different physics prediction models on one or many different physics scenarios. The inputs are model specific, however all currently implemented models predict from images. The output metrics are dataset specific, however all currently used datasets are evaluated on some form of binary prediction task. The procedure to extract metrics for each dataset and model is as follows:
 
