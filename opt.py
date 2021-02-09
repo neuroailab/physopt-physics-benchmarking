@@ -7,6 +7,7 @@ from hyperopt.mongoexp import MongoTrials
 from utils import MultiAttempt
 
 from space.tdw_space import TRAIN_FEAT_SPACE, HUMAN_FEAT_SPACE, METRICS_SPACE
+#from space.debug_space import TRAIN_FEAT_SPACE, HUMAN_FEAT_SPACE, METRICS_SPACE
 from search.grid_search import suggest
 import metrics.physics.test_metrics as test_metrics
 
@@ -120,45 +121,71 @@ def compute_metrics(*args, **kwargs):
     return run(*args, **kwargs, compute_metrics = True)
 
 
-def main():
-    args = arg_parse()
+class OptimizationPipeline():
+    def __init__(self, args = None):
+        args = arg_parse() if not args else args
 
-    output_dir = get_output_directory(args.output, args.model)
-    mongo_path = get_mongo_path(args.host, args.port, args.database)
-    pool = Pool(args.num_threads) if args.num_threads > 1 else None
+        self.model = args.model
+        self.output_dir = get_output_directory(args.output, args.model)
+        self.mongo_path = get_mongo_path(args.host, args.port, args.database)
+        self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
 
-    print('Training models on data subsets...')
-    train_model(args.model, TRAIN_FEAT_SPACE, output_dir,
-            mongo_path, exp_key_suffix = 'train',
-            multiprocessing_pool = pool,
-            )
-    print('...all models trained!')
 
-    print('Extracting train features...')
-    extract_features(args.model, TRAIN_FEAT_SPACE, output_dir,
-            mongo_path, exp_key_suffix = 'train_feat',
-            multiprocessing_pool = pool,
-            )
-    print('...all train features extracted!')
+    def __del__(self):
+        self.close()
 
-    print('Extracting test features...')
-    extract_features(args.model, HUMAN_FEAT_SPACE, output_dir,
-            mongo_path, exp_key_suffix = 'human_feat',
-            multiprocessing_pool = pool,
-            )
-    print('...all test features extracted!')
 
-    print('Computing metrics...')
-    compute_metrics(args.model, METRICS_SPACE, output_dir,
-            mongo_path, exp_key_suffix = 'metrics',
-            multiprocessing_pool = pool,
-            )
-    print('...all metrics computed!')
+    def train_model(self, exp_key_suffix = 'train'):
+        print('Training models on data subsets...')
+        train_model(self.model, TRAIN_FEAT_SPACE, self.output_dir,
+                self.mongo_path, exp_key_suffix = exp_key_suffix,
+                multiprocessing_pool = self.pool,
+                )
+        print('...all models trained!')
 
-    if pool:
-        pool.close()
-        pool.join()
+
+    def extract_train_features(self, exp_key_suffix = 'train_feat'):
+        print('Extracting train features...')
+        extract_features(self.model, TRAIN_FEAT_SPACE, self.output_dir,
+                self.mongo_path, exp_key_suffix = exp_key_suffix,
+                multiprocessing_pool = self.pool,
+                )
+        print('...all train features extracted!')
+
+
+    def extract_test_features(self, exp_key_suffix = 'human_feat'):
+        print('Extracting test features...')
+        extract_features(self.model, HUMAN_FEAT_SPACE, self.output_dir,
+                self.mongo_path, exp_key_suffix = exp_key_suffix,
+                multiprocessing_pool = self.pool,
+                )
+        print('...all test features extracted!')
+
+
+    def compute_metrics(self, exp_key_suffix = 'metrics'):
+        print('Computing metrics...')
+        compute_metrics(self.model, METRICS_SPACE, self.output_dir,
+                self.mongo_path, exp_key_suffix = exp_key_suffix,
+                multiprocessing_pool = self.pool,
+                )
+        print('...all metrics computed!')
+
+
+    def run(self):
+        self.train_model()
+        self.extract_train_features()
+        self.extract_test_features()
+        self.compute_metrics()
+        self.close()
+
+
+    def close(self):
+        if self.pool:
+            self.pool.close()
+            self.pool.join()
 
 
 if __name__ == '__main__':
-    main()
+    args = arg_parse()
+    pipeline = OptimizationPipeline(args)
+    pipeline.run()
