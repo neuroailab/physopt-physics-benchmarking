@@ -61,10 +61,16 @@ and then start up as many workers as you want with:
 
 This approach has the advantage that you only need one set of workers pointing all to the same database `database`. Although currently not a problem, potential library conflicts between models might make approach c) infeasible in the future without separate python environments. In that case each model would have to be run in model-specific python environment which is beyond the scope of this documentation.
 
-To see all available argument options including all currently implemented models use
+To see all available argument options use
 
 `python opt.py --help`
 
+## Model Specification
+
+An overview over all available models can be found in [physopt/models/\_\_init\_\_.py](https://github.com/neuroailab/physopt/blob/main/physopt/models/__init__.py).
+
 ## Dataset Specification
+
+An overview over all available models can be found in [physopt/data/\_\_init\_\_.py](https://github.com/neuroailab/physopt/blob/main/physopt/data/__init__.py).
 
 Physopt will then first train the selected model on all the datasets defined in `TRAIN_SPACE`, then extract the train features for the datasets defined in `TRAIN_FEAT_SPACE` and test features for the datasets defined in `HUMAN_FEAT_SPACE` and finally use the extracted features to calculate the evaluation metrics for the datasets defined in `METRICS_SPACE`. Each `SPACE` consists of a tuple `(SEEDS, TRAIN_DATA, FEAT_DATA)` which specify a list of possible seeds, train datasets, and feature datasets respectively. A seed is an integer. A dataset is a dictionary of `{'name': dataset_name, 'data': list(dataset_paths)}`. The feature space `FEAT_DATA` of `METRICS_SPACE` is a tuple of `(TRAIN_FEAT_DATA, TEST_FEAT_DATA)`, otherwise a feature dataset `FEAT_DATA`. Please refer to [space/tdw\_space.py](https://github.com/neuroailab/physopt/blob/main/space/tdw_space.py) for an example implementation.
