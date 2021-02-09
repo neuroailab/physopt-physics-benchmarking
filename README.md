@@ -113,4 +113,4 @@ Physopt
 - then extracts test features for the datasets defined in `TEST_FEAT_DATA` and 
 - finally uses the extracted features to calculate the evaluation metrics for the train-test dataset pairs defined in `METRICS_DATA`. 
 
-Each `DATA` is a list of single datasets. A single dataset is a dictionary of `{'name': dataset_name, 'data': list(dataset_paths)}`. `METRICS_DATA` is a tuple of `(TRAIN_FEAT_DATA, TEST_FEAT_DATA)`. A seed is an integer.
+Each `*_DATA` is a list of single datasets. A single dataset is a dictionary of `{'name': dataset_name, 'data': list(dataset_paths)}`. `METRICS_DATA` is a tuple of `(TRAIN_FEAT_DATA, TEST_FEAT_DATA)`. A seed is an integer.
