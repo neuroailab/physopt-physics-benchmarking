@@ -48,6 +48,7 @@ and then start up as many workers as you want with:
 `hyperopt/scripts/hyperopt-mongo-worker --mongo=localhost:25555/svg --logfile=logfile.txt`
 
 c) to evaluate multiple models run in separate threads:
+
 `python opt.py --model RPIN --host localhost --port 25555 --database database --output rpin_output_directory --num_threads 1`
 
 `python opt.py --model SVG --host localhost --port 25555 --database database --output svg_output_directory --num_threads 1`
