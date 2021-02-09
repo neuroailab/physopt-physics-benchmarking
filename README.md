@@ -79,6 +79,8 @@ To see all available argument options use
 
 An overview over all available models can be found in [physopt/models/\_\_init\_\_.py](https://github.com/neuroailab/physopt/blob/main/physopt/models/__init__.py).
 
+To add a new model simply create a new `Objective` following the format outlined in [physopt/models/RPIN.py#L297-L322](https://github.com/neuroailab/physopt/blob/main/physopt/models/RPIN.py#L297-L322).
+
 ## Dataset Specification
 
 An overview over all available datasets can be found in [physopt/data/\_\_init\_\_.py](https://github.com/neuroailab/physopt/blob/main/physopt/data/__init__.py).
