@@ -79,7 +79,25 @@ To see all available argument options use
 
 An overview over all available models can be found in [physopt/models/\_\_init\_\_.py](https://github.com/neuroailab/physopt/blob/main/physopt/models/__init__.py).
 
-To add a new model simply create a new `Objective` following the format outlined in [physopt/models/RPIN.py#L297-L322](https://github.com/neuroailab/physopt/blob/main/physopt/models/RPIN.py#L297-L322).
+To add a new model simply create a new `Objective` following the format outlined in [physopt/models/RPIN.py#L297-L322](https://github.com/neuroailab/physopt/blob/main/physopt/models/RPIN.py#L297-L322). `Objective` inherits from `PhysOptObjective` as implemented in [physopt/utils.py#L64-L126](https://github.com/neuroailab/physopt/blob/main/physopt/utils.py#L64-L126) which primarily takes care of managing where intermediate results are stored. 
+
+The input arguments are
+- a experiment key in the mongo database `exp_key`
+- an integer seed `seed`
+- a train dataset `train_data` defined as `{'name': dataset_name, 'data': list(dataset_paths)}`
+- a feature extraction dataset `feat_data` defined as `{'name': dataset_name, 'data': list(dataset_paths)}` (or for metrics data defined as a tuple thereof as specified below).
+- an output directory `output_dir` which is the root directory to where all results will be stored
+- a boolean flag `extract_feat` which 
+  - if `False` indicates to train a new model from scratch on `train_data` or 
+  - if `True` indicates to extract features from a trained model on `feat_data`
+  
+Your task is then to implement the [`__call__(self, *args, **kwargs)`](https://github.com/neuroailab/physopt/blob/main/physopt/models/RPIN.py#L308-L322) method which
+a) if `extract_feat == False` executes a method to train a model on `train_data` and stores it under [`self.model_dir`](https://github.com/neuroailab/physopt/blob/main/physopt/utils.py#L77-L78).
+b) if `extract_feat == True` executes a method to extract latent features from a trained model on `feat_data` and stores it under [`self.feature_file`](https://github.com/neuroailab/physopt/blob/main/physopt/utils.py#L83-L84).
+
+Don't forget to call `results = super().__call__()` at the beginning of your `__call__` method which returns a dictionary in which you can store your results in the mongo database.
+
+The rest is taken care of. The pipeline will then execute the 4 steps described in "Overview" store the results in a pickle file stored at `{output_directory}/{train_data_name}/{seed}/model/features/{test_feat_data_name}/metrics_results.pkl`.
 
 ## Dataset Specification
 
