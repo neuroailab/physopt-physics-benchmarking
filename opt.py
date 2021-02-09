@@ -5,15 +5,9 @@ import argparse
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
 from utils import MultiAttempt
-
-from space.tdw_space import TRAIN_FEAT_SPACE, HUMAN_FEAT_SPACE, METRICS_SPACE
-#from space.debug_space import TRAIN_FEAT_SPACE, HUMAN_FEAT_SPACE, METRICS_SPACE
+from models import get_Objective
+from data import get_data_space
 from search.grid_search import suggest
-import metrics.physics.test_metrics as test_metrics
-
-from models.RPIN import Objective as RPINObjective
-from models.SVG import VGGObjective as SVGObjective
-
 
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])
@@ -22,6 +16,8 @@ NO_PARAM_SPACE = hp.choice('dummy', [0])
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
 
+    parser.add_argument('--data', required=True,
+            help='data: TDW | DEBUG', type=str)
     parser.add_argument('--model', required=True,
             help='model: RPIN | SVG', type=str)
     parser.add_argument('--output', default='/mnt/fs4/mrowca/hyperopt/',
@@ -32,17 +28,6 @@ def arg_parse():
     parser.add_argument('--num_threads', default=16, help='number of parallel threads', type=int)
 
     return parser.parse_args()
-
-
-def get_Objective(model):
-    if model == 'metrics':
-        return test_metrics.Objective
-    elif model == 'RPIN':
-        return RPINObjective
-    elif model == 'SVG':
-        return SVGObjective
-    else:
-        raise ValueError('Unknown model: {0}'.format(model))
 
 
 def get_output_directory(output_dir, model):
@@ -121,10 +106,12 @@ def compute_metrics(*args, **kwargs):
     return run(*args, **kwargs, compute_metrics = True)
 
 
+
 class OptimizationPipeline():
     def __init__(self, args = None):
         args = arg_parse() if not args else args
 
+        self.data = get_data_space(args.data)
         self.model = args.model
         self.output_dir = get_output_directory(args.output, args.model)
         self.mongo_path = get_mongo_path(args.host, args.port, args.database)
@@ -137,7 +124,7 @@ class OptimizationPipeline():
 
     def train_model(self, exp_key_suffix = 'train'):
         print('Training models on data subsets...')
-        train_model(self.model, TRAIN_FEAT_SPACE, self.output_dir,
+        train_model(self.model, self.data['train_feat'], self.output_dir,
                 self.mongo_path, exp_key_suffix = exp_key_suffix,
                 multiprocessing_pool = self.pool,
                 )
@@ -146,7 +133,7 @@ class OptimizationPipeline():
 
     def extract_train_features(self, exp_key_suffix = 'train_feat'):
         print('Extracting train features...')
-        extract_features(self.model, TRAIN_FEAT_SPACE, self.output_dir,
+        extract_features(self.model, self.data['train_feat'], self.output_dir,
                 self.mongo_path, exp_key_suffix = exp_key_suffix,
                 multiprocessing_pool = self.pool,
                 )
@@ -155,7 +142,7 @@ class OptimizationPipeline():
 
     def extract_test_features(self, exp_key_suffix = 'human_feat'):
         print('Extracting test features...')
-        extract_features(self.model, HUMAN_FEAT_SPACE, self.output_dir,
+        extract_features(self.model, self.data['test_feat'], self.output_dir,
                 self.mongo_path, exp_key_suffix = exp_key_suffix,
                 multiprocessing_pool = self.pool,
                 )
@@ -164,7 +151,7 @@ class OptimizationPipeline():
 
     def compute_metrics(self, exp_key_suffix = 'metrics'):
         print('Computing metrics...')
-        compute_metrics(self.model, METRICS_SPACE, self.output_dir,
+        compute_metrics(self.model, self.data['metrics'], self.output_dir,
                 self.mongo_path, exp_key_suffix = exp_key_suffix,
                 multiprocessing_pool = self.pool,
                 )
@@ -183,6 +170,7 @@ class OptimizationPipeline():
         if self.pool:
             self.pool.close()
             self.pool.join()
+
 
 
 if __name__ == '__main__':
