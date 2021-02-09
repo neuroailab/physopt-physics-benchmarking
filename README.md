@@ -32,7 +32,7 @@ For example,
 
 a) to evaluate ROI pooling run
 
-`python opt.py --model RPIN --host localhost --port 25555 --database rpin --output rpin_output_directory --num_threads 1`
+`python opt.py --data TDW --model RPIN --host localhost --port 25555 --database rpin --output rpin_output_directory --num_threads 1`
 
 and then start up as many workers as you want with
 
@@ -41,7 +41,7 @@ and then start up as many workers as you want with
 
 b) to evaluate SVG run
 
-`python opt.py --model SVG --host localhost --port 25555 --database svg --output svg_output_directory --num_threads 1`
+`python opt.py --data TDW --model SVG --host localhost --port 25555 --database svg --output svg_output_directory --num_threads 1`
 
 and then start up as many workers as you want with:
 
@@ -49,9 +49,9 @@ and then start up as many workers as you want with:
 
 c) to evaluate multiple models run in separate threads:
 
-`python opt.py --model RPIN --host localhost --port 25555 --database database --output rpin_output_directory --num_threads 1`
+`python opt.py --data TDW --model RPIN --host localhost --port 25555 --database database --output rpin_output_directory --num_threads 1`
 
-`python opt.py --model SVG --host localhost --port 25555 --database database --output svg_output_directory --num_threads 1`
+`python opt.py --data TDW --model SVG --host localhost --port 25555 --database database --output svg_output_directory --num_threads 1`
 
 etc.
 
