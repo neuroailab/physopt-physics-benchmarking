@@ -11,19 +11,18 @@ import itertools
 import progressbar
 import numpy as np
 import pickle
-from hyperopt import STATUS_OK
+from physopt.utils import PhysOptObjective
 
 
 def run(
-        train_name = 'collide',
         datasets = ['collide2_new'],
         seed = 0,
         data_root = '/mnt/fs4/mrowca/neurips/images/rigid',
         model_dir = '/mnt/fs4/mrowca/hyperopt/svg/default/0/model',
+        feature_file = '/mnt/fs4/mrowca/hyperopt/svg/default/0/model/features/default/feat.pkl',
         model = 'vgg',
         freeze_encoder_weights = False,
         write_feat = '',
-        test_name = 'default',
         ):
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', default=0.002, type=float, help='learning rate')
@@ -256,7 +255,7 @@ def run(
 
 # --------- write features ---------------------------------------
 
-    def write_features(loader, test_name):
+    def write_features(loader, feature_file):
         assert os.path.exists('%s/model.pth' % opt.model_dir), \
                 'Model does not exist: %s/model.pth' % opt.model_dir
         # TODO: Only use one sample for now
@@ -327,23 +326,20 @@ def run(
 
         progress.finish()
 
-        dataset_path = os.path.join(opt.model_dir, 'features', test_name)
-        if not os.path.exists(dataset_path):
-            os.makedirs(dataset_path)
-        output_file = "feat.pkl"
-        output_file = os.path.join(dataset_path, output_file)
-        with open(output_file, 'wb') as f:
+        if not os.path.exists(os.path.dirname(feature_file)):
+            os.makedirs(os.path.dirname(feature_file))
+        with open(feature_file, 'wb') as f:
             pickle.dump(outputs, f)
-        print('Results stored in %s' % output_file)
+        print('Results stored in %s' % feature_file)
         return
 
 
     with torch.no_grad():
         if opt.write_feat == 'train':
-            write_features(train_loader, test_name)
+            write_features(train_loader, feature_file)
             return
         elif opt.write_feat in ['test', 'human']:
-            write_features(test_loader, test_name)
+            write_features(test_loader, feature_file)
             return
 
 # --------- plotting funtions ------------------------------------
@@ -553,7 +549,7 @@ def run(
 
 
 
-class Objective():
+class Objective(PhysOptObjective):
     def __init__(self,
             exp_key,
             seed,
@@ -563,46 +559,29 @@ class Objective():
             extract_feat,
             model,
             freeze_encoder_weights):
-        self.exp_key = exp_key
-        self.seed = seed
-        self.train_data = train_data
-        self.feat_data = feat_data
-        self.output_dir = output_dir
-        self.extract_feat = extract_feat
+        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat)
         self.model = model
         self.freeze_encoder_weights = freeze_encoder_weights
-        self.model_dir = self.get_model_dir()
-
-
-    def get_model_dir(self):
-        return os.path.join(self.output_dir, self.train_data['name'],
-                str(self.seed), 'model')
 
 
     def __call__(self, *args, **kwargs):
+        results = super().__call__()
         if self.extract_feat:
             write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
-            run(train_name=self.train_data['name'], test_name=self.feat_data['name'],
-                    datasets=self.feat_data['data'], seed=self.seed, data_root='',
-                    model_dir=self.model_dir, write_feat=write_feat,
-                    model=self.model, freeze_encoder_weights=self.freeze_encoder_weights)
+            run(datasets=self.feat_data['data'], seed=self.seed, data_root='',
+                    model_dir=self.model_dir, feature_file=self.feature_file,
+                    write_feat=write_feat, model=self.model,
+                    freeze_encoder_weights=self.freeze_encoder_weights)
         else:
-            run(train_name=self.train_data['name'], test_name=self.feat_data['name'],
-                    datasets=self.train_data['data'], seed=self.seed, data_root='',
-                    model_dir=self.model_dir, write_feat='',
-                    model=self.model, freeze_encoder_weights=self.freeze_encoder_weights)
+            run(datasets=self.train_data['data'], seed=self.seed, data_root='',
+                    model_dir=self.model_dir, feature_file=self.feature_file,
+                    write_feat='', model=self.model,
+                    freeze_encoder_weights=self.freeze_encoder_weights)
 
-        return {
-                'loss': 0.0,
-                'status': STATUS_OK,
-                'exp_key': self.exp_key,
-                'seed': self.seed,
-                'train_data': self.train_data,
-                'feat_data': self.feat_data,
-                'model_dir': self.model_dir,
-                'model': self.model,
-                'freeze_encoder_weights': self.freeze_encoder_weights,
-                }
+        results['loss'] = 0.0
+        results['model'] = self.model
+        results['freeze_encoder_weights'] = self.freeze_encoder_weights
+        return results
 
 
 class VGGObjective(Objective):

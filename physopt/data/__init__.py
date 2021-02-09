@@ -1,6 +1,6 @@
 # Register data spaces
-from data_space.tdw_space import SPACE as TDW_SPACE
-from data_space.debug_space import SPACE as DEBUG_SPACE
+from physopt.data.tdw_space import SPACE as TDW_SPACE
+from physopt.data.debug_space import SPACE as DEBUG_SPACE
 
 
 

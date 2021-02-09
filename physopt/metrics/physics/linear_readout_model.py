@@ -1,5 +1,5 @@
 import numpy as np
-from metrics.base.readout_model import ReadoutModel
+from physopt.metrics.base.readout_model import ReadoutModel
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.multioutput import MultiOutputClassifier
 

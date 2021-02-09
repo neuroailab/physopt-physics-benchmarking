@@ -3,14 +3,14 @@ import numpy as np
 import scipy
 import pickle
 
-from metrics.base.feature_extractor import FeatureExtractor
-from metrics.base.readout_model import IdentityModel
-from metrics.base.metric_model import BatchMetricModel
+from physopt.metrics.base.feature_extractor import FeatureExtractor
+from physopt.metrics.base.readout_model import IdentityModel
+from physopt.metrics.base.metric_model import BatchMetricModel
 
-from metrics.physics.linear_readout_model import LinearRegressionReadoutModel, \
+from physopt.metrics.physics.linear_readout_model import LinearRegressionReadoutModel, \
         LogisticRegressionReadoutModel
 
-from metrics.physics.metric_fns import accuracy, squared_error
+from physopt.metrics.physics.metric_fns import accuracy, squared_error
 
 from hyperopt import STATUS_OK
 

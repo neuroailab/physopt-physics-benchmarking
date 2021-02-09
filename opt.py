@@ -4,10 +4,10 @@ from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
-from utils import MultiAttempt
-from model_space import get_Objective
-from data_space import get_data_space
-from search.grid_search import suggest
+from physopt.utils import MultiAttempt
+from physopt.models import get_Objective
+from physopt.data import get_data_space
+from physopt.search.grid_search import suggest
 
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])
