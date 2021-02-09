@@ -13,7 +13,7 @@ from torch.utils import data
 import torch.nn.functional as F
 
 from cswm import modules, utils
-from physion.config import get_cfg_defaults
+from physion.data.config import get_cfg_defaults
 from .SVG_FROZEN import get_label_key # TODO: hacky
 
 def arg_parse():

@@ -16,7 +16,7 @@ from op3.torch.op3_modules.op3_trainer import TrainingScheduler, OP3Trainer
 from op3.torch.data_management.dataset import BlocksDataset, CollideDataset, CollideHumanDataset # TODO: rename collide
 from op3.core import logger
 
-from physion.config import get_cfg_defaults
+from physion.data.config import get_cfg_defaults
 
 from .SVG_FROZEN import get_label_key # TODO: hacky
 

@@ -6,9 +6,9 @@ import numpy as np
 import logging
 from hyperopt import STATUS_OK
 
-import physion.modules
-from physion.data import TDWDataset, TDWHumanDataset
-from physion.config import get_cfg_defaults
+import frozen_physion.modules as modules
+from physion.data.pydata import TDWDataset, TDWHumanDataset
+from physion.data.config import get_cfg_defaults
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn 
@@ -93,8 +93,10 @@ def run(
     config = {
         'name': name,
         'datapaths': datasets,
-        'encoder': 'deit',
-        'regressor': 'lstm',
+        # 'encoder': 'deit',
+        'encoder': 'vgg',
+        # 'regressor': 'lstm',
+        'regressor': 'mlp',
         'batch_size': 64,
         'model_dir': model_dir,
         'model_file': model_file,
@@ -117,9 +119,9 @@ def init_seed(seed): # TODO: move to utils in physion package?
 
 def get_model(regressor, encoder):
     if regressor == 'mlp':
-        return physion.modules.Frozen_MLP(encoder)
+        return modules.Frozen_MLP(encoder)
     elif regressor == 'lstm':
-        return physion.modules.Frozen_LSTM(encoder)
+        return modules.Frozen_LSTM(encoder)
     else:
         raise NotImplementedError
 
@@ -160,7 +162,7 @@ def train(config):
         if avg_loss < best_loss:
             best_loss = avg_loss
             torch.save(model.state_dict(), config['model_file'])
-            print('Saved model checkpoint to: {}'.format(model_file))
+            print('Saved model checkpoint to: {}'.format(config['model_file']))
 
 def get_label_key(name):
     return get_config(name)['binary_labels'][0]
