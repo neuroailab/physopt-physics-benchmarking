@@ -59,7 +59,7 @@ and then start up as many workers as you want with:
 
 `hyperopt/scripts/hyperopt-mongo-worker --mongo=localhost:25555/database --logfile=logfile.txt`
 
-This approach has the advantage that you only need one set of workers pointing all to the same database `database`. Although currently not a problem, potential library conflicts between models might make this approach c) infeasible in the future without separate python environments. In that case each model needs to be run in model-specific python environments.
+This approach has the advantage that you only need one set of workers pointing all to the same database `database`. Although currently not a problem, potential library conflicts between models might make approach c) infeasible in the future without separate python environments. In that case each model would have to be run in model-specific python environment which is beyond the scope of this documentation.
 
 To see all available argument options including all currently implemented models use
 
