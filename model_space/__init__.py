@@ -1,7 +1,7 @@
 # Register models
 import metrics.physics.test_metrics as test_metrics
-from models.RPIN import Objective as RPINObjective
-from models.SVG import VGGObjective as SVGObjective
+from model_space.RPIN import Objective as RPINObjective
+from model_space.SVG import VGGObjective as SVGObjective
 
 
 def get_Objective(model):

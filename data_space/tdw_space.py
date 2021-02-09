@@ -1,5 +1,5 @@
 import os
-from data.data_space import get_all_subsets, construct_data_spaces
+from data_space.data_space import get_all_subsets, construct_data_spaces
 
 
 

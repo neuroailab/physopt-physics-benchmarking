@@ -5,8 +5,8 @@ import argparse
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
 from utils import MultiAttempt
-from models import get_Objective
-from data import get_data_space
+from model_space import get_Objective
+from data_space import get_data_space
 from search.grid_search import suggest
 
 
