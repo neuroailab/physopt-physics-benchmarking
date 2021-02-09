@@ -24,6 +24,16 @@ The goal of this repository is to train and evaluate different physics predictio
     - stored at `{output_directory}/{train_data_name}/{seed}/model/features/{test_feat_data_name}/metrics_results.pkl`
     - stored as `list(setting_result) with setting_result = dict(results: metric_results, seed: seed, train_name: train_model_data_name, train_feat_name: train_feat_data_name, test_feat_name: test_feat_data_name, model_dir: model_dir)`. 
 
+## How to Install
+
+Run
+
+`pip install -r requirements.txt`
+
+and add [RPIN](https://github.com/neuroailab/RPIN), [SVG](https://github.com/neuroailab/svg), [CLIP](https://github.com/openai/CLIP) and [physopt](https://github.com/neuroailab/physopt) to your PYTHONPATH with 
+
+`export PYTHONPATH=$PYTHONPATH:{path_to_RPIN}:{path_to_SVG}:{path_to_CLIP}:{path_to_physopt}`.
+
 ## How To Run
 
 Physopt uses [Hyperopt](https://github.com/neuroailab/hyperopt) to train and evaluate physics prediction models on one or many different datasets. In order to evaluate a model, you first need to launch a MongoDB database, then a optimization server that distributes jobs across workers, and finally as many workers as you want that execute the server jobs.
