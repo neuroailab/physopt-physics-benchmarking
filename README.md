@@ -47,11 +47,20 @@ and then start up as many workers as you want with:
 
 `hyperopt/scripts/hyperopt-mongo-worker --mongo=localhost:25555/svg --logfile=logfile.txt`
 
+c) to evaluate multiple models run in separate threads:
+`python opt.py --model RPIN --host localhost --port 25555 --database database --output rpin_output_directory --num_threads 1`
+
+`python opt.py --model SVG --host localhost --port 25555 --database database --output svg_output_directory --num_threads 1`
+
 etc.
 
-You can also put all models into the same database and point all mongo-workers to that database with the advantage of not needing multiple sets of workers per model. To train multiple models at the same time you can loop over all models in a shell script. Although currently not a problem, potential library conflicts between models might make this impossible in the future without separate python environments. 
+and then start up as many workers as you want with:
 
-To see all available argument options including currently implemented models use
+`hyperopt/scripts/hyperopt-mongo-worker --mongo=localhost:25555/database --logfile=logfile.txt`
+
+This approach has the advantage that you only need one set of workers pointing all to the same database `database`. Although currently not a problem, potential library conflicts between models might make this approach c) infeasible in the future without separate python environments. In that case each model needs to be run in model-specific python environments.
+
+To see all available argument options including all currently implemented models use
 
 `python opt.py --help`
 
