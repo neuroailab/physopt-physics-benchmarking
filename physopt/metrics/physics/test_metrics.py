@@ -11,8 +11,7 @@ from physopt.metrics.physics.linear_readout_model import LinearRegressionReadout
         LogisticRegressionReadoutModel
 
 from physopt.metrics.physics.metric_fns import accuracy, squared_error
-
-from hyperopt import STATUS_OK
+from physopt.utils import PhysOptObjective
 
 SETTINGS = [
         {
@@ -271,16 +270,14 @@ def remap_and_filter(data, label_fn):
 
 def run(
         seed,
-        train_name,
-        train_feat_name,
+        train_feature_file,
+        test_feature_file,
         test_feat_name,
         model_dir,
         settings,
         grid_search_params = {'C': [0.01, 0.1, 1.0, 10.0, 100.0]},
         calculate_correlation = False,
         ):
-    train_path = os.path.join(model_dir, 'features', train_feat_name, 'feat.pkl')
-    test_path = os.path.join(model_dir, 'features', test_feat_name, 'feat.pkl')
 
     # Example 1: Classification via logistic regression
 
@@ -289,8 +286,8 @@ def run(
     feature_extractor = FeatureExtractor(feature_model)
 
     # Construct data providers
-    train_data = build_data(train_path)
-    test_data = build_data(test_path)
+    train_data = build_data(train_feature_file)
+    test_data = build_data(test_feature_file)
 
     # Select label function
     label_fn = select_label_fn(slice(*settings['val_time_steps']), test_feat_name)
@@ -322,8 +319,8 @@ def run(
 
     # Calculate human correlation
     if calculate_correlation:
-        model_proba = metric_model.predict_proba(build_data(test_path))
-        _, human_proba = metric_model.extract_features_labels(build_data(test_path), \
+        model_proba = metric_model.predict_proba(build_data(test_feature_file))
+        _, human_proba = metric_model.extract_features_labels(build_data(test_feature_file), \
                 label_fn = correlation_label_fn)
         human_proba = np.stack(human_proba)
         corr_coeff, p = scipy.stats.pearsonr(model_proba.flatten(), human_proba.flatten())
@@ -337,29 +334,29 @@ def run(
 
 
 def write_results(
+        metrics_file,
         seed,
         train_name,
-        train_feat_name,
-        test_feat_name,
+        train_feature_file,
+        test_feature_file,
         model_dir,
         results,
         ):
-    write_path = os.path.join(model_dir, 'features', test_feat_name,
-            'metrics_results.pkl')
     data = {
             'seed': seed,
             'train_name': train_name,
-            'train_feat_name': train_feat_name,
-            'test_feat_name': test_feat_name,
+            'train_feature_file': train_feature_file,
+            'test_feature_file': test_feature_file,
             'model_dir': model_dir,
             'results': results,
             }
-    with open(write_path, 'wb') as f:
+    with open(metrics_file, 'wb') as f:
         pickle.dump(data, f)
+    print('Metrics results written to %s' % metrics_file)
     return
 
 
-class Objective():
+class Objective(PhysOptObjective):
     def __init__(self,
             exp_key,
             seed,
@@ -368,43 +365,26 @@ class Objective():
             output_dir,
             extract_feat):
         assert len(feat_data) == 2, feat_data
-        self.exp_key = exp_key
-        self.seed = seed
-        self.train_data = train_data
-        self.train_feat_data = feat_data[0]
-        self.test_feat_data = feat_data[1]
-        self.output_dir = output_dir
-        self.model_dir = self.get_model_dir()
-
-
-    def get_model_dir(self):
-        return os.path.join(self.output_dir, self.train_data['name'],
-                str(self.seed), 'model')
+        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat)
 
 
     def __call__(self, *args, **kwargs):
+        ret = super().__call__()
         results = []
         for settings in SETTINGS:
-            result = run(self.seed, self.train_data['name'], self.train_feat_data['name'],
-                    self.test_feat_data['name'], self.model_dir, settings)
+            result = run(self.seed, self.train_feature_file,
+                    self.test_feature_file, self.test_feat_data['name'],
+                    self.model_dir, settings)
             result = {'result': result}
             result.update(settings)
             results.append(result)
             # Write every iteration to be safe
-            write_results(self.seed, self.train_data['name'], self.train_feat_data['name'],
-                    self.test_feat_data['name'], self.model_dir, results)
+            write_results(self.metrics_file, self.seed, self.train_data['name'],
+                    self.train_feature_file, self.test_feature_file, self.model_dir, results)
 
-        return {
-                'loss': 0.0,
-                'status': STATUS_OK,
-                'exp_key': self.exp_key,
-                'seed': self.seed,
-                'train_data': self.train_data,
-                'train_feat_data': self.train_feat_data,
-                'test_feat_data': self.test_feat_data,
-                'model_dir': self.model_dir,
-                'results': results,
-                }
+        ret['loss'] = 0.0
+        ret['results'] = results
+        return ret
 
 
 

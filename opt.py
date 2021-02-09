@@ -17,9 +17,9 @@ def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
 
     parser.add_argument('--data', required=True,
-            help='data: TDW | DEBUG', type=str)
+            help='Check "physopt/data/__init__.py" for options', type=str)
     parser.add_argument('--model', required=True,
-            help='model: RPIN | SVG', type=str)
+            help='Check "physopt/models/__init__.py" for options', type=str)
     parser.add_argument('--output', default='/mnt/fs4/mrowca/hyperopt/',
             help='output directory', type=str)
     parser.add_argument('--host', default='localhost', help='mongo host', type=str)
