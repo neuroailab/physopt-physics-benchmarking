@@ -27,16 +27,16 @@ def get_Objective(model):
         from physopt.models.SVG import CLIPPretrainedFrozenObjective as SVGPretrainedFrozenCLIPObjective
         return SVGPretrainedFrozenCLIPObjective
     elif model == 'VGGFrozenMLP':
-        from  physopt.models.SVG_FROZEN import VGGFrozenMLPObjective
+        from  physopt.models.FROZEN import VGGFrozenMLPObjective
         return VGGFrozenMLPObjective
     elif model == 'VGGFrozenLSTM':
-        from  physopt.models.SVG_FROZEN import VGGFrozenLSTMObjective
+        from  physopt.models.FROZEN import VGGFrozenLSTMObjective
         return VGGFrozenLSTMObjective
     elif model == 'DEITFrozenMLP':
-        from  physopt.models.SVG_FROZEN import DEITFrozenMLPObjective
+        from  physopt.models.FROZEN import DEITFrozenMLPObjective
         return DEITFrozenMLPObjective
     elif model == 'DEITFrozenLSTM':
-        from  physopt.models.SVG_FROZEN import DEITFrozenLSTMObjective
+        from  physopt.models.FROZEN import DEITFrozenLSTMObjective
         return DEITFrozenLSTMObjective
     elif model == 'CSWM':
         from physopt.models.CSWM import Objective
