@@ -17,8 +17,9 @@ from op3.torch.data_management.dataset import BlocksDataset, CollideDataset, Col
 from op3.core import logger
 
 from physion.data.config import get_cfg_defaults
+from physopt.utils import PhysOptObjective
 
-from .SVG_FROZEN import get_label_key # TODO: hacky
+from .FROZEN import get_label_key # TODO: hacky
 
 def init_seed(seed): # TODO: move to utils in physion package?
     np.random.seed(seed)
@@ -121,13 +122,9 @@ def test_vae(variant):
         'binary_labels': binary_labels,
         }] # list of dicts
 
-    # save out features, TODO: move this to utils?
-    feat_path = os.path.join(variant['model_dir'], 'features', variant['name'])
-    if not os.path.exists(feat_path):
-        os.makedirs(feat_path, exist_ok=True)
-    feat_fn = os.path.join(feat_path, 'feat.pkl')
-    pickle.dump(extracted_feats, open(feat_fn, 'wb')) 
-    print('Saved features to {}'.format(feat_fn))
+    # save out features 
+    pickle.dump(extracted_feats, open(variant['feature_file'], 'wb')) 
+    print('Saved features to {}'.format(variant['feature_file']))
 
 def run(
     name,
@@ -135,13 +132,14 @@ def run(
     seed,
     model_dir,
     write_feat='',
+    feature_file=None,
     ):
     init_seed(seed)
 
     parser = ArgumentParser()
     parser.add_argument('-de', '--debug', type=int, default=1)  # Note: Change this to 0 to run on the entire dataset!
     parser.add_argument('-m', '--mode', type=str, default='here_no_doodad')  # Relevant options: 'here_no_doodad', 'local_docker', 'ec2'
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
 
     cfg = get_cfg_defaults()
     cfg.DATA.IMSIZE = 64
@@ -177,8 +175,8 @@ def run(
         debug=False,
         datapath=datasets,
         label_key=get_label_key(name),
-        model_dir=model_dir,
         model_file=os.path.join(model_dir, 'model.pt'),
+        feature_file=feature_file,
         name=name,
         data_cfg=data_cfg,
     )
@@ -203,30 +201,7 @@ def run(
             seed=None, # TODO
         )
 
-class Objective(): # TODO: create base Objective class
-    def __init__(self,
-            exp_key,
-            seed,
-            train_data,
-            feat_data,
-            output_dir,
-            extract_feat):
-        self.exp_key = exp_key
-        self.seed = seed
-        self.train_data = train_data
-        self.feat_data = feat_data
-        self.output_dir = output_dir
-        self.extract_feat = extract_feat
-        self.model_dir = self.get_model_dir()
-
-
-    def get_model_dir(self):
-        model_dir = os.path.join(self.output_dir, self.train_data['name'], str(self.seed), 'model')                                     
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir)
-        return model_dir
-               
-
+class Objective(PhysOptObjective):
     def __call__(self, *args, **kwargs):
         if self.extract_feat: # save out model features from trained model
             write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
@@ -236,6 +211,7 @@ class Objective(): # TODO: create base Objective class
                 seed=self.seed,
                 model_dir=self.model_dir,
                 write_feat=write_feat,
+                feature_file=self.feature_file,
                 ) # TODO: add args
 
         else: # run model training

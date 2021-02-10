@@ -6,6 +6,7 @@ import numpy as np
 import logging
 from hyperopt import STATUS_OK
 
+from physopt.utils import PhysOptObjective
 import frozen_physion.modules as modules
 from physion.data.pydata import TDWDataset, TDWHumanDataset
 from physion.data.config import get_cfg_defaults
@@ -83,6 +84,7 @@ def run(
     write_feat='',
     encoder='vgg',
     regressor='lstm',
+    feature_file=None,
     ):
     cfg = get_cfg_defaults()
     # TODO: merge_from_list here - shift, etc.
@@ -98,8 +100,8 @@ def run(
         'encoder': encoder,
         'regressor': regressor,
         'batch_size': 64,
-        'model_dir': model_dir,
         'model_file': model_file,
+        'feature_file': feature_file,
         'state_len': 4, # number of images as input
         'device': device,
         'data_cfg': data_cfg, # TODO: use merge_from_list/file method
@@ -217,15 +219,10 @@ def test(config):
                 'binary_labels': labels,
             })
 
-    # Save out features
-    feat_path = os.path.join(config['model_dir'], 'features', config['name'])
-    if not os.path.exists(feat_path):
-        os.makedirs(feat_path)
-    feat_fn = os.path.join(feat_path, 'feat.pkl')
-    pickle.dump(extracted_feats, open(feat_fn, 'wb')) 
-    print('Saved features to {}'.format(feat_fn))
+    pickle.dump(extracted_feats, open(config['feature_file'], 'wb')) 
+    print('Saved features to {}'.format(config['feature_file']))
 
-class Objective():
+class Objective(PhysOptObjective):
     def __init__(self,
             exp_key,
             seed,
@@ -236,22 +233,9 @@ class Objective():
             encoder,
             regressor,
             ):
-        self.exp_key = exp_key
-        self.seed = seed
-        self.train_data = train_data
-        self.feat_data = feat_data
-        self.output_dir = output_dir
-        self.extract_feat = extract_feat
-        self.model_dir = self.get_model_dir()
+        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat)
         self.encoder = encoder
         self.regressor = regressor
-
-
-    def get_model_dir(self):
-        model_dir = os.path.join(self.output_dir, self.train_data['name'], str(self.seed), 'model')
-        if not os.path.exists(model_dir):
-            os.makedirs(model_dir)
-        return model_dir
 
     def __call__(self, *args, **kwargs):
         if self.extract_feat: # save out model features from trained model
@@ -264,7 +248,8 @@ class Objective():
                 write_feat=write_feat,
                 encoder=self.encoder,
                 regressor=self.regressor,
-                ) # TODO: add args
+                feature_file=self.feature_file,
+                ) # TODO: combine args into (YACS) cfg?
 
         else: # run model training
             run(

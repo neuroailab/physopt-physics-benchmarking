@@ -14,7 +14,8 @@ import torch.nn.functional as F
 
 from cswm import modules, utils
 from physion.data.config import get_cfg_defaults
-from .SVG_FROZEN import get_label_key # TODO: hacky
+from physopt.utils import PhysOptObjective
+from .FROZEN import get_label_key # TODO: hacky
 
 def arg_parse():
     parser = argparse.ArgumentParser()
@@ -73,6 +74,7 @@ def run(
     seed,
     model_dir,
     write_feat='',
+    feature_file=None,
     ):
     args = arg_parse() # TODO: change to cfg obj?
     args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -85,9 +87,6 @@ def run(
     torch.manual_seed(args.seed)
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
-
-    if not os.path.exists(model_dir):
-        os.makedirs(model_dir)
 
     model_file = os.path.join(model_dir, 'model.pt')
     meta_file = os.path.join(model_dir, 'metadata.pkl')
@@ -105,8 +104,8 @@ def run(
     config = {
         'name': name,
         'datapaths': datasets,
-        'model_dir': model_dir,
         'model_file': model_file,
+        'feature_file': feature_file,
         'data_cfg': cfg.DATA,
     }
 
@@ -321,37 +320,13 @@ def test(args, config):
             })
 
         # save out features, TODO: move this to utils?
-        feat_path = os.path.join(config['model_dir'], 'features', config['name'])
-        if not os.path.exists(feat_path):
-            os.makedirs(feat_path, exist_ok=True)
-        feat_fn = os.path.join(feat_path, 'feat.pkl')
-        pickle.dump(extracted_feats, open(feat_fn, 'wb')) 
-        print('Saved features to {}'.format(feat_fn))
+        pickle.dump(extracted_feats, open(config['feature_file'], 'wb')) 
+        print('Saved features to {}'.format(config['feature_file']))
 
 def _state_copy_helper(states, state_len):
     return states[:1]*state_len + states[1:]
 
-class Objective():
-    def __init__(self,
-            exp_key,
-            seed,
-            train_data,
-            feat_data,
-            output_dir,
-            extract_feat):
-        self.exp_key = exp_key
-        self.seed = seed
-        self.train_data = train_data
-        self.feat_data = feat_data
-        self.output_dir = output_dir
-        self.extract_feat = extract_feat
-        self.model_dir = self.get_model_dir()
-
-
-    def get_model_dir(self):
-        return os.path.join(self.output_dir, self.train_data['name'],
-                str(self.seed), 'model')
-
+class Objective(PhysOptObjective):
     def __call__(self, *args, **kwargs):
         if self.extract_feat: # save out model features from trained model
             write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
@@ -361,6 +336,7 @@ class Objective():
                 seed=self.seed,
                 model_dir=self.model_dir,
                 write_feat=write_feat,
+                feature_file=self.feature_file,
                 ) # TODO: add args
 
         else: # run model training
