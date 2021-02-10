@@ -93,18 +93,24 @@ class PhysOptObjective():
             self.metrics_file = self.get_metrics_file(self.model_dir,
                     self.test_feat_data['name'])
 
+    @staticmethod
+    def get_model_dir(output_dir, train_name, seed):
+        model_dir = os.path.join(output_dir, train_name, str(seed), 'model/')
+        _create_dir(model_dir)
+        return model_dir
 
-    def get_model_dir(self, output_dir, train_name, seed):
-        return os.path.join(output_dir, train_name, str(seed), 'model')
+    @staticmethod
+    def get_feature_file(model_dir, test_name):
+        feature_file = os.path.join(model_dir, 'features', test_name, 'feat.pkl')
+        _create_dir(feature_file)
+        return feature_file
 
 
-    def get_feature_file(self, model_dir, test_name):
-        return os.path.join(model_dir, 'features', test_name, 'feat.pkl')
-
-
-    def get_metrics_file(self, model_dir, test_name):
-        return os.path.join(model_dir, 'features', test_name, 'metrics_results.pkl')
-
+    @staticmethod
+    def get_metrics_file(model_dir, test_name):
+        metrics_file = os.path.join(model_dir, 'features', test_name, 'metrics_results.pkl')
+        _create_dir(metrics_file)
+        return metrics_file
 
     def __call__(self, *args, **kwargs):
         ret = {
@@ -124,3 +130,30 @@ class PhysOptObjective():
                 ret[k] = getattr(self, k)
 
         return ret
+
+def _create_dir(path): # creates dir from path or filename, if doesn't exist
+    dirname, basename = os.path.split(path)
+    assert '.' in basename if basename else True, 'Are you sure filename is "{}", or should it be a dir'.format(basename) # checks that basename has file-extension
+    if not os.path.exists(dirname):
+        try:
+            os.makedirs(dirname)
+        except OSError as exc: # Guard against race condition
+            if exc.errno != errno.EEXIST:
+                raise
+
+if __name__ == '__main__':
+    # ---PhysOptObjective tests---
+
+    # ------dir and files---------
+    output_dir = '/mnt/fs4/eliwang/'
+    model_dir = PhysOptObjective.get_model_dir(output_dir, 'train_name', 0)
+    assert os.path.exists(model_dir)
+    print('Model dir: {}'.format(model_dir))
+
+    feature_file = PhysOptObjective.get_feature_file(model_dir, 'test_name')
+    assert os.path.exists(os.path.dirname(feature_file))
+    print('Feature file: {}'.format(feature_file))
+
+    metrics_file = PhysOptObjective.get_metrics_file(model_dir, 'test_name')
+    assert os.path.exists(os.path.dirname(metrics_file))
+    print('Metrics file: {}'.format(metrics_file))
