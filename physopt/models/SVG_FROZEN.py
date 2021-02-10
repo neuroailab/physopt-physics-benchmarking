@@ -81,22 +81,22 @@ def run(
     seed,
     model_dir,
     write_feat='',
+    encoder='vgg',
+    regressor='lstm',
     ):
     cfg = get_cfg_defaults()
     # TODO: merge_from_list here - shift, etc.
     cfg.freeze()
     data_cfg = cfg.DATA
 
-    print(name, datasets, model_dir)
+    print(name, datasets, model_dir, encoder, regressor)
     model_file = os.path.join(model_dir, 'model.pt')
     device = torch.device('cpu') # TODO
     config = {
         'name': name,
         'datapaths': datasets,
-        # 'encoder': 'deit',
-        'encoder': 'vgg',
-        # 'regressor': 'lstm',
-        'regressor': 'mlp',
+        'encoder': encoder,
+        'regressor': regressor,
         'batch_size': 64,
         'model_dir': model_dir,
         'model_file': model_file,
@@ -232,7 +232,10 @@ class Objective():
             train_data,
             feat_data,
             output_dir,
-            extract_feat):
+            extract_feat,
+            encoder,
+            regressor,
+            ):
         self.exp_key = exp_key
         self.seed = seed
         self.train_data = train_data
@@ -240,6 +243,8 @@ class Objective():
         self.output_dir = output_dir
         self.extract_feat = extract_feat
         self.model_dir = self.get_model_dir()
+        self.encoder = encoder
+        self.regressor = regressor
 
 
     def get_model_dir(self):
@@ -257,6 +262,8 @@ class Objective():
                 seed=self.seed,
                 model_dir=self.model_dir,
                 write_feat=write_feat,
+                encoder=self.encoder,
+                regressor=self.regressor,
                 ) # TODO: add args
 
         else: # run model training
@@ -265,6 +272,8 @@ class Objective():
                 datasets=self.train_data['data'],
                 seed=self.seed,
                 model_dir=self.model_dir,
+                encoder=self.encoder,
+                regressor=self.regressor,
                 ) # TODO: add args
 
         return {
@@ -276,3 +285,19 @@ class Objective():
                 'feat_data': self.feat_data,
                 'model_dir': self.model_dir,
                 }
+
+class VGGFrozenMLPObjective(Objective):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, encoder='vgg', regressor='mlp')
+
+class VGGFrozenLSTMObjective(Objective):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, encoder='vgg', regressor='lstm')
+
+class DEITFrozenMLPObjective(Objective):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, encoder='deit', regressor='mlp')
+
+class DEITFrozenLSTMObjective(Objective):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs, encoder='deit', regressor='lstm')
