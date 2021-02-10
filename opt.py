@@ -1,4 +1,5 @@
 import os
+import getpass
 import itertools
 from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
@@ -20,7 +21,7 @@ def arg_parse():
             help='Check "physopt/data/__init__.py" for options', type=str)
     parser.add_argument('-M', '--model', required=True,
             help='Check "physopt/models/__init__.py" for options', type=str)
-    parser.add_argument('-O', '--output', default='/mnt/fs4/mrowca/hyperopt/',
+    parser.add_argument('-O', '--output', default='/mnt/fs4/{}/hyperopt/',
             help='output directory', type=str)
     parser.add_argument('--host', default='localhost', help='mongo host', type=str)
     parser.add_argument('--port', default='25555', help='mongo port', type=str)
@@ -31,6 +32,7 @@ def arg_parse():
 
 
 def get_output_directory(output_dir, model):
+    output_dir = output_dir.format(getpass.getuser()) # fill in current username into path
     return os.path.join(output_dir, model)
 
 
