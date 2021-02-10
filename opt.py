@@ -4,13 +4,11 @@ from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
-from utils import MultiAttempt
 
-from space.tdw_space import TRAIN_FEAT_SPACE, HUMAN_FEAT_SPACE, METRICS_SPACE
-from search.grid_search import suggest
-import metrics.physics.test_metrics as test_metrics
-
-import pdb
+from physopt.utils import MultiAttempt
+from physopt.models import get_Objective
+from physopt.data import get_data_space
+from physopt.search.grid_search import suggest
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])
 
@@ -18,9 +16,11 @@ NO_PARAM_SPACE = hp.choice('dummy', [0])
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
 
-    parser.add_argument('-m', '--model', required=True,
-            help='model: RPIN | SVG', type=str)
-    parser.add_argument('--output', default='/mnt/fs4/eliwang/hyperopt/',
+    parser.add_argument('-D', '--data', required=True,
+            help='Check "physopt/data/__init__.py" for options', type=str)
+    parser.add_argument('-M', '--model', required=True,
+            help='Check "physopt/models/__init__.py" for options', type=str)
+    parser.add_argument('-O', '--output', default='/mnt/fs4/mrowca/hyperopt/',
             help='output directory', type=str)
     parser.add_argument('--host', default='localhost', help='mongo host', type=str)
     parser.add_argument('--port', default='25555', help='mongo port', type=str)
@@ -28,29 +28,6 @@ def arg_parse():
     parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
 
     return parser.parse_args()
-
-
-def get_Objective(model):
-    # import from _models to avoid collision with models in hubconf.py
-    if model == 'metrics':
-        return test_metrics.Objective
-    elif model == 'RPIN':
-        from _models.RPIN import Objective as RPINObjective
-        return RPINObjective
-    elif model == 'SVG':
-        from _models.SVG import VGGObjective as SVGObjective
-        return SVGObjective
-    elif model == 'CSWM':
-        from _models.CSWM import Objective as CSWMObjective
-        return CSWMObjective
-    elif model == 'SVG_FROZEN':
-        from _models.SVG_FROZEN import Objective as SVGFObjective
-        return SVGFObjective
-    elif model == 'OP3':
-        from _models.OP3 import Objective as OP3Objective
-        return OP3Objective
-    else:
-        raise ValueError('Unknown model: {0}'.format(model))
 
 
 def get_output_directory(output_dir, model):
@@ -61,9 +38,10 @@ def get_mongo_path(host, port, database):
     return 'mongo://{0}:{1}/{2}/jobs'.format(host, port, database)
 
 
-def get_exp_key(seed, train_data, feat_data, suffix=''):
+def get_exp_key(model, seed, train_data, feat_data, suffix=''):
     feat_data = feat_data if isinstance(feat_data, dict) else feat_data[-1]
-    return '{0}_{1}_{2}_{3}'.format(seed, train_data['name'], feat_data['name'], suffix)
+    return '{0}_{1}_{2}_{3}_{4}'.format(model, seed, train_data['name'],
+            feat_data['name'], suffix)
 
 
 def run(
@@ -82,9 +60,7 @@ def run(
 
     def run_once(data):
         seed, train_data, feat_data = data
-        if isinstance(train_data, tuple):
-            print(train_data)
-        exp_key = get_exp_key(seed, train_data, feat_data, exp_key_suffix)
+        exp_key = get_exp_key(model, seed, train_data, feat_data, exp_key_suffix)
         print("Experiment: {0}".format(exp_key))
 
         trials = Trials()
@@ -131,45 +107,74 @@ def compute_metrics(*args, **kwargs):
     return run(*args, **kwargs, compute_metrics = True)
 
 
-def main():
-    args = arg_parse()
 
-    output_dir = get_output_directory(args.output, args.model)
-    mongo_path = get_mongo_path(args.host, args.port, args.database)
-    pool = Pool(args.num_threads) if args.num_threads > 1 else None
+class OptimizationPipeline():
+    def __init__(self, args = None):
+        args = arg_parse() if not args else args
 
-    print('Training models on data subsets...')
-    train_model(args.model, TRAIN_FEAT_SPACE, output_dir,
-            mongo_path, exp_key_suffix = 'train',
-            multiprocessing_pool = pool,
-            )
-    print('...all models trained!')
+        self.data = get_data_space(args.data)
+        self.model = args.model
+        self.output_dir = get_output_directory(args.output, args.model)
+        self.mongo_path = get_mongo_path(args.host, args.port, args.database)
+        self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
 
-    print('Extracting train features...')
-    extract_features(args.model, TRAIN_FEAT_SPACE, output_dir,
-            mongo_path, exp_key_suffix = 'train_feat',
-            multiprocessing_pool = pool,
-            )
-    print('...all train features extracted!')
 
-    print('Extracting test features...')
-    extract_features(args.model, HUMAN_FEAT_SPACE, output_dir,
-            mongo_path, exp_key_suffix = 'human_feat',
-            multiprocessing_pool = pool,
-            )
-    print('...all test features extracted!')
+    def __del__(self):
+        self.close()
 
-    print('Computing metrics...')
-    compute_metrics(args.model, METRICS_SPACE, output_dir,
-            mongo_path, exp_key_suffix = 'metrics',
-            multiprocessing_pool = pool,
-            )
-    print('...all metrics computed!')
 
-    if pool:
-        pool.close()
-        pool.join()
+    def train_model(self, exp_key_suffix = 'train'):
+        print('Training models on data subsets...')
+        train_model(self.model, self.data['train_feat'], self.output_dir,
+                self.mongo_path, exp_key_suffix = exp_key_suffix,
+                multiprocessing_pool = self.pool,
+                )
+        print('...all models trained!')
+
+
+    def extract_train_features(self, exp_key_suffix = 'train_feat'):
+        print('Extracting train features...')
+        extract_features(self.model, self.data['train_feat'], self.output_dir,
+                self.mongo_path, exp_key_suffix = exp_key_suffix,
+                multiprocessing_pool = self.pool,
+                )
+        print('...all train features extracted!')
+
+
+    def extract_test_features(self, exp_key_suffix = 'human_feat'):
+        print('Extracting test features...')
+        extract_features(self.model, self.data['test_feat'], self.output_dir,
+                self.mongo_path, exp_key_suffix = exp_key_suffix,
+                multiprocessing_pool = self.pool,
+                )
+        print('...all test features extracted!')
+
+
+    def compute_metrics(self, exp_key_suffix = 'metrics'):
+        print('Computing metrics...')
+        compute_metrics(self.model, self.data['metrics'], self.output_dir,
+                self.mongo_path, exp_key_suffix = exp_key_suffix,
+                multiprocessing_pool = self.pool,
+                )
+        print('...all metrics computed!')
+
+
+    def run(self):
+        self.train_model()
+        self.extract_train_features()
+        self.extract_test_features()
+        self.compute_metrics()
+        self.close()
+
+
+    def close(self):
+        if self.pool:
+            self.pool.close()
+            self.pool.join()
+
 
 
 if __name__ == '__main__':
-    main()
+    args = arg_parse()
+    pipeline = OptimizationPipeline(args)
+    pipeline.run()

@@ -1,5 +1,5 @@
 import os
-from space.data_space import get_all_subsets
+from physopt.data.data_space import get_all_subsets, construct_data_spaces
 
 
 
@@ -30,14 +30,12 @@ _HUMAN_ROLL_SLIDE = {'name': 'human_roll_slide', 'data': [HUMAN['slide_roll']]}
 # Spaces
 SEEDS = list(range(_NUM_SEEDS))
 
-EMPTY_DATA = [{'name': '', 'data': []}]
-
 TRAIN_DATA = get_all_subsets([_CLOTH, _COLLIDE, _CONTAIN, _TOWER, _ROLL_SLIDE])
 #TRAIN_DATA += [_RANDOM]
 
-TEST_FEAT_DATA = [_CLOTH, _COLLIDE, _CONTAIN, _ROLL_SLIDE, _TOWER]
+TRAIN_FEAT_DATA = [_CLOTH, _COLLIDE, _CONTAIN, _ROLL_SLIDE, _TOWER]
 
-HUMAN_FEAT_DATA = [_HUMAN_CLOTH, _HUMAN_COLLIDE_0, _HUMAN_COLLIDE_1,
+TEST_FEAT_DATA = [_HUMAN_CLOTH, _HUMAN_COLLIDE_0, _HUMAN_COLLIDE_1,
     _HUMAN_CONTAIN, _HUMAN_ROLL_SLIDE, _HUMAN_TOWER]
 
 METRICS_DATA = [
@@ -49,17 +47,4 @@ METRICS_DATA = [
         (_TOWER, _HUMAN_TOWER),
         ]
 
-### Debug settings
-SEEDS = [0]
-TRAIN_DATA = [_CLOTH]
-TEST_FEAT_DATA = [_CLOTH]
-HUMAN_FEAT_DATA = [_HUMAN_CLOTH]
-METRICS_DATA = [(_CLOTH, _HUMAN_CLOTH)]
-# METRICS_DATA = [(_CLOTH, _CLOTH)]
-### END
-
-TRAIN_SPACE = (SEEDS, TRAIN_DATA, EMPTY_DATA)
-TRAIN_FEAT_SPACE = (SEEDS, TRAIN_DATA, TEST_FEAT_DATA)
-HUMAN_FEAT_SPACE = (SEEDS, TRAIN_DATA, HUMAN_FEAT_DATA)
-
-METRICS_SPACE = (SEEDS, TRAIN_DATA, METRICS_DATA)
+SPACE = construct_data_spaces(SEEDS, TRAIN_DATA, TRAIN_FEAT_DATA, TEST_FEAT_DATA, METRICS_DATA)

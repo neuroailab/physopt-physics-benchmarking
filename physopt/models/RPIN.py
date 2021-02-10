@@ -12,7 +12,7 @@ from neuralphys.utils.logger import setup_logger, git_diff_config
 from neuralphys.models import *
 from neuralphys.models import rpin
 from neuralphys.trainer import Trainer
-from hyperopt import STATUS_OK
+from physopt.utils import PhysOptObjective
 
 
 def arg_parse():
@@ -120,13 +120,12 @@ def get_shift_selector(subsets):
 
 
 def run(
-        train_name = 'collide',
         datasets = ['collide2_new'],
         seed = 0,
         data_root = '/mnt/fs4/mrowca/neurips/images/rigid',
         model_dir = '/mnt/fs4/mrowca/hyperopt/rpin/default/0/model',
+        feature_file = '/mnt/fs4/mrowca/hyperopt/rpin/default/0/model/features/default/feat.pkl',
         write_feat = '',
-        test_name = 'default',
         ):
     # the wrapper file contains:
     # 1. setup environment
@@ -177,13 +176,13 @@ def run(
         os.makedirs(model_dir, exist_ok=True)
 
     if write_feat:
-        test(args, model_dir, test_name)
+        test(args, model_dir, feature_file)
     else:
-        train(args, model_dir, train_name, num_gpus)
+        train(args, model_dir, num_gpus)
     return
 
 
-def train(args, output_dir, train_name, num_gpus):
+def train(args, output_dir, num_gpus):
     from neuralphys.datasets.tdw import TDWPhys as PyPhys
     # TODO Changed this to 4 + 6 frame prediction
     C['RPIN']['INPUT_SIZE'] = 4
@@ -254,9 +253,9 @@ def train(args, output_dir, train_name, num_gpus):
     #    raise
 
 
-def test(args, model_dir, test_name):
+def test(args, model_dir, feature_file):
     from neuralphys.evaluator_feat import PredEvaluator
-    if 'human' in test_name:
+    if 'human' in feature_file:
         from neuralphys.datasets.tdw_human import TDWPhys as PyPhys
     else:
         from neuralphys.datasets.tdw_feat import TDWPhys as PyPhys
@@ -264,9 +263,8 @@ def test(args, model_dir, test_name):
     C['RPIN']['PRED_SIZE_TRAIN'] = 5
     C['RPIN']['PRED_SIZE_TEST'] = 5
 
-    output_dir = os.path.join(model_dir, 'features', test_name)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir, exist_ok=True)
+    if not os.path.exists(os.path.dirname(feature_file)):
+        os.makedirs(os.path.dirname(feature_file), exist_ok=True)
 
     # --- setup data loader
     print('initialize dataset')
@@ -288,7 +286,7 @@ def test(args, model_dir, test_name):
         val_loader=val_loader,
         num_gpus=1,
         model=model,
-        output_dir=output_dir,
+        output_dir=os.path.dirname(feature_file),
         use_old_path=False,
     )
     tester.test()
@@ -296,7 +294,7 @@ def test(args, model_dir, test_name):
 
 
 
-class Objective():
+class Objective(PhysOptObjective):
     def __init__(self,
             exp_key,
             seed,
@@ -304,41 +302,24 @@ class Objective():
             feat_data,
             output_dir,
             extract_feat):
-        self.exp_key = exp_key
-        self.seed = seed
-        self.train_data = train_data
-        self.feat_data = feat_data
-        self.output_dir = output_dir
-        self.extract_feat = extract_feat
-        self.model_dir = self.get_model_dir()
-
-
-    def get_model_dir(self):
-        return os.path.join(self.output_dir, self.train_data['name'],
-                str(self.seed), 'model')
+        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat)
 
 
     def __call__(self, *args, **kwargs):
+        results = super().__call__()
         if self.extract_feat:
             write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
-            run(train_name=self.train_data['name'], test_name=self.feat_data['name'],
-                    datasets=self.feat_data['data'], seed=self.seed, data_root='',
-                    model_dir=self.model_dir, write_feat=write_feat)
+            run(datasets=self.feat_data['data'], seed=self.seed, data_root='',
+                    model_dir=self.model_dir, feature_file=self.feature_file,
+                    write_feat=write_feat)
 
         else:
-            run(train_name=self.train_data['name'], test_name=self.feat_data['name'],
-                    datasets=self.train_data['data'], seed=self.seed, data_root='',
-                    model_dir=self.model_dir, write_feat='')
+            run(datasets=self.train_data['data'], seed=self.seed, data_root='',
+                    model_dir=self.model_dir, feature_file=self.feature_file,
+                    write_feat='')
 
-        return {
-                'loss': 0.0,
-                'status': STATUS_OK,
-                'exp_key': self.exp_key,
-                'seed': self.seed,
-                'train_data': self.train_data,
-                'feat_data': self.feat_data,
-                'model_dir': self.model_dir,
-                }
+        results['loss'] = 0.0
+        return results
 
 
 

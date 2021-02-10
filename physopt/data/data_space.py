@@ -3,6 +3,9 @@ import os
 # Each subset is defined as a dict('name': NAME, 'data': DATA), where
 # NAME = str, DATA = list(subset_paths)
 
+EMPTY_DATA = [{'name': '', 'data': []}]
+
+
 # All subsets combined
 def get_combined_subset(subsets):
     return {'name': 'all', 'data': [s for subset in subsets for s in subset['data']]}
@@ -28,3 +31,19 @@ def get_all_subsets(subsets):
     else:
         all_subsets = subsets
     return all_subsets
+
+
+def construct_extraction_space(seeds, train_data, feat_data):
+    return (seeds, train_data, feat_data)
+
+
+def construct_metrics_space(seeds, train_data, metrics_data):
+    return (seeds, train_data, metrics_data)
+
+
+def construct_data_spaces(seeds, train_data, train_feat_data, test_feat_data, metrics_data):
+    spaces = {}
+    spaces['train_feat'] = construct_extraction_space(seeds, train_data, train_feat_data)
+    spaces['test_feat'] = construct_extraction_space(seeds, train_data, test_feat_data)
+    spaces['metrics'] = construct_metrics_space(seeds, train_data, metrics_data)
+    return spaces

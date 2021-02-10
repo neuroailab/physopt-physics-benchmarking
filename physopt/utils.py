@@ -3,7 +3,9 @@ import traceback
 import tempfile
 import time
 from datetime import datetime
-from hyperopt import STATUS_FAIL
+from hyperopt import STATUS_OK, STATUS_FAIL
+
+
 
 class MultiAttempt():
     def __init__(self, func, max_attempts=10):
@@ -56,3 +58,69 @@ class MultiAttempt():
             f.write(traceback.format_exc())
             f.write('\n\n')
         print("Stack trace written to %s" % self.log_file)
+
+
+
+class PhysOptObjective():
+    def __init__(self,
+            exp_key,
+            seed,
+            train_data,
+            feat_data,
+            output_dir,
+            extract_feat):
+        self.exp_key = exp_key
+        self.seed = seed
+        self.train_data = train_data
+        self.output_dir = output_dir
+        self.extract_feat = extract_feat
+        self.model_dir = self.get_model_dir(self.output_dir,
+                self.train_data['name'], self.seed)
+
+        if isinstance(feat_data, dict):
+            # feature data space
+            self.feat_data = feat_data
+            self.feature_file = self.get_feature_file(self.model_dir,
+                    self.feat_data['name'])
+        else:
+            # metrics data space
+            self.train_feat_data = feat_data[0]
+            self.test_feat_data = feat_data[1]
+            self.train_feature_file = self.get_feature_file(self.model_dir,
+                    self.train_feat_data['name'])
+            self.test_feature_file = self.get_feature_file(self.model_dir,
+                    self.test_feat_data['name'])
+            self.metrics_file = self.get_metrics_file(self.model_dir,
+                    self.test_feat_data['name'])
+
+
+    def get_model_dir(self, output_dir, train_name, seed):
+        return os.path.join(output_dir, train_name, str(seed), 'model')
+
+
+    def get_feature_file(self, model_dir, test_name):
+        return os.path.join(model_dir, 'features', test_name, 'feat.pkl')
+
+
+    def get_metrics_file(self, model_dir, test_name):
+        return os.path.join(model_dir, 'features', test_name, 'metrics_results.pkl')
+
+
+    def __call__(self, *args, **kwargs):
+        ret = {
+                'loss': 0.0,
+                'status': STATUS_OK,
+                'exp_key': self.exp_key,
+                'seed': self.seed,
+                'train_data': self.train_data,
+                'output_dir': self.output_dir,
+                'extract_feat': self.extract_feat,
+                'model_dir': self.model_dir,
+                }
+
+        for k in ['feat_data', 'train_feat_data', 'test_feat_data',
+                'feature_file', 'train_feature_file', 'test_feature_file', 'metrics_file']:
+            if hasattr(self, k):
+                ret[k] = getattr(self, k)
+
+        return ret
