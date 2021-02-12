@@ -13,9 +13,9 @@ from torch.utils import data
 import torch.nn.functional as F
 
 from cswm import modules, utils
-from physion.data.config import get_cfg_defaults
+from physion.data.config import get_data_cfg
+from physion.utils import init_seed, get_subsets_from_datasets
 from physopt.utils import PhysOptObjective
-from .FROZEN import get_label_key # TODO: hacky
 
 def arg_parse():
     parser = argparse.ArgumentParser()
@@ -81,7 +81,7 @@ def run(
 
     # overwrite args
     args.seed = seed if not write_feat else 0
-    args.epochs = 5
+    args.epochs = 1
 
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -98,15 +98,16 @@ def run(
     logger.addHandler(logging.FileHandler(log_file, 'a'))
     print = logger.info
 
-    cfg = get_cfg_defaults()
+    subsets = get_subsets_from_datasets(datasets)
+    data_cfg = get_data_cfg(subsets, debug=True) # TODO: use subsets to get cfg instead?
     #  TODO: change imsize?
-    cfg.freeze()
+    data_cfg.freeze()
     config = {
         'name': name,
         'datapaths': datasets,
         'model_file': model_file,
         'feature_file': feature_file,
-        'data_cfg': cfg.DATA,
+        'data_cfg': data_cfg,
     }
 
     if write_feat:
@@ -119,9 +120,7 @@ def train(args, config):
     device = torch.device('cuda' if args.cuda else 'cpu')
     dataset = utils.TDWDataset(
         data_root=config['datapaths'],
-        label_key='object_data', # TODO: just use object_data here since it doesn't really matter
         data_cfg=config['data_cfg'],
-        # size=100, # TODO
         )
     train_loader = data.DataLoader(
         dataset, batch_size=args.batch_size, shuffle=True)
@@ -237,16 +236,13 @@ def test(args, config):
     if 'human' in config['name']:
         dataset = utils.TDWHumanDataset(
             data_root=config['datapaths'],
-            label_key=get_label_key(config['name']),
             data_cfg=config['data_cfg'],
             )
     else:
         dataset = utils.TDWDataset(
             data_root=config['datapaths'],
-            label_key=get_label_key(config['name']),
             data_cfg=config['data_cfg'],
-            train=False, # TODO: this should actually still be true, since we want to extract features from the training set
-            size=100, # TODO
+            train=True, # TODO: this is True since we want to extract features from the training set
             )
     eval_loader = data.DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
 

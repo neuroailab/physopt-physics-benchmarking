@@ -16,21 +16,15 @@ from op3.torch.op3_modules.op3_trainer import TrainingScheduler, OP3Trainer
 from op3.torch.data_management.dataset import BlocksDataset, CollideDataset, CollideHumanDataset # TODO: rename collide
 from op3.core import logger
 
-from physion.data.config import get_cfg_defaults
+from physion.data.config import get_data_cfg
+from physion.utils import init_seed, get_subsets_from_datasets
 from physopt.utils import PhysOptObjective
 
-from .FROZEN import get_label_key # TODO: hacky
-
-def init_seed(seed): # TODO: move to utils in physion package?
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-
-def load_dataset(data_path, label_key, data_cfg, train=True, size=None, batchsize=8, human=False):
+def load_dataset(data_path, data_cfg, train=True, batchsize=8, human=False):
     if human:
-        tf_dataset = CollideHumanDataset(data_path, label_key, data_cfg)
+        tf_dataset = CollideHumanDataset(data_path, data_cfg)
     else:
-        tf_dataset = CollideDataset(data_path, label_key, data_cfg, size=size, train=train)
+        tf_dataset = CollideDataset(data_path, data_cfg, train=train)
     dataset = BlocksDataset(tf_dataset, batchsize=batchsize, shuffle=True) # basically only acts as a wrapper for creating dataloader from dataset and set action_dim
     T = dataset.dataset.seq_len
     print('Dataset Size: {}'.format(len(dataset.dataset)))
@@ -41,12 +35,10 @@ def train_vae(variant):
     ######Dataset loading######
     datapaths = variant['datapath']
     bs = variant['training_args']['batch_size']
-    train_size = 100 if variant['debug'] == 1 else None
-    label_key = 'object_data' # TODO: unused for training
     data_cfg = variant['data_cfg']
 
-    train_dataset, max_T = load_dataset(datapaths, label_key, data_cfg, train=True, batchsize=bs, size=train_size)
-    test_dataset, _ = load_dataset(datapaths, label_key, data_cfg, train=False, batchsize=bs, size=100)
+    train_dataset, max_T = load_dataset(datapaths, data_cfg, train=True, batchsize=bs)
+    test_dataset, _ = load_dataset(datapaths, data_cfg, train=False, batchsize=bs)
     print(logger.get_snapshot_dir())
 
     ######Model loading######
@@ -81,14 +73,11 @@ def test_vae(variant):
     ######Dataset loading######
     datapaths = variant['datapath']
     bs = 2 # variant['training_args']['batch_size'] TODO: reduce gpu memory usage
-    train_size = 10 # TODO: size should just be set based on actualy dataset size
-    test_size = 10 # TODO
-    label_key = variant['label_key']
     data_cfg = variant['data_cfg']
 
     human = 'human' in variant['name']
-    train_dataset, max_T = load_dataset(datapaths, label_key, data_cfg, train=True, batchsize=bs, size=train_size, human=human)
-    test_dataset, _ = load_dataset(datapaths, label_key, data_cfg, train=False, batchsize=bs, size=test_size, human=human)
+    train_dataset, max_T = load_dataset(datapaths, data_cfg, train=True, batchsize=bs, human=human)
+    test_dataset, _ = load_dataset(datapaths, data_cfg, train=False, batchsize=bs, human=human)
     print(logger.get_snapshot_dir())
 
     ######Model loading######
@@ -114,7 +103,7 @@ def test_vae(variant):
     t = OP3Trainer(train_dataset, test_dataset, m, scheduler, **variant["training_args"])
 
     # extracts feature from training dataset
-    rollout_hidden_states, encoded_hidden_states, binary_labels = t.test_discriminative_epoch(train=True, batches=train_size//bs) # (N*B, T*K*R)
+    rollout_hidden_states, encoded_hidden_states, binary_labels = t.test_discriminative_epoch(train=True, batches=len(train_dataset.dataset)//bs) # (N*B, T*K*R) TODO: assumes we're computing features on train dataset
     print('Num samples:{}'.format(binary_labels.shape[0]))
     extracted_feats = [{
         'rollout_states': rollout_hidden_states,
@@ -141,10 +130,10 @@ def run(
     parser.add_argument('-m', '--mode', type=str, default='here_no_doodad')  # Relevant options: 'here_no_doodad', 'local_docker', 'ec2'
     args, _ = parser.parse_known_args()
 
-    cfg = get_cfg_defaults()
-    cfg.DATA.IMSIZE = 64
-    cfg.freeze()
-    data_cfg = cfg.DATA
+    subsets = get_subsets_from_datasets(datasets)
+    data_cfg = get_data_cfg(subsets, debug=True) # TODO: use subsets to get cfg instead?
+    data_cfg.IMSIZE = 64
+    data_cfg.freeze()
     
     variant = dict( # TODO
         op3_args=dict(
@@ -169,12 +158,11 @@ def run(
             batch_size=16,  # TODO: Change to appropriate constant based off dataset size
             lr=3e-4,
         ),
-        num_epochs=300,
+        num_epochs=1,
         save_period=1,
         dataparallel=True, # Use multiple GPUs?
         debug=False,
         datapath=datasets,
-        label_key=get_label_key(name),
         model_file=os.path.join(model_dir, 'model.pt'),
         feature_file=feature_file,
         name=name,

@@ -10,6 +10,7 @@ from physopt.utils import PhysOptObjective
 import frozen_physion.modules as modules
 from physion.data.pydata import TDWDataset, TDWHumanDataset
 from physion.data.config import get_data_cfg
+from physion.utils import init_seed, get_subsets_from_datasets
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn 
@@ -28,7 +29,7 @@ def run(
     regressor='lstm',
     feature_file=None,
     ):
-    subsets = get_subsets_from_datasets(datsets)
+    subsets = get_subsets_from_datasets(datasets)
     data_cfg = get_data_cfg(subsets, debug=True) # TODO: use subsets to get cfg instead?
     data_cfg.freeze()
     print(subsets, data_cfg)
@@ -55,16 +56,6 @@ def run(
         test(config)
     else:
         train(config)
-
-def get_subsets_from_datasets(datasets):
-    assert isinstance(datasets, list)
-    return [subset.split("/")[-1] for subset in datasets]
-    
-
-def init_seed(seed): # TODO: move to utils in physion package?
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
 
 def get_model(regressor, encoder):
     if regressor == 'mlp':
