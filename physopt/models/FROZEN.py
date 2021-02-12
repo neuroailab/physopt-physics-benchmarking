@@ -9,7 +9,7 @@ from hyperopt import STATUS_OK
 from physopt.utils import PhysOptObjective
 import frozen_physion.modules as modules
 from physion.data.pydata import TDWDataset, TDWHumanDataset
-from physion.data.config import get_cfg_defaults
+from physion.data.config import get_data_cfg
 from torch.utils.data import DataLoader
 import torch
 import torch.nn as nn 
@@ -17,64 +17,6 @@ import torch.optim as optim
 import tensorflow as tf
 
 TRAIN_EPOCHS = 1
-
-# TODO: move these into default cfg?
-COLLIDE_CONFIG = {
-        'binary_labels': ['is_colliding_dynamic'],
-        'train_shift': [30, 1024, 1],
-        'train_len': 32470,
-        'test_shift': [30, 1024, 16],
-        'test_len': 62,
-        }
-
-TOWER_CONFIG = {
-        'binary_labels': ['is_stable'],
-        'train_shift': [0, 1024, 1],
-        'train_len': 63360,
-        'test_shift': [2, 1024, 32],
-        'test_len': 384,
-        }
-
-CONTAIN_CONFIG = {
-        'binary_labels': ['object_data'],
-        'train_shift': [30, 1024, 1],
-        'train_len': 36355,
-        'test_shift': [30, 1024, 16],
-        'test_len': 28,
-        }
-
-CLOTH_CONFIG = {
-        'binary_labels': ['object_category'],
-        'train_shift': [0, 1024, 1],
-        'train_len': 63360,
-        'test_shift': [2, 1024, 64],
-        'test_len': 192,
-        }
-
-ROLL_VS_SLIDE_CONFIG = {
-        'binary_labels': ['is_rolling'],
-        'train_shift': [32, 1024, 1],
-        'train_len': 74572 // 4,
-        'test_shift': [32, 1024, 64],
-        'test_len': 320 // 4,
-        }
-
-
-def get_config(subset):
-    if 'collide' in subset:
-        return COLLIDE_CONFIG
-    elif 'tower' in subset:
-        return TOWER_CONFIG
-    elif 'contain' in subset:
-        return CONTAIN_CONFIG
-    elif 'cloth' in subset:
-        return CLOTH_CONFIG
-    elif 'roll' in subset:
-        return ROLL_VS_SLIDE_CONFIG
-    elif 'slide' in subset:
-        return ROLL_VS_SLIDE_CONFIG
-    else:
-        raise ValueError("Unkown config for subset: %s" % subset)
 
 def run(
     name,
@@ -86,10 +28,10 @@ def run(
     regressor='lstm',
     feature_file=None,
     ):
-    cfg = get_cfg_defaults()
-    # TODO: merge_from_list here - shift, etc.
-    cfg.freeze()
-    data_cfg = cfg.DATA
+    subsets = get_subsets_from_datasets(datsets)
+    data_cfg = get_data_cfg(subsets, debug=True) # TODO: use subsets to get cfg instead?
+    data_cfg.freeze()
+    print(subsets, data_cfg)
 
     print(name, datasets, model_dir, encoder, regressor)
     model_file = os.path.join(model_dir, 'model.pt')
@@ -114,6 +56,11 @@ def run(
     else:
         train(config)
 
+def get_subsets_from_datasets(datasets):
+    assert isinstance(datasets, list)
+    return [subset.split("/")[-1] for subset in datasets]
+    
+
 def init_seed(seed): # TODO: move to utils in physion package?
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -136,9 +83,7 @@ def train(config):
 
     dataset = TDWDataset(
         data_root=config['datapaths'],
-        label_key='object_data', # just use object_data here since it doesn't really matter
         data_cfg=config['data_cfg'],
-        size=100, # TODO
         )
     trainloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=True)
 
@@ -166,9 +111,6 @@ def train(config):
             torch.save(model.state_dict(), config['model_file'])
             print('Saved model checkpoint to: {}'.format(config['model_file']))
 
-def get_label_key(name):
-    return get_config(name)['binary_labels'][0]
-
 def test(config):
     device = config['device']
     encoder = config['encoder']
@@ -182,15 +124,12 @@ def test(config):
     if 'human' in config['name']:
         dataset = TDWHumanDataset(
             data_root=config['datapaths'],
-            label_key=get_label_key(config['name']),
             data_cfg=config['data_cfg'],
             )
     else:
         dataset = TDWDataset(
             data_root=config['datapaths'],
-            label_key=get_label_key(config['name']),
             data_cfg=config['data_cfg'],
-            size=100, # TODO
             )
     testloader = DataLoader(dataset, batch_size=config['batch_size'], shuffle=False)
 
