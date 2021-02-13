@@ -21,7 +21,7 @@ def arg_parse():
             help='Check "physopt/data/__init__.py" for options', type=str)
     parser.add_argument('-M', '--model', required=True,
             help='Check "physopt/models/__init__.py" for options', type=str)
-    parser.add_argument('-O', '--output', default='/mnt/fs4/{}/hyperopt/',
+    parser.add_argument('-O', '--output', default='/mnt/fs4/{}/physopt/',
             help='output directory', type=str)
     parser.add_argument('--host', default='localhost', help='mongo host', type=str)
     parser.add_argument('--port', default='25555', help='mongo port', type=str)
