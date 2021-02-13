@@ -7,7 +7,7 @@ import logging
 from hyperopt import STATUS_OK
 
 from physopt.utils import PhysOptObjective
-import frozen_physion.modules as modules
+import physion.modules.frozen as modules
 from physion.data.pydata import TDWDataset, TDWHumanDataset
 from physion.data.config import get_data_cfg
 from physion.utils import init_seed, get_subsets_from_datasets
@@ -26,7 +26,7 @@ def run(
     model_dir,
     write_feat='',
     encoder='vgg',
-    regressor='lstm',
+    dynamics='lstm',
     feature_file=None,
     ):
     subsets = get_subsets_from_datasets(datasets)
@@ -34,14 +34,14 @@ def run(
     data_cfg.freeze()
     print(subsets, data_cfg)
 
-    print(name, datasets, model_dir, encoder, regressor)
+    print(name, datasets, model_dir, encoder, dynamics)
     model_file = os.path.join(model_dir, 'model.pt')
     device = torch.device('cpu') # TODO
     config = {
         'name': name,
         'datapaths': datasets,
         'encoder': encoder,
-        'regressor': regressor,
+        'dynamics': dynamics,
         'batch_size': 64,
         'model_file': model_file,
         'feature_file': feature_file,
@@ -49,7 +49,7 @@ def run(
         'device': device,
         'data_cfg': data_cfg, # TODO: use merge_from_list/file method
     }
-    model =  get_model(config['regressor'], config['encoder']).to(device)
+    model =  get_model(config['encoder'], config['dynamics']).to(device)
     config['model'] = model
     init_seed(seed)
     if write_feat:
@@ -57,13 +57,8 @@ def run(
     else:
         train(config)
 
-def get_model(regressor, encoder):
-    if regressor == 'mlp':
-        return modules.Frozen_MLP(encoder)
-    elif regressor == 'lstm':
-        return modules.Frozen_LSTM(encoder)
-    else:
-        raise NotImplementedError
+def get_model(encoder, dynamics):
+    return modules.FrozenPhysion(encoder, dynamics)
 
 def train(config):
     device = config['device']
@@ -130,7 +125,7 @@ def test(config):
         for i, data in enumerate(testloader):
             images = data['images'].to(device)
 
-            encoded_states = model.get_seq_enc_feats(images)
+            encoded_states = model.get_encoder_feats(images)
             rollout_states = encoded_states[:state_len] # copy over feats for seed frames
             rollout_steps = images.shape[1] - state_len 
 
@@ -161,11 +156,11 @@ class Objective(PhysOptObjective):
             output_dir,
             extract_feat,
             encoder,
-            regressor,
+            dynamics,
             ):
         super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat)
         self.encoder = encoder
-        self.regressor = regressor
+        self.dynamics = dynamics
 
     def __call__(self, *args, **kwargs):
         if self.extract_feat: # save out model features from trained model
@@ -177,7 +172,7 @@ class Objective(PhysOptObjective):
                 model_dir=self.model_dir,
                 write_feat=write_feat,
                 encoder=self.encoder,
-                regressor=self.regressor,
+                dynamics=self.dynamics,
                 feature_file=self.feature_file,
                 ) # TODO: combine args into (YACS) cfg?
 
@@ -188,7 +183,7 @@ class Objective(PhysOptObjective):
                 seed=self.seed,
                 model_dir=self.model_dir,
                 encoder=self.encoder,
-                regressor=self.regressor,
+                dynamics=self.dynamics,
                 ) # TODO: add args
 
         return {
@@ -203,16 +198,16 @@ class Objective(PhysOptObjective):
 
 class VGGFrozenMLPObjective(Objective):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, encoder='vgg', regressor='mlp')
+        super().__init__(*args, **kwargs, encoder='vgg', dynamics='mlp')
 
 class VGGFrozenLSTMObjective(Objective):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, encoder='vgg', regressor='lstm')
+        super().__init__(*args, **kwargs, encoder='vgg', dynamics='lstm')
 
 class DEITFrozenMLPObjective(Objective):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, encoder='deit', regressor='mlp')
+        super().__init__(*args, **kwargs, encoder='deit', dynamics='mlp')
 
 class DEITFrozenLSTMObjective(Objective):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs, encoder='deit', regressor='lstm')
+        super().__init__(*args, **kwargs, encoder='deit', dynamics='lstm')
