@@ -39,7 +39,7 @@ def get_Objective(model):
         from  physopt.models.physion.FROZEN import DEITFrozenLSTMObjective
         return DEITFrozenLSTMObjective
     elif model == 'CSWM':
-        from physopt.models.CSWM import Objective
+        from physopt.models.cswm.CSWM import Objective
         return Objective
     elif model == 'OP3':
         from physopt.models.OP3 import Objective
