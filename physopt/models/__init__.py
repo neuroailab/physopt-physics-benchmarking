@@ -42,7 +42,7 @@ def get_Objective(model):
         from physopt.models.cswm.CSWM import Objective
         return Objective
     elif model == 'OP3':
-        from physopt.models.OP3 import Objective
+        from physopt.models.op3.OP3 import Objective
         return Objective
     else:
         raise ValueError('Unknown model: {0}'.format(model))
