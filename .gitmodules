@@ -1,0 +1,3 @@
+[submodule "physopt/models/physion"]
+	path = physopt/models/physion
+	url = git@github.com:neuroailab/physion.git
