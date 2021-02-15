@@ -22,7 +22,7 @@ _HUMAN_CLOTH = {'name': 'human_cloth', 'data': [HUMAN['cloth_on_object']]}
 # Spaces
 SEEDS = list(range(_NUM_SEEDS))
 
-TRAIN_DATA = get_all_subsets([_CLOTH,])
+TRAIN_DATA = get_all_subsets([_CLOTH,]) # TODO: use combined dataset?
 
 TRAIN_FEAT_DATA = [_CLOTH,]
 
