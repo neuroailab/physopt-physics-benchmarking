@@ -364,9 +364,11 @@ class Objective(PhysOptObjective):
             train_data,
             feat_data,
             output_dir,
-            extract_feat):
+            extract_feat,
+            debug,
+            ):
         assert len(feat_data) == 2, feat_data
-        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat)
+        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat, debug)
 
 
     def __call__(self, *args, **kwargs):

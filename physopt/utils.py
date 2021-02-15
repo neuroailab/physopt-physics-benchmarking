@@ -69,7 +69,9 @@ class PhysOptObjective():
             train_data,
             feat_data,
             output_dir,
-            extract_feat):
+            extract_feat,
+            debug,
+            ):
         self.exp_key = exp_key
         self.seed = seed
         self.train_data = train_data
@@ -77,6 +79,7 @@ class PhysOptObjective():
         self.extract_feat = extract_feat
         self.model_dir = self.get_model_dir(self.output_dir,
                 self.train_data['name'], self.seed)
+        self.debug = debug
 
         if isinstance(feat_data, dict):
             # feature data space

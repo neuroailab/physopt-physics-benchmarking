@@ -27,6 +27,7 @@ def arg_parse():
     parser.add_argument('--port', default='25555', help='mongo port', type=str)
     parser.add_argument('--database', default='physopt', help='mongo database name', type=str)
     parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
+    parser.add_argument('--debug', action='store_true', help='debug mode')
 
     return parser.parse_args()
 
@@ -58,6 +59,7 @@ def run(
         multiprocessing_pool = None,
         extract_feat = False,
         compute_metrics = False,
+        debug=False,
         ):
 
     def run_once(data):
@@ -72,7 +74,7 @@ def run(
             Objective = get_Objective('metrics')
         else:
             Objective = get_Objective(model)
-        objective = Objective(exp_key, seed, train_data, feat_data, output_dir, extract_feat)
+        objective = Objective(exp_key, seed, train_data, feat_data, output_dir, extract_feat, debug) # TODO: more flexible args
 
         try:
             fmin(#objective,
@@ -114,12 +116,12 @@ class OptimizationPipeline():
     def __init__(self, args = None):
         args = arg_parse() if not args else args
 
-        self.data = get_data_space(args.data)
+        self.data = get_data_space(args.data, args.debug)
         self.model = args.model
         self.output_dir = get_output_directory(args.output, args.model)
         self.mongo_path = get_mongo_path(args.host, args.port, args.database)
         self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
-
+        self.debug = args.debug
 
     def __del__(self):
         self.close()
@@ -129,7 +131,7 @@ class OptimizationPipeline():
         print('Training models on data subsets...')
         train_model(self.model, self.data['train_feat'], self.output_dir,
                 self.mongo_path, exp_key_suffix = exp_key_suffix,
-                multiprocessing_pool = self.pool,
+                multiprocessing_pool = self.pool, debug=self.debug,
                 )
         print('...all models trained!')
 
@@ -138,7 +140,7 @@ class OptimizationPipeline():
         print('Extracting train features...')
         extract_features(self.model, self.data['train_feat'], self.output_dir,
                 self.mongo_path, exp_key_suffix = exp_key_suffix,
-                multiprocessing_pool = self.pool,
+                multiprocessing_pool = self.pool, debug=self.debug,
                 )
         print('...all train features extracted!')
 
@@ -147,7 +149,7 @@ class OptimizationPipeline():
         print('Extracting test features...')
         extract_features(self.model, self.data['test_feat'], self.output_dir,
                 self.mongo_path, exp_key_suffix = exp_key_suffix,
-                multiprocessing_pool = self.pool,
+                multiprocessing_pool = self.pool, debug=self.debug,
                 )
         print('...all test features extracted!')
 
@@ -156,7 +158,7 @@ class OptimizationPipeline():
         print('Computing metrics...')
         compute_metrics(self.model, self.data['metrics'], self.output_dir,
                 self.mongo_path, exp_key_suffix = exp_key_suffix,
-                multiprocessing_pool = self.pool,
+                multiprocessing_pool = self.pool, debug=self.debug,
                 )
         print('...all metrics computed!')
 
