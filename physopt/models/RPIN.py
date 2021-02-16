@@ -295,16 +295,6 @@ def test(args, model_dir, feature_file):
 
 
 class Objective(PhysOptObjective):
-    def __init__(self,
-            exp_key,
-            seed,
-            train_data,
-            feat_data,
-            output_dir,
-            extract_feat):
-        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat)
-
-
     def __call__(self, *args, **kwargs):
         results = super().__call__()
         if self.extract_feat:

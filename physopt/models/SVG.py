@@ -561,9 +561,10 @@ class Objective(PhysOptObjective):
             feat_data,
             output_dir,
             extract_feat,
+            debug,
             model,
             freeze_encoder_weights):
-        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat)
+        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat, debug)
         self.model = model
         self.freeze_encoder_weights = freeze_encoder_weights
 
