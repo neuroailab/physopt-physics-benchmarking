@@ -7,7 +7,7 @@ EMPTY_DATA = [{'name': '', 'data': []}]
 
 
 # All subsets combined
-def get_combined_subset(subsets):
+def get_combined_subset(subsets): # return list for consistency?
     return {'name': 'all', 'data': [s for subset in subsets for s in subset['data']]}
 
 
