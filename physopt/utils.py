@@ -1,4 +1,5 @@
 import os
+import logging
 import errno
 import traceback
 import tempfile
@@ -79,7 +80,19 @@ class PhysOptObjective():
         self.extract_feat = extract_feat
         self.model_dir = self.get_model_dir(self.output_dir,
                 self.train_data['name'], self.seed)
+        self.model_file = os.path.join(self.model_dir, 'model.pt')
         self.debug = debug
+
+        # setup logging
+        logging.root.handlers = [] # necessary to get handler to work
+        logging.basicConfig(
+            handlers=[
+                logging.FileHandler(os.path.join(self.model_dir, 'output.log')),
+                logging.StreamHandler(),
+                ],
+            format="%(asctime)s [%(levelname)s] %(message)s",
+            level=logging.DEBUG if self.debug else logging.INFO,
+            )
 
         if isinstance(feat_data, dict):
             # feature data space
