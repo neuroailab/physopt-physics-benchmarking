@@ -2,6 +2,7 @@ import os
 import numpy as np
 import scipy
 import pickle
+import logging
 
 from physopt.metrics.base.feature_extractor import FeatureExtractor
 from physopt.metrics.base.readout_model import IdentityModel
@@ -317,6 +318,7 @@ def run(
     print("Categorization accuracy: %f" % acc)
 
     result = {'accuracy': acc}
+    result['best_params'] = metric_model._readout_model.best_params_
 
     # Calculate human correlation
     if calculate_correlation:
@@ -331,6 +333,7 @@ def run(
         result['corr_coeff'] = corr_coeff
         result['p_value'] = p
 
+    logging.info(result)
     return result
 
 
