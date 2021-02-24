@@ -161,7 +161,7 @@ def pos_label_fn(data, time_steps, dim = 2):
 def correlation_label_fn(data):
     x = data['human_prob']
     # Format: [0]: Definitely Not, [1]: Probably Not, [2]: Probably, [3]: Definitely
-    if len(x) == 4:
+    if len(x) == 4: # TODO: might want to change this to account for probably responses
         neg = np.nan_to_num(x[0] / (x[0] + x[3]))
         pos = np.nan_to_num(x[3] / (x[0] + x[3]))
         return np.stack([neg, pos])
@@ -318,7 +318,8 @@ def run(
     print("Categorization accuracy: %f" % acc)
 
     result = {'accuracy': acc}
-    result['best_params'] = metric_model._readout_model.best_params_
+    if grid_search_params is not None:
+        result['best_params'] = metric_model._readout_model.best_params_
 
     # Calculate human correlation
     if calculate_correlation:
@@ -380,7 +381,10 @@ class Objective(PhysOptObjective):
         for settings in SETTINGS:
             result = run(self.seed, self.train_feature_file,
                     self.test_feature_file, self.test_feat_data['name'],
-                    self.model_dir, settings)
+                    self.model_dir, settings, 
+                    calculate_correlation=True,
+                    grid_search_params=None if self.debug else {'C': np.logspace(-2, 2, 5)},
+                    )
             result = {'result': result}
             result.update(settings)
             results.append(result)
