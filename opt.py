@@ -77,12 +77,12 @@ def run(
         objective = Objective(exp_key, seed, train_data, feat_data, output_dir, extract_feat, debug) # TODO: more flexible args
 
         try:
-            fmin(#objective,
-                    # MultiAttempt(objective),
-                    objective,
-                    space=optimization_space, trials=trials,
-                    algo=algo, max_evals=max_evals,
-                    )
+            fmin(
+                # MultiAttempt(objective),
+                objective,
+                space=optimization_space, trials=trials,
+                algo=algo, max_evals=max_evals,
+                )
         except ValueError as e:
             print("Job died: {0}/{1}".format(mongo_path, exp_key))
             print("Error: {0}".format(e))

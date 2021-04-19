@@ -334,7 +334,6 @@ def run(
         result['corr_coeff'] = corr_coeff
         result['p_value'] = p
 
-    logging.info(result)
     return result
 
 
@@ -382,11 +381,12 @@ class Objective(PhysOptObjective):
             result = run(self.seed, self.train_feature_file,
                     self.test_feature_file, self.test_feat_data['name'],
                     self.model_dir, settings, 
-                    calculate_correlation=True,
+                    # calculate_correlation=True,
                     grid_search_params=None if self.debug else {'C': np.logspace(-2, 2, 5)},
                     )
             result = {'result': result}
             result.update(settings)
+            logging.info(result)
             results.append(result)
             # Write every iteration to be safe
             write_results(self.metrics_file, self.seed, self.train_data['name'],

@@ -26,12 +26,18 @@ def get_Objective(model):
     elif model == 'SVGPretrainedFrozenCLIP':
         from physopt.models.SVG import CLIPPretrainedFrozenObjective as SVGPretrainedFrozenCLIPObjective
         return SVGPretrainedFrozenCLIPObjective
+    elif model == 'VGGFrozenID':
+        from  physopt.models.physion.FROZEN import VGGFrozenIDObjective
+        return VGGFrozenIDObjective
     elif model == 'VGGFrozenMLP':
         from  physopt.models.physion.FROZEN import VGGFrozenMLPObjective
         return VGGFrozenMLPObjective
     elif model == 'VGGFrozenLSTM':
         from  physopt.models.physion.FROZEN import VGGFrozenLSTMObjective
         return VGGFrozenLSTMObjective
+    elif model == 'DEITFrozenID':
+        from  physopt.models.physion.FROZEN import DEITFrozenIDObjective
+        return DEITFrozenIDObjective
     elif model == 'DEITFrozenMLP':
         from  physopt.models.physion.FROZEN import DEITFrozenMLPObjective
         return DEITFrozenMLPObjective
