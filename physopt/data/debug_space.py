@@ -6,12 +6,10 @@ _NUM_SEEDS = 1
 
 if socket.gethostname() == 'node19-ccncluster':
     TRAIN_BASE_DIR = '/data1/eliwang/physion/rigid'
-    HUMAN_BASE_DIR = '/data1/eliwang/physion//human_stimulis'
+    HUMAN_BASE_DIR = '/data1/eliwang/physion/human_stimulis'
 else:
-    TRAIN_BASE_DIR = '/mnt/fs4/dbear/tdw_datasets'
-    HUMAN_BASE_DIR = '/mnt/fs4/dbear/tdw_datasets'
-    # TRAIN_BASE_DIR = '/mnt/fs4/mrowca/neurips/images/rigid'
-    # HUMAN_BASE_DIR = '/mnt/fs4/fanyun/human_stimulis'
+    TRAIN_BASE_DIR = '/mnt/fs4/mrowca/neurips/images/rigid'
+    HUMAN_BASE_DIR = '/mnt/fs4/fanyun/human_stimulis'
 
 TRAIN = {k: os.path.join(TRAIN_BASE_DIR, k) for k in os.listdir(TRAIN_BASE_DIR)}
 HUMAN = {k: os.path.join(HUMAN_BASE_DIR, k) for k in os.listdir(HUMAN_BASE_DIR)}

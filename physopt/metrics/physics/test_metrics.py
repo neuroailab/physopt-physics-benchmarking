@@ -27,11 +27,6 @@ SETTINGS = [ # TODO: might not want this to be hardcoded
             },
         {
             'inp_time_steps': (0, 4, 1),
-            'val_time_steps': (0, 4, 1),
-            'model_fn': 'visual_scene_model_fn',
-            },
-        {
-            'inp_time_steps': (0, 4, 1),
             'val_time_steps': (4, 10, 1),
             'model_fn': 'visual_scene_model_fn',
             },
@@ -143,6 +138,8 @@ def select_label_fn(time_steps, experiment):
             return object_category_label_fn(data, time_steps)
         elif 'roll_vs_slide' in experiment: # TODO: should this be roll_slide
             return rolling_label_fn(data, time_steps)
+        elif 'dominoes' in experiment:
+            return collision_label_fn(data, time_steps) # TODO: using collision label fn for now, should be the same
         else:
             raise NotImplementedError(experiment)
     return label_fn
@@ -313,11 +310,14 @@ def run(
             )
 
     metric_model.fit(train_data)
-    acc = metric_model.score(test_data)
+    train_data = build_data(train_feature_file) # hack to get original data before rebalance iter
+    train_acc = metric_model.score(train_data)
+    test_acc = metric_model.score(test_data)
 
-    print("Categorization accuracy: %f" % acc)
+    print("Categorization train accuracy: %f" % train_acc)
+    print("Categorization test accuracy: %f" % test_acc)
 
-    result = {'accuracy': acc}
+    result = {'train_accuracy': train_acc, 'test_accuracy': test_acc}
     if grid_search_params is not None:
         result['best_params'] = metric_model._readout_model.best_params_
 
@@ -382,7 +382,8 @@ class Objective(PhysOptObjective):
                     self.test_feature_file, self.test_feat_data['name'],
                     self.model_dir, settings, 
                     # calculate_correlation=True,
-                    grid_search_params=None if self.debug else {'C': np.logspace(-2, 2, 5)},
+                    # grid_search_params=None if self.debug else {'C': np.logspace(-2, 2, 5)},
+                    grid_search_params={'C': np.logspace(-8, 8, 17)},
                     )
             result = {'result': result}
             result.update(settings)
