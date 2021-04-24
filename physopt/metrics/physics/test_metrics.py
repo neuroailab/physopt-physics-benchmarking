@@ -142,6 +142,8 @@ def select_label_fn(time_steps, experiment):
             return object_category_label_fn(data, time_steps)
         elif 'roll_vs_slide' in experiment: # TODO: should this be roll_slide
             return rolling_label_fn(data, time_steps)
+        if 'dominoes' in experiment:
+            return collision_label_fn(data, time_steps)
         else:
             raise NotImplementedError(experiment)
     return label_fn
