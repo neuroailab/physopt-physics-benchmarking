@@ -15,7 +15,7 @@ TRAIN = {k: os.path.join(TRAIN_BASE_DIR, k) for k in os.listdir(TRAIN_BASE_DIR)}
 HUMAN = {k: os.path.join(HUMAN_BASE_DIR, k) for k in os.listdir(HUMAN_BASE_DIR)}
 
 # Data subsets
-_DOMINOES = {'name': 'dominoes', 'data': [TRAIN['example_dominoes']]}
+_DOMINOES = {'name': 'dominoes', 'data': [TRAIN['testing_dominoes']]}
 # _CLOTH = {'name': 'cloth', 'data': [TRAIN['cloth_on_object']]}
 # _COLLIDE = {'name': 'collide', 'data': [TRAIN['collide2_new']]}
 # _CONTAIN = {'name': 'contain', 'data': [TRAIN['contain']]}

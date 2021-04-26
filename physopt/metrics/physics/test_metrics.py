@@ -16,18 +16,18 @@ from physopt.utils import PhysOptObjective
 
 SETTINGS = [ # TODO: might not want this to be hardcoded
         {
-            'inp_time_steps': (0, 10, 1),
-            'val_time_steps': (4, 10, 1),
+            'inp_time_steps': (0, 50, 1),
+            'val_time_steps': (15, 50, 1),
             'model_fn': 'visual_scene_model_fn',
             },
         {
-            'inp_time_steps': (0, 10, 1),
-            'val_time_steps': (4, 10, 1),
+            'inp_time_steps': (0, 50, 1),
+            'val_time_steps': (15, 50, 1),
             'model_fn': 'rollout_scene_model_fn',
             },
         {
-            'inp_time_steps': (0, 4, 1),
-            'val_time_steps': (4, 10, 1),
+            'inp_time_steps': (0, 15, 1),
+            'val_time_steps': (15, 50, 1),
             'model_fn': 'visual_scene_model_fn',
             },
         ]
