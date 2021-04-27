@@ -306,6 +306,7 @@ def run(
             data = list(test_data)
             pos, neg = get_num_samples(data, label_fn) # Get number of positive and negative samples
             logging.info("No rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
+            test_data = iter(data)
 
     # Build logistic regression model
     readout_model = LogisticRegressionReadoutModel(max_iter = 100, C=1.0, verbose=1)
