@@ -24,7 +24,7 @@ _DOMINOES = {'name': 'dominoes', 'data': [TRAIN['testing_dominoes']]}
 #     TRAIN['slide_cube'], TRAIN['slide_sphere']]}
 
 # _HUMAN_COLLIDE_1 = {'name': 'human_collide_1', 'data': [HUMAN['collide2_new_1']]}
-_HUMAN_DOMINOES = {'name': 'dominoes', 'data': [HUMAN['example_dominoes']]}
+_HUMAN_DOMINOES = {'name': 'human_dominoes', 'data': [HUMAN['example_dominoes']]}
 
 # Spaces
 SEEDS = list(range(_NUM_SEEDS))

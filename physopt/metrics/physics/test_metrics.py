@@ -209,13 +209,13 @@ def rebalance(data, label_fn, balancing = oversample):
 
     # Get number of positive and negative samples
     pos, neg = get_num_samples(data, label_fn)
-    print("Before rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
+    logging.info("Before rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
 
     # Rebalance data by oversampling underrepresented calls
     balanced_data = balancing(data, pos, neg)
 
     pos, neg = get_num_samples(balanced_data, label_fn)
-    print("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
+    logging.info("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
 
     return iter(balanced_data)
 
@@ -224,7 +224,7 @@ def rebalance_human(data, label_fn):
     data = list(data)
 
     pos, neg = get_num_samples(data, label_fn)
-    print("Before rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
+    logging.info("Before rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
 
     balanced_data = []
     cnt = 0
@@ -238,7 +238,7 @@ def rebalance_human(data, label_fn):
             balanced_data.append(d)
 
     pos, neg = get_num_samples(balanced_data, label_fn)
-    print("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
+    logging.info("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
 
     return iter(balanced_data)
 
@@ -285,6 +285,8 @@ def run(
     feature_extractor = FeatureExtractor(feature_model)
 
     # Construct data providers
+    logging.info(train_feature_file)
+    logging.info(test_feature_file)
     train_data = build_data(train_feature_file)
     test_data = build_data(test_feature_file)
 
