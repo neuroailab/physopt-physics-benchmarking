@@ -577,7 +577,11 @@ class Objective(PhysOptObjective):
     def __call__(self, *args, **kwargs):
         results = super().__call__()
         if self.extract_feat:
-            write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
+            write_feat = 'train'
+            if 'human' in self.feat_data['name']:
+                write_feat = 'human'
+            if 'test' in self.feat_data['name']:
+                write_feat = 'test'
             run(datasets=self.feat_data['data'], seed=self.seed, data_root='',
                     model_dir=self.model_dir, feature_file=self.feature_file,
                     write_feat=write_feat, model=self.model,
