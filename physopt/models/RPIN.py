@@ -70,6 +70,13 @@ ROLL_VS_SLIDE_CONFIG = {
         'test_len': 320 // 4,
         }
 
+DOMINOES_CONFIG = {
+        'binary_labels': ['is_target_contacting_zone'],
+        'train_shift': [1, 1024, 1],
+        'train_len': 32470,
+        'test_shift': [1, 1024, 1024],
+        'test_len': 3247,
+        }
 
 def get_config(subset):
     if 'collide' in subset:
@@ -84,6 +91,8 @@ def get_config(subset):
         return ROLL_VS_SLIDE_CONFIG
     elif 'slide' in subset:
         return ROLL_VS_SLIDE_CONFIG
+    elif 'dominoes' in subset:
+        return DOMINOES_CONFIG
     else:
         raise ValueError("Unkown config for subset: %s" % subset)
 
@@ -163,7 +172,7 @@ def run(
     C.SOLVER.BASE_LR *= num_gpus
     # change config based on datasets
     C['DATA_ROOT'] = get_data_paths(data_root, datasets)
-    subsets = [subset.split("/")[-1] for subset in datasets]
+    subsets = ['/'.join(subset.split("/")[-2:]) for subset in datasets]
     C['INPUT']['TRAIN_SLICE'], C['INPUT']['VAL_SLICE'] = get_shift_selector(subsets)
     C['INPUT']['TRAIN_NUM'], C['INPUT']['VAL_NUM'] = get_data_len(subsets)
     C['INPUT']['BINARY_LABELS'] = get_binary_labels(subsets)
