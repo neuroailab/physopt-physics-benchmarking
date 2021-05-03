@@ -73,9 +73,9 @@ ROLL_VS_SLIDE_CONFIG = {
 DOMINOES_CONFIG = {
         'binary_labels': ['is_target_contacting_zone'],
         'train_shift': [1, 1024, 1],
-        'train_len': 32470,
+        'train_len': 1000,
         'test_shift': [1, 1024, 1024],
-        'test_len': 3247,
+        'test_len': 100,
         }
 
 def get_config(subset):
