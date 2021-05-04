@@ -195,8 +195,8 @@ def train(args, output_dir, num_gpus):
     from neuralphys.datasets.tdw import TDWPhys as PyPhys
     # TODO Changed this to 4 + 6 frame prediction
     C['RPIN']['INPUT_SIZE'] = 4
-    C['RPIN']['PRED_SIZE_TRAIN'] = 6 #12
-    C['RPIN']['PRED_SIZE_TEST'] = 6 #23
+    C['RPIN']['PRED_SIZE_TRAIN'] = 20 #6 #12
+    C['RPIN']['PRED_SIZE_TEST'] = 44 #6 #23
 
     shutil.copy(args.cfg, os.path.join(output_dir, 'config.yaml'))
     shutil.copy(os.path.join('/home/mrowca/workspace/RPIN/neuralphys/models/', C.RPIN.ARCH + '.py'), os.path.join(output_dir, 'arch.py'))
@@ -268,9 +268,14 @@ def test(args, model_dir, feature_file, write_feat):
         from neuralphys.datasets.tdw_human import TDWPhys as PyPhys
     else:
         from neuralphys.datasets.tdw_feat import TDWPhys as PyPhys
-    C['RPIN']['INPUT_SIZE'] = 4 #10 for human
+    C['RPIN']['INPUT_SIZE'] = 49 #10 for human, adjust infer start in tdw_feat.py
     C['RPIN']['PRED_SIZE_TRAIN'] = 44 #5
     C['RPIN']['PRED_SIZE_TEST'] = 44 #5
+
+    assert C['RPIN']['INPUT_SIZE'] - C['RPIN']['PRED_SIZE_TRAIN'] == 5, \
+            "Change tdw_feat.py if you want to adjust this"
+    assert C['RPIN']['INPUT_SIZE'] - C['RPIN']['PRED_SIZE_TEST'] == 5, \
+            "Change tdw_feat.py if you want to adjust this"
 
     if not os.path.exists(os.path.dirname(feature_file)):
         os.makedirs(os.path.dirname(feature_file), exist_ok=True)
@@ -282,7 +287,7 @@ def test(args, model_dir, feature_file, write_feat):
     else:
         split_name = 'train'
     val_set = PyPhys(data_root=C.DATA_ROOT, split=split_name, test=True)
-    batch_size = 1 if C.RPIN.VAE else C.SOLVER.BATCH_SIZE
+    batch_size = 2 #if C.RPIN.VAE else C.SOLVER.BATCH_SIZE
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size, num_workers=0) #16
 
     model = eval(args.predictor_arch + '.Net')()
