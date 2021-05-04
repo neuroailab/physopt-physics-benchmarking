@@ -185,7 +185,7 @@ def run(
         os.makedirs(model_dir, exist_ok=True)
 
     if write_feat:
-        test(args, model_dir, feature_file)
+        test(args, model_dir, feature_file, write_feat)
     else:
         train(args, model_dir, num_gpus)
     return
@@ -262,22 +262,25 @@ def train(args, output_dir, num_gpus):
     #    raise
 
 
-def test(args, model_dir, feature_file):
+def test(args, model_dir, feature_file, write_feat):
     from neuralphys.evaluator_feat import PredEvaluator
-    if 'human' in feature_file:
+    if write_feat == 'human':
         from neuralphys.datasets.tdw_human import TDWPhys as PyPhys
     else:
         from neuralphys.datasets.tdw_feat import TDWPhys as PyPhys
-    C['RPIN']['INPUT_SIZE'] = 10
-    C['RPIN']['PRED_SIZE_TRAIN'] = 5
-    C['RPIN']['PRED_SIZE_TEST'] = 5
+    C['RPIN']['INPUT_SIZE'] = 4 #10 for human
+    C['RPIN']['PRED_SIZE_TRAIN'] = 44 #5
+    C['RPIN']['PRED_SIZE_TEST'] = 44 #5
 
     if not os.path.exists(os.path.dirname(feature_file)):
         os.makedirs(os.path.dirname(feature_file), exist_ok=True)
 
     # --- setup data loader
     print('initialize dataset')
-    split_name = 'test'
+    if write_feat in ['test', 'human']:
+        split_name = 'test'
+    else:
+        split_name = 'train'
     val_set = PyPhys(data_root=C.DATA_ROOT, split=split_name, test=True)
     batch_size = 1 if C.RPIN.VAE else C.SOLVER.BATCH_SIZE
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size, num_workers=0) #16
@@ -307,7 +310,11 @@ class Objective(PhysOptObjective):
     def __call__(self, *args, **kwargs):
         results = super().__call__()
         if self.extract_feat:
-            write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
+            write_feat = 'train'
+            if 'test' in self.feat_data['name']:
+                write_feat = 'test'
+            if 'human' in self.feat_data['name']:
+                write_feat = 'human'
             run(datasets=self.feat_data['data'], seed=self.seed, data_root='',
                     model_dir=self.model_dir, feature_file=self.feature_file,
                     write_feat=write_feat)
