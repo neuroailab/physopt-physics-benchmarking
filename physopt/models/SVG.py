@@ -425,6 +425,7 @@ def run(
 
         fname = '%s/gen/sample_%d.gif' % (opt.log_dir, epoch) 
         utils.save_gif(fname, gifs)
+        print("Saved at %s" % fname)
 
 
     def plot_rec(x, epoch):
@@ -461,6 +462,21 @@ def run(
             to_plot.append(row)
         fname = '%s/gen/rec_%d.png' % (opt.log_dir, epoch) 
         utils.save_tensors_image(fname, to_plot)
+        print("Saved at %s" % fname)
+
+    # Test plotting
+    print("Plotting mode")
+    with torch.no_grad():
+        progress = progressbar.ProgressBar().start()
+        counter = 10000
+        for sequence in test_loader:
+            counter += 1
+            progress.update(counter)
+            images = sequence["images"]
+            x = utils.normalize_data(opt, dtype, images)
+            plot(x, counter)
+            plot_rec(x, counter)
+        return
 
 
 # --------- training funtions ------------------------------------
@@ -579,6 +595,7 @@ class Objective(PhysOptObjective):
                 write_feat = 'human'
             if 'test' in self.feat_data['name']:
                 write_feat = 'test'
+            #write_feat = 'plot'
             run(datasets=self.feat_data['data'], seed=self.seed, data_root='',
                     model_dir=self.model_dir, feature_file=self.feature_file,
                     write_feat=write_feat, model=self.model,
