@@ -45,6 +45,7 @@ def build_data(path):
                 sequence[k] = v[bidx]
             data.append(sequence)
 
+    logging.info('Data shape: {}'.format(np.array(data).shape))
     return iter(data)
 
 
