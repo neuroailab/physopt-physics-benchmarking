@@ -464,20 +464,20 @@ def run(
         utils.save_tensors_image(fname, to_plot)
         print("Saved at %s" % fname)
 
-    # Test plotting
-    print("Plotting mode")
-    with torch.no_grad():
-        progress = progressbar.ProgressBar().start()
-        counter = 10000
-        for sequence in test_loader:
-            counter += 1
-            progress.update(counter)
-            images = sequence["images"]
-            x = utils.normalize_data(opt, dtype, images)
-            plot(x, counter)
-            plot_rec(x, counter)
-        return
-
+    if opt.write_feat == 'plot':
+        # Test plotting
+        print("Plotting mode")
+        with torch.no_grad():
+            progress = progressbar.ProgressBar().start()
+            counter = 10000
+            for sequence in test_loader:
+                counter += 1
+                progress.update(counter)
+                images = sequence["images"]
+                x = utils.normalize_data(opt, dtype, images)
+                plot(x, counter)
+                plot_rec(x, counter)
+            return
 
 # --------- training funtions ------------------------------------
     def train(x):
