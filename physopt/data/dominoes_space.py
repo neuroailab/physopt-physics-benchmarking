@@ -34,7 +34,6 @@ _TEST_DOMINOES = {'name': 'test_dominoes',
 SEEDS = list(range(_NUM_SEEDS))
 
 TRAIN_DATA = [_DOMINOES]
-print(TRAIN_DATA)
 
 TRAIN_FEAT_DATA = [_DOMINOES]
 
