@@ -71,9 +71,9 @@ ROLL_VS_SLIDE_CONFIG = {
         }
 
 DOMINOES_CONFIG = {
-        'binary_labels': ['is_target_contacting_zone'],
+        'binary_labels': ['any_is_target_contacting_zone'],
         'train_shift': [1, 1024, 1],
-        'train_len': 1000,
+        'train_len': 10000,
         'test_shift': [1, 1024, 1024],
         'test_len': 100,
         }
@@ -112,16 +112,15 @@ def get_data_len(subsets):
 
 
 def get_binary_labels(subsets):
-    if len(subsets) > 1:
-        return ['is_colliding_dynamic']
-    else:
-        return get_config(subsets[0])['binary_labels']
+    labels = np.array([get_config(s)['binary_labels'] for s in subsets])
+    assert np.all(labels[0:1] == labels), labels
+    return list(labels[0])
 
 
 def get_shift_selector(subsets):
     if len(subsets) > 1:
-        train_shift_selector = [0, 1024, 1]
-        val_shift_selector = [0, 1024, 32]
+        train_shift_selector = [1, 1024, 1]
+        val_shift_selector = [1, 1024, 1024]
     else:
         train_shift_selector = get_config(subsets[0])['train_shift']
         val_shift_selector = get_config(subsets[0])['test_shift']
@@ -195,8 +194,8 @@ def train(args, output_dir, num_gpus):
     from neuralphys.datasets.tdw import TDWPhys as PyPhys
     # TODO Changed this to 4 + 6 frame prediction
     C['RPIN']['INPUT_SIZE'] = 4
-    C['RPIN']['PRED_SIZE_TRAIN'] = 20 #6 #12
-    C['RPIN']['PRED_SIZE_TEST'] = 44 #6 #23
+    C['RPIN']['PRED_SIZE_TRAIN'] = 8 #20 #6 #12
+    C['RPIN']['PRED_SIZE_TEST'] = 18 #44 #6 #23
 
     shutil.copy(args.cfg, os.path.join(output_dir, 'config.yaml'))
     shutil.copy(os.path.join('/home/mrowca/workspace/RPIN/neuralphys/models/', C.RPIN.ARCH + '.py'), os.path.join(output_dir, 'arch.py'))
@@ -268,9 +267,9 @@ def test(args, model_dir, feature_file, write_feat):
         from neuralphys.datasets.tdw_human import TDWPhys as PyPhys
     else:
         from neuralphys.datasets.tdw_feat import TDWPhys as PyPhys
-    C['RPIN']['INPUT_SIZE'] = 49 #10 for human, adjust infer start in tdw_feat.py
-    C['RPIN']['PRED_SIZE_TRAIN'] = 44 #5
-    C['RPIN']['PRED_SIZE_TEST'] = 44 #5
+    C['RPIN']['INPUT_SIZE'] = 24 #49 #10 for human, adjust infer start in tdw_feat.py
+    C['RPIN']['PRED_SIZE_TRAIN'] = 19 #44 #5
+    C['RPIN']['PRED_SIZE_TEST'] = 19 #44 #5
 
     assert C['RPIN']['INPUT_SIZE'] - C['RPIN']['PRED_SIZE_TRAIN'] == 5, \
             "Change tdw_feat.py if you want to adjust this"
@@ -287,7 +286,7 @@ def test(args, model_dir, feature_file, write_feat):
     else:
         split_name = 'train'
     val_set = PyPhys(data_root=C.DATA_ROOT, split=split_name, test=True)
-    batch_size = 2 #if C.RPIN.VAE else C.SOLVER.BATCH_SIZE
+    batch_size = 4 #2 #if C.RPIN.VAE else C.SOLVER.BATCH_SIZE
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size, num_workers=0) #16
 
     model = eval(args.predictor_arch + '.Net')()
