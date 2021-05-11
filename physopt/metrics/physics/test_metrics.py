@@ -15,18 +15,18 @@ from physopt.utils import PhysOptObjective
 
 SETTINGS = [ # TODO: might not want this to be hardcoded
         {
-            'inp_time_steps': (0, 49, 1),
-            'val_time_steps': (4, 49, 1),
+            'inp_time_steps': (0, 24, 1),
+            'val_time_steps': (4, 24, 1),
             'model_fn': 'visual_scene_model_fn',
             },
         {
-            'inp_time_steps': (0, 49, 1),
-            'val_time_steps': (4, 49, 1),
+            'inp_time_steps': (0, 24, 1),
+            'val_time_steps': (4, 24, 1),
             'model_fn': 'rollout_scene_model_fn',
             },
         {
             'inp_time_steps': (0, 4, 1),
-            'val_time_steps': (4, 49, 1),
+            'val_time_steps': (4, 24, 1),
             'model_fn': 'visual_scene_model_fn',
             },
         {
@@ -36,7 +36,7 @@ SETTINGS = [ # TODO: might not want this to be hardcoded
             },
         ]
 
-def build_data(path):
+def build_data(path, max_sequences = 1e9):
     with open(path, 'rb') as f:
         batched_data = pickle.load(f)
 
@@ -48,6 +48,10 @@ def build_data(path):
             for k, v in bd.items():
                 sequence[k] = v[bidx]
             data.append(sequence)
+            if len(data) > max_sequences:
+                break
+        if len(data) > max_sequences:
+            break
 
     return iter(data)
 
@@ -290,6 +294,7 @@ def run(
 
     # Construct data providers
     train_data = build_data(train_feature_file)
+    train_test_data = build_data(train_feature_file)
     test_data = build_data(test_feature_file)
 
     # Select label function
@@ -302,6 +307,7 @@ def run(
     else:
         np.random.seed(0)
         train_data = rebalance(train_data, label_fn)
+        train_test_data = rebalance(train_test_data, label_fn)
         if not 'human' in test_feat_name:
             test_data = rebalance(test_data, label_fn)
 
@@ -314,11 +320,12 @@ def run(
             )
 
     metric_model.fit(train_data)
-    acc = metric_model.score(test_data)
+    train_acc = metric_model.score(train_test_data)
+    test_acc = metric_model.score(test_data)
 
-    print("Categorization accuracy: %f" % acc)
+    print("Categorization accuracy: %f" % test_acc)
 
-    result = {'accuracy': acc}
+    result = {'test_accuracy': test_acc, 'train_accuracy': train_acc}
 
     # Calculate human correlation
     if calculate_correlation:
