@@ -95,8 +95,8 @@ def run(
         if write_feat:
             opt.data_subsets = data_subsets
             opt.data_root = data_root
-            opt.n_future = 45
-            opt.n_eval = 49
+            opt.n_future = 20 #45
+            opt.n_eval = 24 #49
         load_model = True
     else:
         os.makedirs(opt.model_dir, exist_ok=True)
@@ -267,11 +267,14 @@ def run(
         # TODO: Only use one sample for now
         nsample = 1
 
+        if not os.path.exists(os.path.dirname(feature_file)):
+            os.makedirs(os.path.dirname(feature_file))
+
         outputs = []
 
         progress = progressbar.ProgressBar().start()
         counter = 0
-        for sequence in loader:
+        for seq_id, sequence in enumerate(loader):
             counter += 1
             progress.update(counter)
 
@@ -330,10 +333,15 @@ def run(
                 "rollout_states": np.stack(rollout_states, axis=1),
                 })
 
+            # Write every 1000 sequences to not lose data
+            if seq_id % 1000 == 0 and seq_id > 0:
+                with open(feature_file, 'wb') as f:
+                    pickle.dump(outputs, f)
+                print('Results stored in %s' % feature_file)
+
         progress.finish()
 
-        if not os.path.exists(os.path.dirname(feature_file)):
-            os.makedirs(os.path.dirname(feature_file))
+        # Final write
         with open(feature_file, 'wb') as f:
             pickle.dump(outputs, f)
         print('Results stored in %s' % feature_file)
