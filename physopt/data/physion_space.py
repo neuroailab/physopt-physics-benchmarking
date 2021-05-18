@@ -8,11 +8,11 @@ BASE_DIR = '/mnt/fs4/hsiaoyut/tdw_physics/data/'
 
 # Data subsets
 _TRAIN_CLOTH = {'name': 'cloth',
-        'data': [os.path.join(BASE_DIR, 'cloth', 'tfrecords', 'train')]}
+        'data': [os.path.join(BASE_DIR, 'clothSagging', 'tfrecords', 'train')]}
 _TRAIN_FEAT_CLOTH = {'name': 'train_cloth',
-        'data': [os.path.join(BASE_DIR, 'cloth', 'tfrecords', 'train_readout')]}
+        'data': [os.path.join(BASE_DIR, 'clothSagging', 'tfrecords', 'train_readout')]}
 _TEST_FEAT_CLOTH = {'name': 'test_cloth',
-        'data': [os.path.join(BASE_DIR, 'cloth', 'tfrecords', 'valid_readout')]}
+        'data': [os.path.join(BASE_DIR, 'clothSagging', 'tfrecords', 'valid_readout')]}
 
 _TRAIN_COLLISION = {'name': 'collision',
         'data': [os.path.join(BASE_DIR, 'collision', 'tfrecords', 'train')]}
