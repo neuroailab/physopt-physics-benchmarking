@@ -70,7 +70,7 @@ ROLL_VS_SLIDE_CONFIG = {
         'test_len': 320 // 4,
         }
 
-DOMINOES_CONFIG = {
+ANY_CONFIG = {
         'binary_labels': ['any_is_target_contacting_zone'],
         'train_shift': [1, 1024, 1],
         'train_len': 10000,
@@ -92,7 +92,9 @@ def get_config(subset):
     elif 'slide' in subset:
         return ROLL_VS_SLIDE_CONFIG
     elif 'dominoes' in subset:
-        return DOMINOES_CONFIG
+        return ANY_CONFIG
+    elif 'tfrecords' in subset:
+        return ANY_CONFIG
     else:
         raise ValueError("Unkown config for subset: %s" % subset)
 
