@@ -529,6 +529,7 @@ def run(
         return mse.data.cpu().numpy()/(opt.n_past+opt.n_future), kld.data.cpu().numpy()/(opt.n_future+opt.n_past)
 
 # --------- training loop ------------------------------------
+    best_loss = 1e6
     for epoch in range(opt.niter):
         frame_predictor.train()
         posterior.train()
@@ -577,7 +578,22 @@ def run(
             'posterior': posterior,
             'prior': prior,
             'opt': opt},
-            '%s/model.pth' % opt.model_dir)
+            '%s/latest_model.pth' % opt.model_dir)
+
+        # save the best model
+        current_loss = (epoch_mse + epoch_kld) / opt.epoch_size
+        if current_loss < best_loss:
+            best_loss = current_loss
+            torch.save({
+                'encoder': encoder,
+                'decoder': decoder,
+                'frame_predictor': frame_predictor,
+                'posterior': posterior,
+                'prior': prior,
+                'opt': opt},
+                '%s/model.pth' % opt.model_dir)
+            print('best loss: %f' % best_loss)
+
         if epoch % 10 == 0:
             print('log dir: %s' % opt.log_dir)
 
