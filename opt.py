@@ -67,8 +67,8 @@ def run(
         exp_key = get_exp_key(model, seed, train_data, feat_data, exp_key_suffix)
         print("Experiment: {0}".format(exp_key))
 
-        trials = Trials()
-        # trials = MongoTrials(mongo_path, exp_key)
+        # trials = Trials()
+        trials = MongoTrials(mongo_path, exp_key)
 
         if compute_metrics:
             Objective = get_Objective('metrics')
@@ -78,8 +78,8 @@ def run(
 
         try:
             fmin(#objective,
-                    # MultiAttempt(objective),
-                    objective,
+                    MultiAttempt(objective),
+                    # objective,
                     space=optimization_space, trials=trials,
                     algo=algo, max_evals=max_evals,
                     )
