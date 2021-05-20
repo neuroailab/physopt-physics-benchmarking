@@ -1,4 +1,5 @@
 import sys
+import os
 import csv
 import numpy as np
 
@@ -24,9 +25,22 @@ def decode_svg_log(log_file):
 
     return header, data
 
+
+def decode_logs(experiment_path):
+    log_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(experiment_path) \
+            for f in filenames if os.path.splitext(f)[1] == '.txt']
+
+    logs = {}
+    for log_file in log_files:
+        try:
+            logs[log_file] = decode_svg_log(log_file)
+        except:
+            continue
+    return logs
+
+
 if __name__ == '__main__':
-    #log_file = '/mnt/fs1/mrowca/test11/SVG/cloth/0/model/logs/log.txt'
-    log_file = sys.argv[1]
-    header, data = decode_svg_log(log_file)
-    print(header)
-    print(data)
+    #experiment_path = '/mnt/fs1/mrowca/dummy1/SVG/'
+    experiment_path = sys.argv[1]
+    logs = decode_logs(experiment_path)
+    print(logs)
