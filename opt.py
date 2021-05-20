@@ -90,7 +90,7 @@ def run(
         return
 
     # Model training requires training only once
-    if not extract_feat:
+    if not extract_feat and not compute_metrics:
         data_space = (data_space[0], data_space[1], [{'name': 'train', 'data': []}])
 
     # Parallel processing
