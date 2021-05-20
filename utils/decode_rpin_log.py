@@ -19,3 +19,4 @@ for row in csv_data:
         continue
 
 data = np.array(data)
+header_data = np.concatenate([header, data], axis=0)
