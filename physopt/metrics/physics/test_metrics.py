@@ -136,7 +136,9 @@ def object_category_label_fn(data, time_steps, object_idx=1):
 
 def select_label_fn(time_steps, experiment):
     def label_fn(data, time_steps = time_steps, experiment = experiment):
-        if 'collide' in experiment:
+        if 'test' in experiment:
+            return collision_label_fn(data, time_steps)
+        elif 'collide' in experiment:
             return collision_label_fn(data, time_steps)
         elif 'tower' in experiment:
             return stable_label_fn(data, time_steps)
@@ -146,8 +148,6 @@ def select_label_fn(time_steps, experiment):
             return object_category_label_fn(data, time_steps)
         elif 'roll_vs_slide' in experiment: # TODO: should this be roll_slide
             return rolling_label_fn(data, time_steps)
-        if 'dominoes' in experiment:
-            return collision_label_fn(data, time_steps)
         else:
             raise NotImplementedError(experiment)
     return label_fn
