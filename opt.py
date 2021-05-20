@@ -89,6 +89,10 @@ def run(
 
         return
 
+    # Model training requires training only once
+    if not extract_feat:
+        data_space = (data_space[0], data_space[1], [{'name': 'train', 'data': []}])
+
     # Parallel processing
     if multiprocessing_pool:
         multiprocessing_pool.map(run_once, itertools.product(*data_space))
