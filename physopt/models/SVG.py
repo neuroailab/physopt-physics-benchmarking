@@ -37,7 +37,7 @@ def run(
     parser.add_argument('--optimizer', default='adam', help='optimizer to train with')
     parser.add_argument('--niter', type=int, default=300, help='number of epochs to train for')
     parser.add_argument('--seed', default=1, type=int, help='manual seed')
-    parser.add_argument('--epoch_size', type=int, default=600, help='epoch size') #600, 3600
+    parser.add_argument('--epoch_size', type=int, default=3000, help='epoch size') #600, 3600
     parser.add_argument('--image_width', type=int, default=64, help='the height / width of the input image to network')
     parser.add_argument('--channels', default=3, type=int)
     parser.add_argument('--dataset', default='tdw', help='dataset to train with')
@@ -551,7 +551,11 @@ def run(
         progress.finish()
         utils.clear_progressbar()
 
-        print('[%02d] mse loss: %.5f | kld loss: %.5f (%d)' % (epoch, epoch_mse/opt.epoch_size, epoch_kld/opt.epoch_size, epoch*opt.epoch_size*opt.batch_size))
+        print_message = '[%02d] mse loss: %.5f | kld loss: %.5f (%d)' % (epoch, epoch_mse/opt.epoch_size, epoch_kld/opt.epoch_size, epoch*opt.epoch_size*opt.batch_size)
+        print(print_message)
+
+        with open('%s/log.txt' % opt.log_dir, 'a+') as f:
+            f.write(print_message + '\n')
 
         # plot some stuff
         frame_predictor.eval()
