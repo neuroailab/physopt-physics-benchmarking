@@ -3,6 +3,7 @@ import torch.optim as optim
 import torch.nn as nn
 import argparse
 import os
+import time
 import random
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
@@ -488,6 +489,23 @@ def run(
             return
 
 # --------- training funtions ------------------------------------
+    def seconds_to_time(seconds_time):
+        hours = seconds_time // 3600
+        minutes = (seconds_time - (hours * 3600)) // 60
+        seconds = seconds_time - (minutes * 60)
+        return hours, minutes, seconds
+
+
+    def exceeded_time(start_time, max_run_time):
+        run_time = time.time() - start_time
+        if run_time > max_run_time:
+            print("Maximum run time (%d h %d m %d s) exceeded after %d h %d m %d s" % \
+                    (*seconds_to_time(max_run_time),
+                        *seconds_to_time(run_time)))
+            return True
+        else:
+            return False
+
     def train(x):
         frame_predictor.zero_grad()
         posterior.zero_grad()
@@ -529,6 +547,9 @@ def run(
         return mse.data.cpu().numpy()/(opt.n_past+opt.n_future), kld.data.cpu().numpy()/(opt.n_future+opt.n_past)
 
 # --------- training loop ------------------------------------
+    max_run_time = 86400 * 10
+    # train start time | max_run_time 86400 sec = 1 day
+    start_time = time.time()
     best_loss = 1e6
     for epoch in range(opt.niter):
         frame_predictor.train()
@@ -596,6 +617,9 @@ def run(
 
         if epoch % 10 == 0:
             print('log dir: %s' % opt.log_dir)
+
+        if exceeded_time(start_time, max_run_time):
+            break
 
 
 
