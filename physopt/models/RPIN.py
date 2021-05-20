@@ -75,7 +75,7 @@ ANY_CONFIG = {
         'train_shift': [1, 1024, 1],
         'train_len': 10000,
         'test_shift': [1, 1024, 1024],
-        'test_len': 100,
+        'test_len': 200,
         }
 
 def get_config(subset):
