@@ -218,6 +218,8 @@ def rebalance(data, label_fn, balancing = oversample):
     # Get number of positive and negative samples
     pos, neg = get_num_samples(data, label_fn)
     print("Before rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
+    num_pos = len(pos)
+    num_neg = len(neg)
 
     # Rebalance data by oversampling underrepresented calls
     balanced_data = balancing(data, pos, neg)
@@ -225,7 +227,7 @@ def rebalance(data, label_fn, balancing = oversample):
     pos, neg = get_num_samples(balanced_data, label_fn)
     print("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
 
-    return iter(balanced_data)
+    return iter(balanced_data), num_pos, num_neg
 
 
 def rebalance_human(data, label_fn):
@@ -301,15 +303,17 @@ def run(
     label_fn = select_label_fn(slice(*settings['val_time_steps']), test_feat_name)
 
     # Rebalance data
-    if 'cloth' in test_feat_name:
+    if False and 'cloth' in test_feat_name:
         if 'human' in test_feat_name:
             test_data = remap_and_filter(test_data, label_fn)
     else:
         np.random.seed(0)
-        train_data = rebalance(train_data, label_fn)
-        train_test_data = rebalance(train_test_data, label_fn)
+        train_data, num_train_pos, num_train_neg = rebalance(train_data, label_fn)
+        train_test_data, _, _ = rebalance(train_test_data, label_fn)
         if not 'human' in test_feat_name:
-            test_data = rebalance(test_data, label_fn)
+            test_data, num_test_pos, num_test_neg = rebalance(test_data, label_fn)
+        else:
+            num_test_pos = num_test_neg = 0
 
     # Build logistic regression model
     readout_model = LogisticRegressionReadoutModel(max_iter = 100, C=1.0, verbose=1)
@@ -325,7 +329,10 @@ def run(
 
     print("Categorization accuracy: %f" % test_acc)
 
-    result = {'test_accuracy': test_acc, 'train_accuracy': train_acc}
+    result = {'test_accuracy': test_acc, 'train_accuracy': train_acc,
+            'num_train_pos': num_train_pos, 'num_train_neg': num_train_neg,
+            'num_test_pos': num_test_pos, 'num_test_neg': num_test_neg,
+            'test_rebalanced': True if num_test_pos + num_test_neg > 0 else False}
 
     # Calculate human correlation
     if calculate_correlation:
