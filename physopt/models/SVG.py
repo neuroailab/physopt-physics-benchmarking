@@ -24,6 +24,7 @@ def run(
         model = 'vgg',
         freeze_encoder_weights = False,
         write_feat = '',
+        max_run_time = 86400 * 100, # 100 days
         ):
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', default=0.002, type=float, help='learning rate')
@@ -547,8 +548,7 @@ def run(
         return mse.data.cpu().numpy()/(opt.n_past+opt.n_future), kld.data.cpu().numpy()/(opt.n_future+opt.n_past)
 
 # --------- training loop ------------------------------------
-    max_run_time = 86400 * 10
-    # train start time | max_run_time 86400 sec = 1 day
+    # train start time
     start_time = time.time()
     best_loss = 1e6
     for epoch in range(opt.niter):
@@ -632,9 +632,11 @@ class Objective(PhysOptObjective):
             output_dir,
             extract_feat,
             debug,
+            max_run_time,
             model,
             freeze_encoder_weights):
-        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat, debug)
+        super().__init__(exp_key, seed, train_data, feat_data, output_dir,
+                extract_feat, debug, max_run_time)
         self.model = model
         self.freeze_encoder_weights = freeze_encoder_weights
 
@@ -656,7 +658,8 @@ class Objective(PhysOptObjective):
             run(datasets=self.train_data['data'], seed=self.seed, data_root='',
                     model_dir=self.model_dir, feature_file=self.feature_file,
                     write_feat='', model=self.model,
-                    freeze_encoder_weights=self.freeze_encoder_weights)
+                    freeze_encoder_weights=self.freeze_encoder_weights,
+                    max_run_time=self.max_run_time)
 
         results['loss'] = 0.0
         results['model'] = self.model

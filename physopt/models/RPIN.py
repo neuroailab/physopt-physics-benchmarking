@@ -136,6 +136,7 @@ def run(
         model_dir = '/mnt/fs4/mrowca/hyperopt/rpin/default/0/model',
         feature_file = '/mnt/fs4/mrowca/hyperopt/rpin/default/0/model/features/default/feat.pkl',
         write_feat = '',
+        max_run_time = 86400 * 100, # 100 days
         ):
     # the wrapper file contains:
     # 1. setup environment
@@ -150,7 +151,7 @@ def run(
 
     # Overwrite args with passed args
     args.seed = seed if not write_feat else 0
-    args.cfg = '/home/mrowca/workspace/RPIN/configs/tdw/default_rpin.yaml' # default config
+    args.cfg = '/home/mrowca_stanford_edu/workspace/RPIN/configs/tdw/default_rpin.yaml' # default config
     args.gpus = '0'
     args.output = '' # Not used any longer
     #args.init = '' # For restart -> check for tar file
@@ -188,11 +189,11 @@ def run(
     if write_feat:
         test(args, model_dir, feature_file, write_feat)
     else:
-        train(args, model_dir, num_gpus)
+        train(args, model_dir, num_gpus, max_run_time)
     return
 
 
-def train(args, output_dir, num_gpus):
+def train(args, output_dir, num_gpus, max_run_time):
     from neuralphys.datasets.tdw import TDWPhys as PyPhys
     # TODO Changed this to 4 + 6 frame prediction
     C['RPIN']['INPUT_SIZE'] = 4
@@ -200,7 +201,7 @@ def train(args, output_dir, num_gpus):
     C['RPIN']['PRED_SIZE_TEST'] = 18 #44 #6 #23
 
     shutil.copy(args.cfg, os.path.join(output_dir, 'config.yaml'))
-    shutil.copy(os.path.join('/home/mrowca/workspace/RPIN/neuralphys/models/', C.RPIN.ARCH + '.py'), os.path.join(output_dir, 'arch.py'))
+    shutil.copy(os.path.join('/home/mrowca_stanford_edu/workspace/RPIN/neuralphys/models/', C.RPIN.ARCH + '.py'), os.path.join(output_dir, 'arch.py'))
 
     # ---- setup logger
     logger = setup_logger('RPIN', output_dir)
@@ -252,7 +253,8 @@ def train(args, output_dir, num_gpus):
               'output_dir': output_dir,
               'logger': logger,
               'num_gpus': num_gpus,
-              'max_iters': C.SOLVER.MAX_ITERS}
+              'max_iters': C.SOLVER.MAX_ITERS,
+              'max_run_time': max_run_time}
     trainer = Trainer(**kwargs)
 
     #try:
@@ -328,7 +330,7 @@ class Objective(PhysOptObjective):
         else:
             run(datasets=self.train_data['data'], seed=self.seed, data_root='',
                     model_dir=self.model_dir, feature_file=self.feature_file,
-                    write_feat='')
+                    write_feat='', max_run_time=self.max_run_time)
 
         results['loss'] = 0.0
         return results

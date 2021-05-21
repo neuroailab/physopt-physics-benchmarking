@@ -375,9 +375,11 @@ class Objective(PhysOptObjective):
             output_dir,
             extract_feat,
             debug,
+            max_run_time = 86400 * 100, # 100 days
             ):
         assert len(feat_data) == 2, feat_data
-        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat, debug)
+        super().__init__(exp_key, seed, train_data, feat_data, output_dir,
+                extract_feat, debug, max_run_time)
 
 
     def __call__(self, *args, **kwargs):

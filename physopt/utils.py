@@ -71,6 +71,7 @@ class PhysOptObjective():
             output_dir,
             extract_feat,
             debug,
+            max_run_time = 86400 * 100, # 100 days
             ):
         self.exp_key = exp_key
         self.seed = seed
@@ -80,6 +81,7 @@ class PhysOptObjective():
         self.model_dir = self.get_model_dir(self.output_dir,
                 self.train_data['name'], self.seed)
         self.debug = debug
+        self.max_run_time = max_run_time
 
         if isinstance(feat_data, dict):
             # feature data space
