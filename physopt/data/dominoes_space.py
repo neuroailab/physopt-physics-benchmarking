@@ -6,6 +6,8 @@ _NUM_SEEDS = 1
 
 if socket.gethostname() == 'node19-ccncluster':
     DOMINO_BASE_DIR = '/data1/eliwang/dominoes'
+elif 'physion' in socket.gethostname():
+    DOMINO_BASE_DIR = '/mnt/fs4/hsiaoyut/tdw_physics/data/dominoes'
 else:
     DOMINO_BASE_DIR = '/mnt/fs4/eliwang/dominoes'
 
