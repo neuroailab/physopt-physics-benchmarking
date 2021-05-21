@@ -67,6 +67,28 @@ def run(
 
     def run_once(data):
         seed, train_data, feat_data = data
+
+        '''
+        # Do not evaluate across datasets unless trained on all
+        if train_data['name'] != 'all':
+            if isinstance(feat_data, dict):
+                if feat_data['name'] != 'train' and train_data['name'] not in feat_data['name']:
+                    return
+            else:
+                if train_data['name'] not in feat_data[0]['name'] or \
+                        train_data['name'] not in feat_data[1]['name']:
+                    return
+        '''
+
+        # if isinstance(feat_data, dict):
+        #     print(train_data['name'], feat_data['name'])
+        # else:
+        #     print(train_data['name'], feat_data[0]['name'], feat_data[1]['name'])
+        # import pdb
+        # pdb.set_trace()
+        # return
+
+
         exp_key = get_exp_key(model, seed, train_data, feat_data, exp_key_suffix)
         print("Experiment: {0}".format(exp_key))
 

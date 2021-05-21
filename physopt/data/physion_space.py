@@ -111,4 +111,7 @@ METRICS_DATA = [
         (_TRAIN_FEAT_TOWERS, _TEST_FEAT_TOWERS),
         ]
 
+# TRAIN_DATA = [TRAIN_DATA[1], TRAIN_DATA[-1]] # collision and all
+# TRAIN_DATA = TRAIN_DATA[0:8] + TRAIN_DATA[16:17] # leaving out no_*
+
 SPACE = construct_data_spaces(SEEDS, TRAIN_DATA, TRAIN_FEAT_DATA, TEST_FEAT_DATA, METRICS_DATA)
