@@ -28,15 +28,11 @@ SUBSETS = [
 
 # Data subsets
 _DOMINOES = {'name': 'dominoes',
-        'data': [os.path.join(DOMINO_BASE_DIR, s, 'train/0*.hdf5') for s in SUBSETS]}
-# _DOMINOES = {'name': 'dominoes_100',
-#         'data': [os.path.join(DOMINO_BASE_DIR, s, 'train/00*.hdf5') for s in SUBSETS]}
-# _DOMINOES = {'name': 'dominoes_10',
-#         'data': [os.path.join(DOMINO_BASE_DIR, s, 'train/000*.hdf5') for s in SUBSETS]}
+        'data': [os.path.join(DOMINO_BASE_DIR, s, 'train/*.hdf5') for s in SUBSETS]}
 _TEST_DOMINOES = {'name': 'test_dominoes',
-        'data': [os.path.join(DOMINO_BASE_DIR, s, 'test/*.hdf5') for s in SUBSETS]}
+        'data': [os.path.join(DOMINO_BASE_DIR, s, 'train_readout/*.hdf5') for s in SUBSETS]}
 _VAL_DOMINOES = {'name': 'val_dominoes',
-        'data': [os.path.join(DOMINO_BASE_DIR, s, 'val/*.hdf5') for s in SUBSETS]}
+        'data': [os.path.join(DOMINO_BASE_DIR, s, 'valid/*.hdf5') for s in SUBSETS]}
 
 # Spaces
 SEEDS = list(range(_NUM_SEEDS))
