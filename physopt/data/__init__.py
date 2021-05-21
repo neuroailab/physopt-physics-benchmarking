@@ -9,5 +9,8 @@ def get_data_space(data_space, debug):
     elif data_space == 'DOMINOES':
         from physopt.data.dominoes_space import SPACE as DOMINOES_SPACE
         return DOMINOES_SPACE
+    elif data_space == 'PHYSION':
+        from physopt.data.physion_space import SPACE as PHYSION_SPACE
+        return PHYSION_SPACE
     else:
         raise ValueError('Unknown data: {0}'.format(data_space))

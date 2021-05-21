@@ -11,28 +11,13 @@ elif 'physion' in socket.gethostname():
 else:
     DOMINO_BASE_DIR = '/mnt/fs4/eliwang/dominoes'
 
-
-SUBSETS = [
-        'pilot_dominoes_0mid_d3chairs_o1plants_tdwroom',
-        'pilot_dominoes_1mid_J025R45_boxroom',
-        'pilot_dominoes_1mid_J025R45_o1flex_tdwroom',
-        'pilot_dominoes_2mid_J020R15_d3chairs_o1plants_tdwroom',
-        'pilot_dominoes_2mid_J025R30_tdwroom',
-        'pilot_dominoes_4mid_boxroom',
-        'pilot_dominoes_4midRM1_boxroom',
-        'pilot_dominoes_4midRM1_tdwroom',
-        'pilot_dominoes_4mid_tdwroom',
-        'pilot_dominoes_default_boxroom',
-        'pilot_dominoes_SJ020_d3chairs_o1plants_tdwroom',
-        ]
-
 # Data subsets
 _DOMINOES = {'name': 'dominoes',
-        'data': [os.path.join(DOMINO_BASE_DIR, s, 'train/*.hdf5') for s in SUBSETS]}
+        'data': [os.path.join(DOMINO_BASE_DIR, '*/train/*.hdf5')]}
 _TEST_DOMINOES = {'name': 'test_dominoes',
-        'data': [os.path.join(DOMINO_BASE_DIR, s, 'train_readout/*.hdf5') for s in SUBSETS]}
+        'data': [os.path.join(DOMINO_BASE_DIR, '*/train_readout/*.hdf5')]}
 _VAL_DOMINOES = {'name': 'val_dominoes',
-        'data': [os.path.join(DOMINO_BASE_DIR, s, 'valid/*.hdf5') for s in SUBSETS]}
+        'data': [os.path.join(DOMINO_BASE_DIR, '*/valid_readout/*.hdf5')]}
 
 # Spaces
 SEEDS = list(range(_NUM_SEEDS))
