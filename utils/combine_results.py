@@ -49,6 +49,10 @@ def parse_result(result, subsample_factor = 6):
             'Test Accuracy': readout['result']['test_accuracy'],
             'Readout Type': readout_type,
             'Sequence Length': (readout['val_time_steps'][1] + 1) * subsample_factor,
+            'Readout Train Positive': readout['result']['num_train_pos'],
+            'Readout Train Negative': readout['result']['num_train_neg'],
+            'Readout Test Positive': readout['result']['num_test_pos'],
+            'Readout Test Negative': readout['result']['num_test_neg'],
             'Description': description,
             })
 
