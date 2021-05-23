@@ -272,82 +272,168 @@ def run(
         if not os.path.exists(os.path.dirname(feature_file)):
             os.makedirs(os.path.dirname(feature_file))
 
-        outputs = []
+        def svg_readout():
+            outputs = []
 
-        progress = progressbar.ProgressBar().start()
-        counter = 0
-        for seq_id, sequence in enumerate(loader):
-            counter += 1
-            progress.update(counter)
+            progress = progressbar.ProgressBar().start()
+            counter = 0
+            for seq_id, sequence in enumerate(loader):
+                counter += 1
+                progress.update(counter)
 
-            images = sequence["images"]
-            x = utils.normalize_data(opt, dtype, images)
+                images = sequence["images"]
+                x = utils.normalize_data(opt, dtype, images)
 
-            gen_seq = []
-            encoded_states = []
-            rollout_states = []
-            gt_seq = [utils.make_images(x[i]) for i in range(len(x))]
+                gen_seq = []
+                encoded_states = []
+                rollout_states = []
+                gt_seq = [utils.make_images(x[i]) for i in range(len(x))]
 
-            frame_predictor.hidden = frame_predictor.init_hidden()
-            posterior.hidden = posterior.init_hidden()
-            prior.hidden = prior.init_hidden()
-            gen_seq.append(utils.make_images(x[0]))
-            x_in = x[0]
-            for i in range(1, opt.n_eval):
-                h = encoder(x_in)
-                if opt.last_frame_skip or i < opt.n_past:
-                    h, skip = h
-                else:
-                    h, _ = h
-                h = h
+                frame_predictor.hidden = frame_predictor.init_hidden()
+                posterior.hidden = posterior.init_hidden()
+                prior.hidden = prior.init_hidden()
+                gen_seq.append(utils.make_images(x[0]))
+                x_in = x[0]
+                for i in range(1, opt.n_eval):
+                    h = encoder(x_in)
+                    if opt.last_frame_skip or i < opt.n_past:
+                        h, skip = h
+                    else:
+                        h, _ = h
+                    h = h
 
-                if i == 1:
-                    # First frame
-                    rollout_states.append(h.cpu().numpy())
+                    if i == 1:
+                        # First frame
+                        rollout_states.append(h.cpu().numpy())
 
-                if i < opt.n_past:
-                    h_target = encoder(x[i])
-                    h_target = h_target[0]
-                    z_t, _, _ = posterior(h_target)
-                    prior(h)
-                    frame_predictor(torch.cat([h, z_t], 1))
-                    x_in = x[i]
-                    gen_seq.append(utils.make_images(x_in))
-                    rollout_states.append(h_target.cpu().numpy())
-                else:
-                    z_t, _, _ = prior(h)
-                    h = frame_predictor(torch.cat([h, z_t], 1))
-                    x_in = decoder([h, skip])
-                    gen_seq.append(utils.make_images(x_in))
-                    rollout_states.append(h.cpu().numpy())
+                    if i < opt.n_past:
+                        h_target = encoder(x[i])
+                        h_target = h_target[0]
+                        z_t, _, _ = posterior(h_target)
+                        prior(h)
+                        frame_predictor(torch.cat([h, z_t], 1))
+                        x_in = x[i]
+                        gen_seq.append(utils.make_images(x_in))
+                        rollout_states.append(h_target.cpu().numpy())
+                    else:
+                        z_t, _, _ = prior(h)
+                        h = frame_predictor(torch.cat([h, z_t], 1))
+                        x_in = decoder([h, skip])
+                        gen_seq.append(utils.make_images(x_in))
+                        rollout_states.append(h.cpu().numpy())
 
-            for i in range(0, opt.n_eval):
-                encoded_states.append(encoder(x[i])[0].cpu().numpy())
+                for i in range(0, opt.n_eval):
+                    encoded_states.append(encoder(x[i])[0].cpu().numpy())
 
-            outputs.append({
-                #"predicted_images": np.stack(gen_seq, axis=1),
-                #"true_images": np.stack(gt_seq, axis=1),
-                #"raw_images": sequence["raw_images"].numpy(),
-                "binary_labels": sequence["binary_labels"].numpy(),
-                "reference_ids": sequence["reference_ids"].numpy(),
-                "human_prob": sequence["human_prob"].numpy(),
-                "encoded_states": np.stack(encoded_states, axis=1),
-                "rollout_states": np.stack(rollout_states, axis=1),
-                })
+                outputs.append({
+                    #"predicted_images": np.stack(gen_seq, axis=1),
+                    #"true_images": np.stack(gt_seq, axis=1),
+                    #"raw_images": sequence["raw_images"].numpy(),
+                    "binary_labels": sequence["binary_labels"].numpy(),
+                    "reference_ids": sequence["reference_ids"].numpy(),
+                    "human_prob": sequence["human_prob"].numpy(),
+                    "encoded_states": np.stack(encoded_states, axis=1),
+                    "rollout_states": np.stack(rollout_states, axis=1),
+                    })
 
-            # Write every 1000 sequences to not lose data
-            if seq_id % 1000 == 0 and seq_id > 0:
-                with open(feature_file, 'wb') as f:
-                    pickle.dump(outputs, f)
-                print('Results stored in %s' % feature_file)
+                # Write every 1000 sequences to not lose data
+                if seq_id % 1000 == 0 and seq_id > 0:
+                    with open(feature_file, 'wb') as f:
+                        pickle.dump(outputs, f)
+                    print('Results stored in %s' % feature_file)
 
-        progress.finish()
+            progress.finish()
 
-        # Final write
-        with open(feature_file, 'wb') as f:
-            pickle.dump(outputs, f)
-        print('Results stored in %s' % feature_file)
-        return
+            # Final write
+            with open(feature_file, 'wb') as f:
+                pickle.dump(outputs, f)
+            print('Results stored in %s' % feature_file)
+            return
+
+
+        def deit_clip_readout():
+            outputs = []
+
+            progress = progressbar.ProgressBar().start()
+            counter = 0
+            for seq_id, sequence in enumerate(loader):
+                counter += 1
+                progress.update(counter)
+
+                images = sequence["images"]
+                x = utils.normalize_data(opt, dtype, images)
+
+                gen_seq = []
+                encoded_states = []
+                rollout_states = []
+                gt_seq = [utils.make_images(x[i]) for i in range(len(x))]
+
+                frame_predictor.hidden = frame_predictor.init_hidden()
+                posterior.hidden = posterior.init_hidden()
+                prior.hidden = prior.init_hidden()
+                gen_seq.append(utils.make_images(x[0]))
+                x_in = x[0]
+                for i in range(1, opt.n_eval):
+                    h = encoder(x_in)
+                    if opt.last_frame_skip or i < opt.n_past:
+                        h, skip = h
+                        skip_non_gt = skip
+                    else:
+                        h, skip_non_gt = h
+                    h = h
+
+                    if i == 1:
+                        # First frame
+                        rollout_states.append(skip[-1].cpu().numpy())
+
+                    if i < opt.n_past:
+                        h_target, skip_target = encoder(x[i])
+                        h_target = h_target
+                        z_t, _, _ = posterior(h_target)
+                        prior(h)
+                        frame_predictor(torch.cat([h, z_t], 1))
+                        x_in = x[i]
+                        gen_seq.append(utils.make_images(x_in))
+                        rollout_states.append(skip_target[-1].cpu().numpy())
+                    else:
+                        z_t, _, _ = prior(h)
+                        h = frame_predictor(torch.cat([h, z_t], 1))
+                        x_in = decoder([h, skip])
+                        gen_seq.append(utils.make_images(x_in))
+                        rollout_states.append(skip_non_gt[-1].cpu().numpy())
+
+                for i in range(0, opt.n_eval):
+                    encoded_states.append(encoder(x[i])[1][-1].cpu().numpy())
+
+                outputs.append({
+                    #"predicted_images": np.stack(gen_seq, axis=1),
+                    #"true_images": np.stack(gt_seq, axis=1),
+                    #"raw_images": sequence["raw_images"].numpy(),
+                    "binary_labels": sequence["binary_labels"].numpy(),
+                    "reference_ids": sequence["reference_ids"].numpy(),
+                    "human_prob": sequence["human_prob"].numpy(),
+                    "encoded_states": np.stack(encoded_states, axis=1),
+                    "rollout_states": np.stack(rollout_states, axis=1),
+                    })
+
+                # Write every 1000 sequences to not lose data
+                if seq_id % 1000 == 0 and seq_id > 0:
+                    with open(feature_file, 'wb') as f:
+                        pickle.dump(outputs, f)
+                    print('Results stored in %s' % feature_file)
+
+            progress.finish()
+
+            # Final write
+            with open(feature_file, 'wb') as f:
+                pickle.dump(outputs, f)
+            print('Results stored in %s' % feature_file)
+            return
+
+        if opt.model in ['deit_pretrained', 'clip_pretrained']:
+            deit_clip_readout()
+        else:
+            svg_readout()
 
 
     with torch.no_grad():
