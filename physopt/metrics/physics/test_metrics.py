@@ -119,7 +119,6 @@ def contain_label_fn(data, time_steps, dist_thres = 0.55, pos_frame_ratio_thres 
     labels = num_close_frames / num_frames > pos_frame_ratio_thres
     return labels.astype(np.int32).reshape([1])
 
-
 def object_category_label_fn(data, time_steps, object_idx=1):
     labels = subselect(data['binary_labels'], time_steps)
     assert np.all(labels[0:1, :] == labels), ("Object category changed within sequence!", labels)
@@ -129,6 +128,8 @@ def object_category_label_fn(data, time_steps, object_idx=1):
 
 def select_label_fn(time_steps, experiment):
     def label_fn(data, time_steps = time_steps, experiment = experiment):
+        return collision_label_fn(data, time_steps)
+        '''
         if 'collide' in experiment:
             return collision_label_fn(data, time_steps)
         elif 'tower' in experiment:
@@ -143,6 +144,7 @@ def select_label_fn(time_steps, experiment):
             return collision_label_fn(data, time_steps) # TODO: using collision label fn for now, should be the same
         else:
             raise NotImplementedError(experiment)
+        '''
     return label_fn
 
 
