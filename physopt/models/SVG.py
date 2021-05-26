@@ -489,6 +489,7 @@ def run(
 
             # best sequence
             min_mse = 1e7
+            min_idx = 0
             for s in range(nsample):
                 mse = 0
                 for t in range(opt.n_eval):
