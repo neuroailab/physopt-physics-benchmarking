@@ -48,7 +48,7 @@ def parse_result(result, subsample_factor = 6):
             'Train Accuracy': readout['result']['train_accuracy'],
             'Test Accuracy': readout['result']['test_accuracy'],
             'Readout Type': readout_type,
-            'Sequence Length': (readout['val_time_steps'][1] + 1) * subsample_factor,
+            'Sequence Length': readout['val_time_steps'][1] * subsample_factor,
             # 'Readout Train Positive': readout['result']['num_train_pos'],
             # 'Readout Train Negative': readout['result']['num_train_neg'],
             # 'Readout Test Positive': readout['result']['num_test_pos'],
@@ -61,7 +61,7 @@ def parse_result(result, subsample_factor = 6):
 def combine_results(experiment_path):
     result_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(experiment_path) \
             for f in filenames if f == 'metrics_results.pkl']
-    print(result_files)
+    print('\n'.join(result_files))
 
     results = []
     for result_file in result_files:
