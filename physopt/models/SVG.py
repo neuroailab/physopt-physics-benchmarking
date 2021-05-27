@@ -445,16 +445,16 @@ def run(
             return
 
 # --------- plotting funtions ------------------------------------
-    def plot(x, epoch):
+    def plot(x, epoch, model):
         nsample = 20 
         gen_seq = [[] for i in range(nsample)]
-        gt_seq = [x[i] for i in range(len(x))]
+        gt_seq = [utils.unnorm(x[i], model) for i in range(len(x))]
 
         for s in range(nsample):
             frame_predictor.hidden = frame_predictor.init_hidden()
             posterior.hidden = posterior.init_hidden()
             prior.hidden = prior.init_hidden()
-            gen_seq[s].append(x[0])
+            gen_seq[s].append(utils.unnorm(x[0], model))
             x_in = x[0]
             for i in range(1, opt.n_eval):
                 h = encoder(x_in)
@@ -470,12 +470,12 @@ def run(
                     prior(h)
                     frame_predictor(torch.cat([h, z_t], 1))
                     x_in = x[i]
-                    gen_seq[s].append(x_in)
+                    gen_seq[s].append(utils.unnorm(x_in, model))
                 else:
                     z_t, _, _ = prior(h)
                     h = frame_predictor(torch.cat([h, z_t], 1))
                     x_in = decoder([h, skip])
-                    gen_seq[s].append(x_in)
+                    gen_seq[s].append(utils.unnorm(x_in, model))
 
         to_plot = []
         gifs = [ [] for t in range(opt.n_eval) ]
@@ -525,11 +525,11 @@ def run(
         print("Saved at %s" % fname)
 
 
-    def plot_rec(x, epoch):
+    def plot_rec(x, epoch, model):
         frame_predictor.hidden = frame_predictor.init_hidden()
         posterior.hidden = posterior.init_hidden()
         gen_seq = []
-        gen_seq.append(x[0])
+        gen_seq.append(utils.unnorm(x[0], model))
         x_in = x[0]
         for i in range(1, opt.n_past+opt.n_future):
             h = encoder(x[i-1])
@@ -544,11 +544,11 @@ def run(
             z_t, _, _= posterior(h_target)
             if i < opt.n_past:
                 frame_predictor(torch.cat([h, z_t], 1)) 
-                gen_seq.append(x[i])
+                gen_seq.append(utils.unnorm(x[i], model))
             else:
                 h_pred = frame_predictor(torch.cat([h, z_t], 1))
                 x_pred = decoder([h_pred, skip])
-                gen_seq.append(x_pred)
+                gen_seq.append(utils.unnorm(x_pred, model))
        
         to_plot = []
         nrow = min(opt.batch_size, 10)
@@ -572,8 +572,8 @@ def run(
                 progress.update(counter)
                 images = sequence["images"]
                 x = utils.normalize_data(opt, dtype, images)
-                plot(x, counter)
-                plot_rec(x, counter)
+                plot(x, counter, opt.model)
+                plot_rec(x, counter, opt.model)
             return
 
 # --------- training funtions ------------------------------------
@@ -675,8 +675,8 @@ def run(
         
         with torch.no_grad():
             x = next(testing_batch_generator)
-            plot(x, epoch)
-            plot_rec(x, epoch)
+            plot(x, epoch, opt.model)
+            plot_rec(x, epoch, opt.model)
 
         # save the model
         torch.save({
