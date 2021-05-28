@@ -284,7 +284,7 @@ def run(
         test_feat_name,
         model_dir,
         settings,
-        grid_search_params = {'C': [0.01, 0.1, 1.0, 10.0, 100.0]},
+        grid_search_params = {'C': np.logspace(-8, 8, 17)},
         calculate_correlation = False,
         ):
 
