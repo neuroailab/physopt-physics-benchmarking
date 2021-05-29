@@ -5,64 +5,81 @@ from physopt.data.data_space import get_all_subsets, construct_data_spaces
 _NUM_SEEDS = 1
 
 BASE_DIR = '/mnt/fs4/hsiaoyut/tdw_physics/data/'
+HUMAN_DIR = '/mnt/fs1/tdw_datasets'
 
 # Data subsets
 _TRAIN_CLOTH = {'name': 'cloth',
         'data': [os.path.join(BASE_DIR, 'clothSagging', 'tfrecords', 'train')]}
 _TRAIN_FEAT_CLOTH = {'name': 'train_cloth',
         'data': [os.path.join(BASE_DIR, 'clothSagging', 'tfrecords', 'train_readout')]}
+# _TEST_FEAT_CLOTH = {'name': 'test_cloth',
+#         'data': [os.path.join(BASE_DIR, 'clothSagging', 'tfrecords', 'valid_readout')]}
 _TEST_FEAT_CLOTH = {'name': 'test_cloth',
-        'data': [os.path.join(BASE_DIR, 'clothSagging', 'tfrecords', 'valid_readout')]}
+        'data': [os.path.join(HUMAN_DIR, 'pilot-clothSagging-redyellow', 'tfrecords')]}
 
 _TRAIN_COLLISION = {'name': 'collision',
         'data': [os.path.join(BASE_DIR, 'collision', 'tfrecords', 'train')]}
 _TRAIN_FEAT_COLLISION = {'name': 'train_collision',
         'data': [os.path.join(BASE_DIR, 'collision', 'tfrecords', 'train_readout')]}
+# _TEST_FEAT_COLLISION = {'name': 'test_collision',
+#         'data': [os.path.join(BASE_DIR, 'collision', 'tfrecords', 'valid_readout')]}
 _TEST_FEAT_COLLISION = {'name': 'test_collision',
-        'data': [os.path.join(BASE_DIR, 'collision', 'tfrecords', 'valid_readout')]}
+        'data': [os.path.join(HUMAN_DIR, 'pilot-collision-redyellow', 'tfrecords')]}
 
 
 _TRAIN_CONTAINMENT = {'name': 'containment',
         'data': [os.path.join(BASE_DIR, 'containment', 'tfrecords', 'train')]}
 _TRAIN_FEAT_CONTAINMENT = {'name': 'train_containment',
         'data': [os.path.join(BASE_DIR, 'containment', 'tfrecords', 'train_readout')]}
+# _TEST_FEAT_CONTAINMENT = {'name': 'test_containment',
+#         'data': [os.path.join(BASE_DIR, 'containment', 'tfrecords', 'valid_readout')]}
 _TEST_FEAT_CONTAINMENT = {'name': 'test_containment',
-        'data': [os.path.join(BASE_DIR, 'containment', 'tfrecords', 'valid_readout')]}
+        'data': [os.path.join(HUMAN_DIR, 'pilot-containment-redyellow', 'tfrecords')]}
 
 _TRAIN_DOMINOES = {'name': 'dominoes',
         'data': [os.path.join(BASE_DIR, 'dominoes', 'tfrecords', 'train')]}
 _TRAIN_FEAT_DOMINOES = {'name': 'train_dominoes',
         'data': [os.path.join(BASE_DIR, 'dominoes', 'tfrecords', 'train_readout')]}
+# _TEST_FEAT_DOMINOES = {'name': 'test_dominoes',
+#         'data': [os.path.join(BASE_DIR, 'dominoes', 'tfrecords', 'valid_readout')]}
 _TEST_FEAT_DOMINOES = {'name': 'test_dominoes',
-        'data': [os.path.join(BASE_DIR, 'dominoes', 'tfrecords', 'valid_readout')]}
+        'data': [os.path.join(HUMAN_DIR, 'pilot-dominoes-redyellow', 'tfrecords')]}
 
 _TRAIN_DROP = {'name': 'drop',
         'data': [os.path.join(BASE_DIR, 'drop', 'tfrecords', 'train')]}
 _TRAIN_FEAT_DROP = {'name': 'train_drop',
         'data': [os.path.join(BASE_DIR, 'drop', 'tfrecords', 'train_readout')]}
+# _TEST_FEAT_DROP = {'name': 'test_drop',
+#         'data': [os.path.join(BASE_DIR, 'drop', 'tfrecords', 'valid_readout')]}
 _TEST_FEAT_DROP = {'name': 'test_drop',
-        'data': [os.path.join(BASE_DIR, 'drop', 'tfrecords', 'valid_readout')]}
+        'data': [os.path.join(HUMAN_DIR, 'pilot-drop-redyellow', 'tfrecords')]}
 
 _TRAIN_LINKING = {'name': 'linking',
         'data': [os.path.join(BASE_DIR, 'linking', 'tfrecords', 'train')]}
 _TRAIN_FEAT_LINKING = {'name': 'train_linking',
         'data': [os.path.join(BASE_DIR, 'linking', 'tfrecords', 'train_readout')]}
+# _TEST_FEAT_LINKING = {'name': 'test_linking',
+#         'data': [os.path.join(BASE_DIR, 'linking', 'tfrecords', 'valid_readout')]}
 _TEST_FEAT_LINKING = {'name': 'test_linking',
-        'data': [os.path.join(BASE_DIR, 'linking', 'tfrecords', 'valid_readout')]}
+        'data': [os.path.join(HUMAN_DIR, 'pilot-linking-redyellow', 'tfrecords')]}
 
 _TRAIN_ROLLSLIDE = {'name': 'rollslide',
         'data': [os.path.join(BASE_DIR, 'rollingSliding', 'tfrecords', 'train')]}
 _TRAIN_FEAT_ROLLSLIDE = {'name': 'train_rollslide',
         'data': [os.path.join(BASE_DIR, 'rollingSliding', 'tfrecords', 'train_readout')]}
+# _TEST_FEAT_ROLLSLIDE = {'name': 'test_rollslide',
+#         'data': [os.path.join(BASE_DIR, 'rollingSliding', 'tfrecords', 'valid_readout')]}
 _TEST_FEAT_ROLLSLIDE = {'name': 'test_rollslide',
-        'data': [os.path.join(BASE_DIR, 'rollingSliding', 'tfrecords', 'valid_readout')]}
+        'data': [os.path.join(HUMAN_DIR, 'pilot-rollingSliding-redyellow', 'tfrecords')]}
 
 _TRAIN_TOWERS = {'name': 'towers',
         'data': [os.path.join(BASE_DIR, 'towers', 'tfrecords', 'train')]}
 _TRAIN_FEAT_TOWERS = {'name': 'train_towers',
         'data': [os.path.join(BASE_DIR, 'towers', 'tfrecords', 'train_readout')]}
+# _TEST_FEAT_TOWERS = {'name': 'test_towers',
+#         'data': [os.path.join(BASE_DIR, 'towers', 'tfrecords', 'valid_readout')]}
 _TEST_FEAT_TOWERS = {'name': 'test_towers',
-        'data': [os.path.join(BASE_DIR, 'towers', 'tfrecords', 'valid_readout')]}
+        'data': [os.path.join(HUMAN_DIR, 'pilot-towers-redyellow', 'tfrecords')]}
 
 # Spaces
 SEEDS = list(range(_NUM_SEEDS))
