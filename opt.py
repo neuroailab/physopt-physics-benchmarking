@@ -68,17 +68,18 @@ def run(
     def run_once(data):
         seed, train_data, feat_data = data
 
-        '''
+        # '''
         # Do not evaluate across datasets unless trained on all
         if train_data['name'] != 'all':
             if isinstance(feat_data, dict):
-                if feat_data['name'] != 'train' and train_data['name'] not in feat_data['name']:
+                if feat_data['name'] != 'train' and train_data['name'].replace('no_', '') \
+                        not in feat_data['name']:
                     return
             else:
-                if train_data['name'] not in feat_data[0]['name'] or \
-                        train_data['name'] not in feat_data[1]['name']:
+                if train_data['name'].replace('no_', '') not in feat_data[0]['name'] or \
+                        train_data['name'].replace('no_', '') not in feat_data[1]['name']:
                     return
-        '''
+        # '''
 
         # if isinstance(feat_data, dict):
         #     print(train_data['name'], feat_data['name'])
