@@ -279,7 +279,7 @@ def remap_and_filter(data, label_fn):
 
 def load_best_params(metrics_file, reuse_best_params, num_params):
     if not os.path.isfile(metrics_file):
-        best_params = [None] * n_params
+        best_params = [None] * num_params
         return best_params
 
     with open(metrics_file, 'rb') as f:
@@ -300,17 +300,58 @@ def load_best_params(metrics_file, reuse_best_params, num_params):
 def compute_per_example_results(model, file_path, time_steps):
     def reference_label_fn(data):
         labels = subselect(data['reference_ids'], time_steps)
-        #import pdb
-        #pdb.set_trace()
+        # Return file index
+        assert np.all(labels[0:1,0] == labels[:, 0]), labels
         return labels[0,0].reshape([1])
+
     data = build_data(file_path)
-    proba, references = model.predict_proba(data, label_fn = reference_label_fn,
+    proba, file_reference_id = model.predict_proba(data, label_fn = reference_label_fn,
             return_labels = True)
     results = {
             'proba': proba,
-            'ref_id': references
+            'ref_id': file_reference_id,
             }
     return results
+
+
+def decode_references(references_path):
+    assert os.path.isfile(references_path) and references_path.endswith('.txt'), references_path
+
+    with open(references_path, 'r') as f:
+        lines = f.read().splitlines()
+
+    refs = {}
+    for l in lines:
+        idx, path = l.split('->')
+        idx = int(idx.replace('.hdf5', ''))
+        if idx not in refs:
+            refs[idx] = path
+        else:
+            raise KeyError('Index already exists in references! %d: %s' % (idx, path))
+
+    return refs
+
+
+def reference2path(reference_ids, test_feat_name):
+    reference_files = {
+    'cloth': '/mnt/fs1/tdw_datasets/pilot-clothSagging-redyellow/tfrecords/references.txt',
+    'collision': '/mnt/fs1/tdw_datasets/pilot-collision-redyellow/tfrecords/references.txt',
+    'containment': '/mnt/fs1/tdw_datasets/pilot-containment-redyellow/tfrecords/references.txt',
+    'dominoes': '/mnt/fs1/tdw_datasets/pilot-dominoes-redyellow/tfrecords/references.txt',
+    'drop': '/mnt/fs1/tdw_datasets/pilot-drop-redyellow/tfrecords/references.txt',
+    'linking': '/mnt/fs1/tdw_datasets/pilot-linking-redyellow/tfrecords/references.txt',
+    'rollingSliding': '/mnt/fs1/tdw_datasets/pilot-rollingSliding-redyellow/tfrecords/references.txt',
+    'towers': '/mnt/fs1/tdw_datasets/pilot-towers-redyellow/tfrecords/references.txt',
+    }
+
+    references = np.array([])
+    for k in reference_files:
+        if k in test_feat_name:
+            reference_dict = decode_references(reference_files[k])
+            references = np.array([reference_dict[idx[0]] for idx in reference_ids])
+            break
+
+    return references
 
 
 def run(
@@ -374,6 +415,7 @@ def run(
 
     per_example_results = compute_per_example_results(metric_model, test_feature_file,
             slice(*settings['val_time_steps']))
+    per_example_results['path'] = reference2path(per_example_results['ref_id'], test_feat_name)
 
     result = {'per_example': per_example_results,
             'test_accuracy': test_acc, 'train_accuracy': train_acc,
@@ -462,18 +504,18 @@ class Objective(PhysOptObjective):
 
 if __name__ == '__main__':
     seed = 0
-    train_data = {'name': 'cloth',
-            'data': ['/mnt/fs4/mrowca/neurips/images/rigid/cloth_on_object']
+    train_data = {'name': 'collision',
+            'data': ['/mnt/fs4/hsiaoyut/tdw_physics/data/collision/tfrecords/train']
             }
     feat_data = (
-        {'name': 'cloth',
-            'data': ['/mnt/fs4/mrowca/neurips/images/rigid/cloth_on_object']
+        {'name': 'train_collision',
+            'data': ['/mnt/fs4/hsiaoyut/tdw_physics/data/collision/tfrecords/train_readout']
             },
-        {'name': 'human_cloth',
-            'data': ['/mnt/fs4/mrowca/neurips/images/rigid/cloth_on_object']
+        {'name': 'test_collision',
+            'data': ['/mnt/fs4/hsiaoyut/tdw_physics/data/collision/tfrecords/valid_readout']
             }
         )
-    output_dir = '/mnt/fs4/mrowca/hyperopt/RPIN/'
-    exp_key = '0_cloth_human_cloth_metrics'
+    output_dir = '/mnt/fs1/mrowca/dummy1/SVG/'
+    exp_key = '0_collision_test_collision_metrics'
     objective = Objective(exp_key, seed, train_data, feat_data, output_dir, False, False)
     objective()
