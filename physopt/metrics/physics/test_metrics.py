@@ -297,6 +297,21 @@ def load_best_params(metrics_file, reuse_best_params, num_params):
     return best_params
 
 
+def compute_per_example_results(model, file_path, time_steps):
+    def reference_label_fn(data):
+        labels = subselect(data['reference_ids'], time_steps)
+        #import pdb
+        #pdb.set_trace()
+        return labels[0,0].reshape([1])
+    data = build_data(file_path)
+    proba, references = model.predict_proba(data, label_fn = reference_label_fn,
+            return_labels = True)
+    results = {
+            'proba': proba,
+            'ref_id': references
+            }
+    return results
+
 
 def run(
         seed,
@@ -357,7 +372,11 @@ def run(
 
     print("Categorization accuracy: %f" % test_acc)
 
-    result = {'test_accuracy': test_acc, 'train_accuracy': train_acc,
+    per_example_results = compute_per_example_results(metric_model, test_feature_file,
+            slice(*settings['val_time_steps']))
+
+    result = {'per_example': per_example_results,
+            'test_accuracy': test_acc, 'train_accuracy': train_acc,
             'num_train_pos': num_train_pos, 'num_train_neg': num_train_neg,
             'num_test_pos': num_test_pos, 'num_test_neg': num_test_neg,
             'best_params': best_params,

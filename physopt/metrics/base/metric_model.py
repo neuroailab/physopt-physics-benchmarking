@@ -120,12 +120,19 @@ class BatchMetricModel(MetricModel):
 
     def predict_proba(self,
             data,
-            num_steps = 2**10000):
-        features, labels = self.extract_features_labels(data, num_steps)
+            num_steps = 2**10000,
+            feature_extractor = None,
+            label_fn = None,
+            return_labels = False):
+        features, labels = self.extract_features_labels(data, num_steps,
+                feature_extractor, label_fn)
         features, _ = self.flatten_features_labels(features, labels)
         features = [np.reshape(feat, [-1]) if feat.ndim > 1 else feat for feat in features]
         proba = self._readout_model.predict_proba(features)
-        return proba
+        if return_labels:
+            return proba, labels
+        else:
+            return proba
 
 
     def score(self,
