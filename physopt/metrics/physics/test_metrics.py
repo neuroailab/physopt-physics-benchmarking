@@ -277,6 +277,27 @@ def remap_and_filter(data, label_fn):
     return iter(remapped_data)
 
 
+def load_best_params(metrics_file, reuse_best_params, num_params):
+    if not os.path.isfile(metrics_file):
+        best_params = [None] * n_params
+        return best_params
+
+    with open(metrics_file, 'rb') as f:
+        metrics = pickle.load(f)
+
+    best_params = []
+    for result in metrics['results']:
+        if reuse_best_params and 'best_params' in result['result']:
+            best_params.append(result['result']['best_params'])
+        else:
+            best_params.append(None)
+
+    while len(best_params) < num_params:
+        best_params.append(None)
+    return best_params
+
+
+
 def run(
         seed,
         train_feature_file,
@@ -286,6 +307,7 @@ def run(
         settings,
         grid_search_params = {'C': np.logspace(-8, 8, 17)},
         calculate_correlation = False,
+        best_params = None,
         ):
 
     # Example 1: Classification via logistic regression
@@ -319,11 +341,17 @@ def run(
     readout_model = LogisticRegressionReadoutModel(max_iter = 100, C=1.0, verbose=1)
 
     # Score unfitted predictions
+    if best_params:
+        # Reuse best params instead of running grid search
+        grid_search_params = best_params
+        grid_search_params = {k: [v] for k, v in grid_search_params.items()}
     metric_model = BatchMetricModel(feature_extractor, readout_model,
             accuracy, label_fn, grid_search_params,
             )
 
     metric_model.fit(train_data)
+    best_params = metric_model._readout_model.best_params_ \
+            if hasattr(metric_model._readout_model, 'best_params_') else {}
     train_acc = metric_model.score(train_test_data)
     test_acc = metric_model.score(test_data)
 
@@ -332,6 +360,7 @@ def run(
     result = {'test_accuracy': test_acc, 'train_accuracy': train_acc,
             'num_train_pos': num_train_pos, 'num_train_neg': num_train_neg,
             'num_test_pos': num_test_pos, 'num_test_neg': num_test_neg,
+            'best_params': best_params,
             'test_rebalanced': True if num_test_pos + num_test_neg > 0 else False}
 
     # Calculate human correlation
@@ -383,19 +412,22 @@ class Objective(PhysOptObjective):
             extract_feat,
             debug,
             max_run_time = 86400 * 100, # 100 days
+            reuse_best_params = False,
             ):
         assert len(feat_data) == 2, feat_data
         super().__init__(exp_key, seed, train_data, feat_data, output_dir,
                 extract_feat, debug, max_run_time)
+        self.reuse_best_params = reuse_best_params
 
 
     def __call__(self, *args, **kwargs):
         ret = super().__call__()
+        best_params = load_best_params(self.metrics_file, self.reuse_best_params, len(SETTINGS))
         results = []
-        for settings in SETTINGS:
+        for idx, settings in enumerate(SETTINGS):
             result = run(self.seed, self.train_feature_file,
                     self.test_feature_file, self.test_feat_data['name'],
-                    self.model_dir, settings)
+                    self.model_dir, settings, best_params = best_params[idx])
             result = {'result': result}
             result.update(settings)
             results.append(result)
@@ -424,5 +456,5 @@ if __name__ == '__main__':
         )
     output_dir = '/mnt/fs4/mrowca/hyperopt/RPIN/'
     exp_key = '0_cloth_human_cloth_metrics'
-    objective = Objective(exp_key, seed, train_data, feat_data, output_dir, False)
+    objective = Objective(exp_key, seed, train_data, feat_data, output_dir, False, False)
     objective()
