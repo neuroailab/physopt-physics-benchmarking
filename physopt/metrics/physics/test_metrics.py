@@ -309,7 +309,7 @@ def compute_per_example_results(model, file_path, time_steps):
             return_labels = True)
     results = {
             'proba': proba,
-            'ref_id': file_reference_id,
+            'ref_id': np.array(file_reference_id),
             }
     return results
 
