@@ -314,6 +314,12 @@ def compute_per_example_results(model, file_path, time_steps):
     return results
 
 
+def get_per_example_labels(label_fn, test_feature_file):
+    # Get per example labels
+    test_data = build_data(test_feature_file)
+    labels = np.array([label_fn(d)[0] for d in test_data])
+    return labels
+
 def decode_references(references_path):
     assert os.path.isfile(references_path) and references_path.endswith('.txt'), references_path
 
@@ -352,6 +358,15 @@ def reference2path(reference_ids, test_feat_name):
             break
 
     return references
+
+
+def path2name(path):
+    assert len(path) > 0, len(path)
+    names = []
+    for p in path:
+        stimulus_set, file_name = p.split(os.sep)[-2:]
+        names.append(stimulus_set + '_' + file_name[:4])
+    return np.array(names)
 
 
 def run(
@@ -413,11 +428,15 @@ def run(
 
     print("Categorization accuracy: %f" % test_acc)
 
+    # Get per example results
     per_example_results = compute_per_example_results(metric_model, test_feature_file,
             slice(*settings['val_time_steps']))
     per_example_results['path'] = reference2path(per_example_results['ref_id'], test_feat_name)
+    per_example_results['name'] = path2name(per_example_results['path'])
+    per_example_results['label'] = get_per_example_labels(label_fn, test_feature_file)
 
-    result = {'per_example': per_example_results,
+    result = {'test_proba': per_example_results['proba'], 'labels': per_example_results['label'],
+            'stimulus_name': per_example_results['name'],
             'test_accuracy': test_acc, 'train_accuracy': train_acc,
             'num_train_pos': num_train_pos, 'num_train_neg': num_train_neg,
             'num_test_pos': num_test_pos, 'num_test_neg': num_test_neg,
