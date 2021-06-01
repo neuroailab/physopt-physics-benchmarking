@@ -78,8 +78,13 @@ ANY_CONFIG = {
         'test_len': 200,
         }
 
-def get_config(subset):
-    if 'collide' in subset:
+def get_config(subset, always_return=ANY_CONFIG):
+    if always_return:
+        return always_return
+
+    if 'tfrecords' in subset:
+        return ANY_CONFIG
+    elif 'collide' in subset:
         return COLLIDE_CONFIG
     elif 'tower' in subset:
         return TOWER_CONFIG
@@ -92,8 +97,6 @@ def get_config(subset):
     elif 'slide' in subset:
         return ROLL_VS_SLIDE_CONFIG
     elif 'dominoes' in subset:
-        return ANY_CONFIG
-    elif 'tfrecords' in subset:
         return ANY_CONFIG
     else:
         raise ValueError("Unkown config for subset: %s" % subset)
