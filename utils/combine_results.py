@@ -5,6 +5,52 @@ import pickle
 import numpy as np
 import traceback
 
+def get_model_attributes(model, train, seed):
+    if model == 'CSWM':
+        return {
+            'Encoder Type': 'CSWM encoder',
+            'Dynamics Type': 'CSWM dynamics',
+            'Encoder Pre-training Task': 'null', 
+            'Encoder Pre-training Dataset': 'null', 
+            'Encoder Pre-training Seed': 'null', 
+            'Encoder Training Task': 'Contrastive',
+            'Encoder Training Dataset': train, 
+            'Encoder Training Seed': seed, 
+            'Dynamics Training Task': 'Contrastive',
+            'Dynamics Training Dataset': train, 
+            'Dynamics Training Seed': seed, 
+            }
+    elif model == 'DEITFrozenLSTM':
+        return {
+            'Encoder Type': 'DEIT',
+            'Dynamics Type': 'LSTM',
+            'Encoder Pre-training Task': 'ImageNet classification', 
+            'Encoder Pre-training Dataset': 'ImageNet', 
+            'Encoder Pre-training Seed': 'null', 
+            'Encoder Training Task': 'null',
+            'Encoder Training Dataset': 'null', 
+            'Encoder Training Seed': 'null', 
+            'Dynamics Training Task': 'L2 on latent',
+            'Dynamics Training Dataset': train, 
+            'Dynamics Training Seed': seed, 
+            }
+    elif model == 'DEITFrozenMLP':
+        return {
+            'Encoder Type': 'DEIT',
+            'Dynamics Type': 'MLP',
+            'Encoder Pre-training Task': 'ImageNet classification', 
+            'Encoder Pre-training Dataset': 'ImageNet', 
+            'Encoder Pre-training Seed': 'null', 
+            'Encoder Training Task': 'null',
+            'Encoder Training Dataset': 'null', 
+            'Encoder Training Seed': 'null', 
+            'Dynamics Training Task': 'L2 on latent',
+            'Dynamics Training Dataset': train, 
+            'Dynamics Training Seed': seed, 
+            }
+    else:
+        raise NotImplementedError
+
 def get_readout_type(readout):
     if readout['model_fn'] == 'visual_scene_model_fn' and \
             readout['inp_time_steps'][0] != readout['val_time_steps'][0] and \
@@ -39,23 +85,28 @@ def parse_result(result, subsample_factor = 6):
     data = []
     for readout in result['results']:
         readout_type, description = get_readout_type(readout)
-        data.append({
-            'Seed': seed,
-            'Model': model,
-            'Model Train Data': train,
-            'Readout Train Data': readout_train,
-            'Readout Test Data': readout_test,
-            'Train Accuracy': readout['result']['train_accuracy'],
-            'Test Accuracy': readout['result']['test_accuracy'],
-            'Readout Type': readout_type,
-            'Sequence Length': readout['val_time_steps'][1] * subsample_factor,
-            # 'Readout Train Positive': readout['result']['num_train_pos'],
-            # 'Readout Train Negative': readout['result']['num_train_neg'],
-            # 'Readout Test Positive': readout['result']['num_test_pos'],
-            # 'Readout Test Negative': readout['result']['num_test_neg'],
-            # 'Description': description,
-            })
-
+        print(readout['result'].keys())
+        for i in range(len(readout['result']['labels'])):
+            data.append({
+                'Model': model,
+                'Readout Train Data': readout_train,
+                'Readout Test Data': readout_test,
+                'Train Accuracy': readout['result']['train_accuracy'],
+                'Test Accuracy': readout['result']['test_accuracy'],
+                'Readout Type': readout_type,
+                'Predicted Prob_false': readout['result']['test_proba'][i][0],
+                'Predicted Prob_true': readout['result']['test_proba'][i][1],
+                'Predicted Outcome': np.argmax(readout['result']['test_proba'][i]),
+                'Actual Outcome': readout['result']['labels'][i],
+                'Stimulus Name': readout['result']['stimulus_name'][i],
+                # 'Sequence Length': readout['val_time_steps'][1] * subsample_factor,
+                # 'Readout Train Positive': readout['result']['num_train_pos'],
+                # 'Readout Train Negative': readout['result']['num_train_neg'],
+                # 'Readout Test Positive': readout['result']['num_test_pos'],
+                # 'Readout Test Negative': readout['result']['num_test_neg'],
+                # 'Description': description,
+                })
+            data[-1].update(get_model_attributes(model, train, seed))
     return data
 
 def combine_results(experiment_path):
