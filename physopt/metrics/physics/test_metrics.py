@@ -1,7 +1,9 @@
+import dill
 import os
 import numpy as np
 import scipy
 import pickle
+import joblib
 
 from physopt.metrics.base.feature_extractor import FeatureExtractor
 from physopt.metrics.base.readout_model import IdentityModel
@@ -370,6 +372,7 @@ def path2name(path):
 
 
 def run(
+        setting_id,
         seed,
         train_feature_file,
         test_feature_file,
@@ -420,9 +423,19 @@ def run(
             accuracy, label_fn, grid_search_params,
             )
 
+    # Fit model
     metric_model.fit(train_data)
+
+    # Save model
     best_params = metric_model._readout_model.best_params_ \
             if hasattr(metric_model._readout_model, 'best_params_') else {}
+
+    readout_model_file = os.path.join(os.path.dirname(train_feature_file),
+            'readout_model_%d.joblib' % setting_id)
+    print('Saving readout model to: {}'.format(readout_model_file))
+    joblib.dump(metric_model, readout_model_file)
+
+    # Evaluate model
     train_acc = metric_model.score(train_test_data)
     test_acc = metric_model.score(test_data)
 
@@ -505,7 +518,7 @@ class Objective(PhysOptObjective):
         best_params = load_best_params(self.metrics_file, self.reuse_best_params, len(SETTINGS))
         results = []
         for idx, settings in enumerate(SETTINGS):
-            result = run(self.seed, self.train_feature_file,
+            result = run(idx, self.seed, self.train_feature_file,
                     self.test_feature_file, self.test_feat_data['name'],
                     self.model_dir, settings, best_params = best_params[idx])
             result = {'result': result}
