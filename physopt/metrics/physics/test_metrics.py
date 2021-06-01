@@ -3,6 +3,7 @@ import numpy as np
 import scipy
 import pickle
 import logging
+import joblib
 
 from physopt.metrics.base.feature_extractor import FeatureExtractor
 from physopt.metrics.base.readout_model import IdentityModel
@@ -320,14 +321,23 @@ def run(
             )
 
     metric_model.fit(train_data)
-    train_data = build_data(train_feature_file) # hack to get original data before rebalance iter
+    readout_model_file = os.path.join(os.path.dirname(train_feature_file), 'readout_model.joblib')
+    print('Saving readout model to: {}'.format(readout_model_file))
+    joblib.dump(metric_model, readout_model_file)
+    train_data = build_data(train_feature_file) # hack to get original data before rebalance iter TODO: maybe should be rebalanced actually
     train_acc = metric_model.score(train_data)
     test_acc = metric_model.score(test_data)
+    test_data = build_data(test_feature_file) # hack to get original test data
+    test_proba = metric_model.predict_proba(test_data)
 
     print("Categorization train accuracy: %f" % train_acc)
     print("Categorization test accuracy: %f" % test_acc)
 
-    result = {'train_accuracy': train_acc, 'test_accuracy': test_acc}
+    test_data = build_data(test_feature_file) # hack to get original test data
+    stimulus_names = [d['stimulus_name'] for d in test_data]
+    test_data = build_data(test_feature_file) # hack to get original test data
+    labels = [label_fn(d)[0] for d in test_data]
+    result = {'train_accuracy': train_acc, 'test_accuracy': test_acc, 'test_proba': test_proba, 'stimulus_name': stimulus_names, 'labels': labels}
     if grid_search_params is not None:
         result['best_params'] = metric_model._readout_model.best_params_
 
