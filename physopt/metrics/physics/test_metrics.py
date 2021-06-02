@@ -163,6 +163,10 @@ def run(
     # Select label function
     label_fn = select_label_fn(slice(*settings['val_time_steps']), test_feat_name)
 
+    # Get stimulus names and labels for test data
+    stimulus_names = [d['stimulus_name'] for d in test_data]
+    labels = [label_fn(d)[0] for d in test_data]
+
     # Rebalance data
     np.random.seed(0)
     logging.info("Rebalancing training data")
@@ -194,8 +198,6 @@ def run(
     logging.info("Categorization train accuracy: %f" % train_acc)
     logging.info("Categorization test accuracy: %f" % test_acc)
 
-    stimulus_names = [d['stimulus_name'] for d in test_data]
-    labels = [label_fn(d)[0] for d in test_data]
     result = {'train_accuracy': train_acc, 'test_accuracy': test_acc, 'test_proba': test_proba, 'stimulus_name': stimulus_names, 'labels': labels}
     if grid_search_params is not None:
         result['best_params'] = metric_model._readout_model.best_params_

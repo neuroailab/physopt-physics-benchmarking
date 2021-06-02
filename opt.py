@@ -1,6 +1,7 @@
 import os
 import getpass
 import itertools
+import traceback
 from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
 from hyperopt import hp, fmin, tpe, Trials
@@ -100,7 +101,7 @@ def run(
                 )
         except ValueError as e:
             print("Job died: {0}/{1}".format(mongo_path, exp_key))
-            print("Error: {0}".format(e))
+            traceback.print_exc()
 
         return
 

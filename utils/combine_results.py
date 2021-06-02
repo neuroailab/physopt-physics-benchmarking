@@ -49,7 +49,6 @@ def get_model_attributes(model, train, seed):
             'Dynamics Training Seed': seed, 
             }
     elif model == 'OP3':
-        print(model)
         return {
             'Encoder Type': 'OP3 encoder',
             'Dynamics Type': 'OP3 dynamics',
@@ -100,6 +99,7 @@ def parse_result(result, subsample_factor = 6):
     data = []
     for readout in result['results']:
         readout_type, description = get_readout_type(readout)
+        print('Model: {}, Train: {}, Test: {}, Type: {}, Len: {}'.format(model, train, readout_test, readout_type, len(readout['result']['labels'])))
         for i in range(len(readout['result']['labels'])):
             data.append({
                 'Model': model,
