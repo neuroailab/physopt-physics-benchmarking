@@ -3,6 +3,7 @@ import numpy as np
 import scipy
 import pickle
 import logging
+import dill
 import joblib
 
 from physopt.metrics.base.feature_extractor import FeatureExtractor
@@ -249,7 +250,7 @@ class Objective(PhysOptObjective):
             result = run(self.seed, self.train_feature_file,
                     self.test_feature_file, self.test_feat_data['name'],
                     self.model_dir, settings, 
-                    grid_search_params={'C': np.logspace(-8, 8, 17)},
+                    grid_search_params=None if self.debug else {'C': np.logspace(-8, 8, 17)},
                     )
             result = {'result': result}
             result.update(settings)
