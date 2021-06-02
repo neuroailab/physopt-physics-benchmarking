@@ -48,6 +48,21 @@ def get_model_attributes(model, train, seed):
             'Dynamics Training Dataset': train, 
             'Dynamics Training Seed': seed, 
             }
+    elif model == 'OP3':
+        print(model)
+        return {
+            'Encoder Type': 'OP3 encoder',
+            'Dynamics Type': 'OP3 dynamics',
+            'Encoder Pre-training Task': 'null', 
+            'Encoder Pre-training Dataset': 'null', 
+            'Encoder Pre-training Seed': 'null', 
+            'Encoder Training Task': 'Image Reconstruction',
+            'Encoder Training Dataset': train, 
+            'Encoder Training Seed': seed, 
+            'Dynamics Training Task': 'Image Reconstruction',
+            'Dynamics Training Dataset': train, 
+            'Dynamics Training Seed': seed, 
+            }
     else:
         raise NotImplementedError
 
@@ -85,7 +100,6 @@ def parse_result(result, subsample_factor = 6):
     data = []
     for readout in result['results']:
         readout_type, description = get_readout_type(readout)
-        print(readout['result'].keys())
         for i in range(len(readout['result']['labels'])):
             data.append({
                 'Model': model,
@@ -100,11 +114,6 @@ def parse_result(result, subsample_factor = 6):
                 'Actual Outcome': readout['result']['labels'][i],
                 'Stimulus Name': readout['result']['stimulus_name'][i],
                 # 'Sequence Length': readout['val_time_steps'][1] * subsample_factor,
-                # 'Readout Train Positive': readout['result']['num_train_pos'],
-                # 'Readout Train Negative': readout['result']['num_train_neg'],
-                # 'Readout Test Positive': readout['result']['num_test_pos'],
-                # 'Readout Test Negative': readout['result']['num_test_neg'],
-                # 'Description': description,
                 })
             data[-1].update(get_model_attributes(model, train, seed))
     return data
