@@ -348,7 +348,7 @@ def reference2path(reference_ids, test_feat_name):
     'dominoes': '/mnt/fs1/tdw_datasets/pilot-dominoes-redyellow/tfrecords/references.txt',
     'drop': '/mnt/fs1/tdw_datasets/pilot-drop-redyellow/tfrecords/references.txt',
     'linking': '/mnt/fs1/tdw_datasets/pilot-linking-redyellow/tfrecords/references.txt',
-    'rollingSliding': '/mnt/fs1/tdw_datasets/pilot-rollingSliding-redyellow/tfrecords/references.txt',
+    'rollslide': '/mnt/fs1/tdw_datasets/pilot-rollingSliding-redyellow/tfrecords/references.txt',
     'towers': '/mnt/fs1/tdw_datasets/pilot-towers-redyellow/tfrecords/references.txt',
     }
 
