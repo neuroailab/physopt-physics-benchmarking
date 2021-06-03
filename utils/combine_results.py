@@ -20,9 +20,9 @@ def get_model_attributes(model, train, seed):
             'Dynamics Training Dataset': train, 
             'Dynamics Training Seed': seed, 
             }
-    elif model == 'DEITFrozenLSTM':
+    elif model[-10:] == 'FrozenLSTM':
         return {
-            'Encoder Type': 'DEIT',
+            'Encoder Type': model[:-10],
             'Dynamics Type': 'LSTM',
             'Encoder Pre-training Task': 'ImageNet classification', 
             'Encoder Pre-training Dataset': 'ImageNet', 
@@ -34,9 +34,9 @@ def get_model_attributes(model, train, seed):
             'Dynamics Training Dataset': train, 
             'Dynamics Training Seed': seed, 
             }
-    elif model == 'DEITFrozenMLP':
+    elif model[-9:] == 'FrozenMLP':
         return {
-            'Encoder Type': 'DEIT',
+            'Encoder Type': model[:-9],
             'Dynamics Type': 'MLP',
             'Encoder Pre-training Task': 'ImageNet classification', 
             'Encoder Pre-training Dataset': 'ImageNet', 
@@ -103,7 +103,7 @@ def parse_result(result, subsample_factor = 6):
         processed = set()
         for i in range(len(readout['result']['labels'])):
             if readout['result']['stimulus_name'][i] in processed:
-                continue
+                print('Duplicated item: {}'.format(readout['result']['stimulus_name'][i]))
             else:
                 count += 1
                 processed.add(readout['result']['stimulus_name'][i])
