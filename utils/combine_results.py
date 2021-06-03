@@ -99,23 +99,30 @@ def parse_result(result, subsample_factor = 6):
     data = []
     for readout in result['results']:
         readout_type, description = get_readout_type(readout)
-        print('Model: {}, Train: {}, Test: {}, Type: {}, Len: {}'.format(model, train, readout_test, readout_type, len(readout['result']['labels'])))
+        count = 0
+        processed = set()
         for i in range(len(readout['result']['labels'])):
-            data.append({
-                'Model': model,
-                'Readout Train Data': readout_train,
-                'Readout Test Data': readout_test,
-                'Train Accuracy': readout['result']['train_accuracy'],
-                'Test Accuracy': readout['result']['test_accuracy'],
-                'Readout Type': readout_type,
-                'Predicted Prob_false': readout['result']['test_proba'][i][0],
-                'Predicted Prob_true': readout['result']['test_proba'][i][1],
-                'Predicted Outcome': np.argmax(readout['result']['test_proba'][i]),
-                'Actual Outcome': readout['result']['labels'][i],
-                'Stimulus Name': readout['result']['stimulus_name'][i],
-                # 'Sequence Length': readout['val_time_steps'][1] * subsample_factor,
-                })
-            data[-1].update(get_model_attributes(model, train, seed))
+            if readout['result']['stimulus_name'][i] in processed:
+                continue
+            else:
+                count += 1
+                processed.add(readout['result']['stimulus_name'][i])
+                data.append({
+                    'Model': model,
+                    'Readout Train Data': readout_train,
+                    'Readout Test Data': readout_test,
+                    'Train Accuracy': readout['result']['train_accuracy'],
+                    'Test Accuracy': readout['result']['test_accuracy'],
+                    'Readout Type': readout_type,
+                    'Predicted Prob_false': readout['result']['test_proba'][i][0],
+                    'Predicted Prob_true': readout['result']['test_proba'][i][1],
+                    'Predicted Outcome': np.argmax(readout['result']['test_proba'][i]),
+                    'Actual Outcome': readout['result']['labels'][i],
+                    'Stimulus Name': readout['result']['stimulus_name'][i],
+                    # 'Sequence Length': readout['val_time_steps'][1] * subsample_factor,
+                    })
+                data[-1].update(get_model_attributes(model, train, seed))
+        print('Model: {}, Train: {}, Test: {}, Type: {}, Len: {}'.format(model, train, readout_test, readout_type, count))
     return data
 
 def combine_results(experiment_path):
