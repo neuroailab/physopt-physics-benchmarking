@@ -96,7 +96,7 @@ def parse_result(result, subsample_factor = 6):
     train = result['train_name']
     readout_train = result['train_feature_file'].split('/')[-2].replace('train_', '')
     readout_test = result['test_feature_file'].split('/')[-2].replace('test_', '')
-    data = []
+    output = {}
     for readout in result['results']:
         readout_type, description = get_readout_type(readout)
         count = 0
@@ -107,7 +107,7 @@ def parse_result(result, subsample_factor = 6):
             else:
                 count += 1
                 processed.add(readout['result']['stimulus_name'][i])
-                data.append({
+                data = {
                     'Model': model,
                     'Readout Train Data': readout_train,
                     'Readout Test Data': readout_test,
@@ -120,29 +120,40 @@ def parse_result(result, subsample_factor = 6):
                     'Actual Outcome': readout['result']['labels'][i],
                     'Stimulus Name': readout['result']['stimulus_name'][i],
                     # 'Sequence Length': readout['val_time_steps'][1] * subsample_factor,
-                    })
-                data[-1].update(get_model_attributes(model, train, seed))
+                    }
+                data.update(get_model_attributes(model, train, seed))
+                if model in output:
+                    output[model].append(data)
+                else:
+                    output[model] = [data]
         print('Model: {}, Train: {}, Test: {}, Type: {}, Len: {}'.format(model, train, readout_test, readout_type, count))
-    return data
+    return output
 
 def combine_results(experiment_path):
     result_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk(experiment_path) \
             for f in filenames if f == 'metrics_results.pkl']
     print('\n'.join(result_files))
 
-    results = []
+    results = {}
     for result_file in result_files:
         try:
             with open(result_file, 'rb') as f:
                 result = pickle.load(f)
             result = parse_result(result)
-            results.extend(result)
+            results = merge_results(results, result)
         except Exception:
             print('Could not read file %s' % result_file)
             traceback.print_exc()
             continue
     return results
 
+def merge_results(old_results, new_results):
+    for model, data in new_results.items():
+        if model in old_results:
+            old_results[model] += data
+        else:
+            old_results[model] = data
+    return old_results
 
 def write_csv(results, path, file_name = 'results.csv'):
     if len(results) < 1:
@@ -160,4 +171,5 @@ def write_csv(results, path, file_name = 'results.csv'):
 if __name__ == '__main__':
     experiment_path = sys.argv[1]
     results = combine_results(experiment_path)
-    write_csv(results, experiment_path)
+    for model, result in results.items():
+        write_csv(result, experiment_path, file_name=model+'_results.csv')
