@@ -1,6 +1,7 @@
 import os
 import getpass
 import itertools
+import traceback
 from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
 from hyperopt import hp, fmin, tpe, Trials
@@ -70,11 +71,12 @@ def run(
         # Do not evaluate across datasets unless trained on all
         if train_data['name'] != 'all':
             if isinstance(feat_data, dict):
-                if feat_data['name'] != 'train' and train_data['name'] not in feat_data['name']:
+                if feat_data['name'] != 'train' and train_data['name'].replace('no_', '') \
+                        not in feat_data['name']:
                     return
             else:
-                if train_data['name'] not in feat_data[0]['name'] or \
-                        train_data['name'] not in feat_data[1]['name']:
+                if train_data['name'].replace('no_', '') not in feat_data[0]['name'] or \
+                        train_data['name'].replace('no_', '') not in feat_data[1]['name']:
                     return
 
         exp_key = get_exp_key(model, seed, train_data, feat_data, exp_key_suffix)
@@ -100,7 +102,7 @@ def run(
                 )
         except ValueError as e:
             print("Job died: {0}/{1}".format(mongo_path, exp_key))
-            print("Error: {0}".format(e))
+            traceback.print_exc()
 
         return
 
