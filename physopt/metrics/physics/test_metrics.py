@@ -15,7 +15,7 @@ from physopt.metrics.physics.linear_readout_model import LinearRegressionReadout
         LogisticRegressionReadoutModel
 
 from physopt.metrics.physics.metric_fns import accuracy, squared_error
-from physopt.utils import PhysOptObjective
+from physopt.utils import PhysOptObjective, MAX_RUN_TIME
 
 SETTINGS = [ # TODO: might not want this to be hardcoded, RPIN only takes 4 frames
         {
@@ -338,13 +338,11 @@ class Objective(PhysOptObjective):
             output_dir,
             extract_feat,
             debug,
-            max_run_time = 86400 * 100, # 100 days
-            reuse_best_params = False,
+            max_run_time = MAX_RUN_TIME,
             ):
         assert len(feat_data) == 2, feat_data
         super().__init__(exp_key, seed, train_data, feat_data, output_dir,
                 extract_feat, debug, max_run_time)
-        self.reuse_best_params = reuse_best_params
 
 
     def __call__(self, *args, **kwargs):
