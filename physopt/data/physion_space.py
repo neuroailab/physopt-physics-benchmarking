@@ -111,7 +111,7 @@ METRICS_DATA = [
         (_TRAIN_FEAT_TOWERS, _TEST_FEAT_TOWERS),
         ]
 
-TRAIN_DATA = TRAIN_DATA[:8] # single scenario
+# TRAIN_DATA = TRAIN_DATA[:8] # single scenario
 # TRAIN_DATA = TRAIN_DATA[8:16] # leave-one-out
 # TRAIN_DATA = TRAIN_DATA[16:] #  all
 print(TRAIN_DATA)

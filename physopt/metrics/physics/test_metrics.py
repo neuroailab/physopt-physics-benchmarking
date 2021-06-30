@@ -145,6 +145,98 @@ def rebalance(data, label_fn, balancing = oversample):
     logging.info("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
     return balanced_data
 
+def load_best_params(metrics_file, reuse_best_params, num_params):
+    if not os.path.isfile(metrics_file):
+        best_params = [None] * num_params
+        return best_params
+
+    with open(metrics_file, 'rb') as f:
+        metrics = pickle.load(f)
+
+    best_params = []
+    for result in metrics['results']:
+        if reuse_best_params and 'best_params' in result['result']:
+            best_params.append(result['result']['best_params'])
+        else:
+            best_params.append(None)
+
+    while len(best_params) < num_params:
+        best_params.append(None)
+    return best_params
+
+
+def compute_per_example_results(model, file_path, time_steps):
+    def reference_label_fn(data):
+        labels = subselect(data['reference_ids'], time_steps)
+        # Return file index
+        assert np.all(labels[0:1,0] == labels[:, 0]), labels
+        return labels[0,0].reshape([1])
+
+    data = build_data(file_path)
+    proba, file_reference_id = model.predict_proba(data, label_fn = reference_label_fn,
+            return_labels = True)
+    results = {
+            'proba': proba,
+            'ref_id': np.array(file_reference_id),
+            }
+    return results
+
+
+def get_per_example_labels(label_fn, test_feature_file):
+    # Get per example labels
+    test_data = build_data(test_feature_file)
+    labels = np.array([label_fn(d)[0] for d in test_data])
+    return labels
+
+def decode_references(references_path):
+    assert os.path.isfile(references_path) and references_path.endswith('.txt'), references_path
+
+    with open(references_path, 'r') as f:
+        lines = f.read().splitlines()
+
+    refs = {}
+    for l in lines:
+        idx, path = l.split('->')
+        idx = int(idx.replace('.hdf5', ''))
+        if idx not in refs:
+            refs[idx] = path
+        else:
+            raise KeyError('Index already exists in references! %d: %s' % (idx, path))
+
+    return refs
+
+
+def reference2path(reference_ids, test_feat_name):
+    reference_files = {
+    'cloth': '/mnt/fs1/tdw_datasets/pilot-clothSagging-redyellow/tfrecords/references.txt',
+    'collision': '/mnt/fs1/tdw_datasets/pilot-collision-redyellow/tfrecords/references.txt',
+    'containment': '/mnt/fs1/tdw_datasets/pilot-containment-redyellow/tfrecords/references.txt',
+    'dominoes': '/mnt/fs1/tdw_datasets/pilot-dominoes-redyellow/tfrecords/references.txt',
+    'drop': '/mnt/fs1/tdw_datasets/pilot-drop-redyellow/tfrecords/references.txt',
+    'linking': '/mnt/fs1/tdw_datasets/pilot-linking-redyellow/tfrecords/references.txt',
+    'rollslide': '/mnt/fs1/tdw_datasets/pilot-rollingSliding-redyellow/tfrecords/references.txt',
+    'towers': '/mnt/fs1/tdw_datasets/pilot-towers-redyellow/tfrecords/references.txt',
+    }
+
+    references = np.array([])
+    for k in reference_files:
+        if k in test_feat_name:
+            reference_dict = decode_references(reference_files[k])
+            references = np.array([reference_dict[idx[0]] for idx in reference_ids])
+            break
+
+    return references
+
+
+def path2name(path):
+    assert len(path) > 0, len(path)
+    names = []
+    for p in path:
+        stimulus_set, file_name = p.split(os.sep)[-2:]
+        names.append(stimulus_set + '_' + file_name[:4])
+    return np.array(names)
+
+
 def run(
         seed,
         train_feature_file,
@@ -183,6 +275,10 @@ def run(
     readout_model = LogisticRegressionReadoutModel(max_iter = 100, C=1.0, verbose=1)
 
     # Score unfitted predictions
+    if best_params:
+        # Reuse best params instead of running grid search
+        grid_search_params = best_params
+        grid_search_params = {k: [v] for k, v in grid_search_params.items()}
     metric_model = BatchMetricModel(feature_extractor, readout_model,
             accuracy, label_fn, grid_search_params,
             )
@@ -242,9 +338,13 @@ class Objective(PhysOptObjective):
             output_dir,
             extract_feat,
             debug,
+            max_run_time = 86400 * 100, # 100 days
+            reuse_best_params = False,
             ):
         assert len(feat_data) == 2, feat_data
-        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat, debug)
+        super().__init__(exp_key, seed, train_data, feat_data, output_dir,
+                extract_feat, debug, max_run_time)
+        self.reuse_best_params = reuse_best_params
 
 
     def __call__(self, *args, **kwargs):
