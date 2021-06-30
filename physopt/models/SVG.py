@@ -3,6 +3,7 @@ import torch.optim as optim
 import torch.nn as nn
 import argparse
 import os
+import time
 import random
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
@@ -23,11 +24,12 @@ def run(
         model = 'vgg',
         freeze_encoder_weights = False,
         write_feat = '',
+        max_run_time = 86400 * 100, # 100 days
         ):
     parser = argparse.ArgumentParser()
     parser.add_argument('--lr', default=0.002, type=float, help='learning rate')
     parser.add_argument('--beta1', default=0.9, type=float, help='momentum term for adam')
-    parser.add_argument('--batch_size', default=40, type=int, help='batch size')
+    parser.add_argument('--batch_size', default=10, type=int, help='batch size')
     parser.add_argument('--log_dir', default='logs/lp', help='base directory to save logs')
     parser.add_argument('--model_dir', default='', help='base directory to save logs')
     parser.add_argument('--name', default='', help='identifier for directory')
@@ -37,7 +39,7 @@ def run(
     parser.add_argument('--optimizer', default='adam', help='optimizer to train with')
     parser.add_argument('--niter', type=int, default=300, help='number of epochs to train for')
     parser.add_argument('--seed', default=1, type=int, help='manual seed')
-    parser.add_argument('--epoch_size', type=int, default=600, help='epoch size') #600, 3600
+    parser.add_argument('--epoch_size', type=int, default=3000, help='epoch size') #600, 3600
     parser.add_argument('--image_width', type=int, default=64, help='the height / width of the input image to network')
     parser.add_argument('--channels', default=3, type=int)
     parser.add_argument('--dataset', default='tdw', help='dataset to train with')
@@ -95,6 +97,8 @@ def run(
         if write_feat:
             opt.data_subsets = data_subsets
             opt.data_root = data_root
+            opt.n_future = 20 #45
+            opt.n_eval = 24 #49
         load_model = True
     else:
         os.makedirs(opt.model_dir, exist_ok=True)
@@ -265,77 +269,171 @@ def run(
         # TODO: Only use one sample for now
         nsample = 1
 
-        outputs = []
-
-        progress = progressbar.ProgressBar().start()
-        counter = 0
-        for sequence in loader:
-            counter += 1
-            progress.update(counter)
-
-            images = sequence["images"]
-            x = utils.normalize_data(opt, dtype, images)
-
-            gen_seq = []
-            encoded_states = []
-            rollout_states = []
-            gt_seq = [utils.make_images(x[i]) for i in range(len(x))]
-
-            frame_predictor.hidden = frame_predictor.init_hidden()
-            posterior.hidden = posterior.init_hidden()
-            prior.hidden = prior.init_hidden()
-            gen_seq.append(utils.make_images(x[0]))
-            x_in = x[0]
-            for i in range(1, opt.n_eval):
-                h = encoder(x_in)
-                if opt.last_frame_skip or i < opt.n_past:	
-                    h, skip = h
-                else:
-                    h, _ = h
-                h = h
-
-                if i == 1:
-                    # First frame
-                    rollout_states.append(h.cpu().numpy())
-
-                if i < opt.n_past:
-                    h_target = encoder(x[i])
-                    h_target = h_target[0]
-                    z_t, _, _ = posterior(h_target)
-                    prior(h)
-                    frame_predictor(torch.cat([h, z_t], 1))
-                    x_in = x[i]
-                    gen_seq.append(utils.make_images(x_in))
-                    rollout_states.append(h_target.cpu().numpy())
-                else:
-                    z_t, _, _ = prior(h)
-                    h = frame_predictor(torch.cat([h, z_t], 1))
-                    x_in = decoder([h, skip])
-                    gen_seq.append(utils.make_images(x_in))
-                    rollout_states.append(h.cpu().numpy())
-
-            for i in range(0, opt.n_eval):
-                encoded_states.append(encoder(x[i])[0].cpu().numpy())
-
-            outputs.append({
-                #"predicted_images": np.stack(gen_seq, axis=1),
-                #"true_images": np.stack(gt_seq, axis=1),
-                #"raw_images": sequence["raw_images"].numpy(),
-                "binary_labels": sequence["binary_labels"].numpy(),
-                "reference_ids": sequence["reference_ids"].numpy(),
-                "human_prob": sequence["human_prob"].numpy(),
-                "encoded_states": np.stack(encoded_states, axis=1),
-                "rollout_states": np.stack(rollout_states, axis=1),
-                })
-
-        progress.finish()
-
         if not os.path.exists(os.path.dirname(feature_file)):
             os.makedirs(os.path.dirname(feature_file))
-        with open(feature_file, 'wb') as f:
-            pickle.dump(outputs, f)
-        print('Results stored in %s' % feature_file)
-        return
+
+        def svg_readout():
+            outputs = []
+
+            progress = progressbar.ProgressBar().start()
+            counter = 0
+            for seq_id, sequence in enumerate(loader):
+                counter += 1
+                progress.update(counter)
+
+                images = sequence["images"]
+                x = utils.normalize_data(opt, dtype, images)
+
+                gen_seq = []
+                encoded_states = []
+                rollout_states = []
+                gt_seq = [utils.make_images(x[i]) for i in range(len(x))]
+
+                frame_predictor.hidden = frame_predictor.init_hidden()
+                posterior.hidden = posterior.init_hidden()
+                prior.hidden = prior.init_hidden()
+                gen_seq.append(utils.make_images(x[0]))
+                x_in = x[0]
+                for i in range(1, opt.n_eval):
+                    h = encoder(x_in)
+                    if opt.last_frame_skip or i < opt.n_past:
+                        h, skip = h
+                    else:
+                        h, _ = h
+                    h = h
+
+                    if i == 1:
+                        # First frame
+                        rollout_states.append(h.cpu().numpy())
+
+                    if i < opt.n_past:
+                        h_target = encoder(x[i])
+                        h_target = h_target[0]
+                        z_t, _, _ = posterior(h_target)
+                        prior(h)
+                        frame_predictor(torch.cat([h, z_t], 1))
+                        x_in = x[i]
+                        gen_seq.append(utils.make_images(x_in))
+                        rollout_states.append(h_target.cpu().numpy())
+                    else:
+                        z_t, _, _ = prior(h)
+                        h = frame_predictor(torch.cat([h, z_t], 1))
+                        x_in = decoder([h, skip])
+                        gen_seq.append(utils.make_images(x_in))
+                        rollout_states.append(h.cpu().numpy())
+
+                for i in range(0, opt.n_eval):
+                    encoded_states.append(encoder(x[i])[0].cpu().numpy())
+
+                outputs.append({
+                    #"predicted_images": np.stack(gen_seq, axis=1),
+                    #"true_images": np.stack(gt_seq, axis=1),
+                    #"raw_images": sequence["raw_images"].numpy(),
+                    "binary_labels": sequence["binary_labels"].numpy(),
+                    "reference_ids": sequence["reference_ids"].numpy(),
+                    "human_prob": sequence["human_prob"].numpy(),
+                    "encoded_states": np.stack(encoded_states, axis=1),
+                    "rollout_states": np.stack(rollout_states, axis=1),
+                    })
+
+                # Write every 1000 sequences to not lose data
+                if seq_id % 1000 == 0 and seq_id > 0:
+                    with open(feature_file, 'wb') as f:
+                        pickle.dump(outputs, f)
+                    print('Results stored in %s' % feature_file)
+
+            progress.finish()
+
+            # Final write
+            with open(feature_file, 'wb') as f:
+                pickle.dump(outputs, f)
+            print('Results stored in %s' % feature_file)
+            return
+
+
+        def deit_clip_readout():
+            outputs = []
+
+            progress = progressbar.ProgressBar().start()
+            counter = 0
+            for seq_id, sequence in enumerate(loader):
+                counter += 1
+                progress.update(counter)
+
+                images = sequence["images"]
+                x = utils.normalize_data(opt, dtype, images)
+
+                gen_seq = []
+                encoded_states = []
+                rollout_states = []
+                gt_seq = [utils.make_images(x[i]) for i in range(len(x))]
+
+                frame_predictor.hidden = frame_predictor.init_hidden()
+                posterior.hidden = posterior.init_hidden()
+                prior.hidden = prior.init_hidden()
+                gen_seq.append(utils.make_images(x[0]))
+                x_in = x[0]
+                for i in range(1, opt.n_eval):
+                    h = encoder(x_in)
+                    if opt.last_frame_skip or i < opt.n_past:
+                        h, skip = h
+                        skip_non_gt = skip
+                    else:
+                        h, skip_non_gt = h
+                    h = h
+
+                    if i == 1:
+                        # First frame
+                        rollout_states.append(skip[-1].cpu().numpy())
+
+                    if i < opt.n_past:
+                        h_target, skip_target = encoder(x[i])
+                        h_target = h_target
+                        z_t, _, _ = posterior(h_target)
+                        prior(h)
+                        frame_predictor(torch.cat([h, z_t], 1))
+                        x_in = x[i]
+                        gen_seq.append(utils.make_images(x_in))
+                        rollout_states.append(skip_target[-1].cpu().numpy())
+                    else:
+                        z_t, _, _ = prior(h)
+                        h = frame_predictor(torch.cat([h, z_t], 1))
+                        x_in = decoder([h, skip])
+                        gen_seq.append(utils.make_images(x_in))
+                        rollout_states.append(skip_non_gt[-1].cpu().numpy())
+
+                for i in range(0, opt.n_eval):
+                    encoded_states.append(encoder(x[i])[1][-1].cpu().numpy())
+
+                outputs.append({
+                    #"predicted_images": np.stack(gen_seq, axis=1),
+                    #"true_images": np.stack(gt_seq, axis=1),
+                    #"raw_images": sequence["raw_images"].numpy(),
+                    "binary_labels": sequence["binary_labels"].numpy(),
+                    "reference_ids": sequence["reference_ids"].numpy(),
+                    "human_prob": sequence["human_prob"].numpy(),
+                    "encoded_states": np.stack(encoded_states, axis=1),
+                    "rollout_states": np.stack(rollout_states, axis=1),
+                    })
+
+                # Write every 1000 sequences to not lose data
+                if seq_id % 1000 == 0 and seq_id > 0:
+                    with open(feature_file, 'wb') as f:
+                        pickle.dump(outputs, f)
+                    print('Results stored in %s' % feature_file)
+
+            progress.finish()
+
+            # Final write
+            with open(feature_file, 'wb') as f:
+                pickle.dump(outputs, f)
+            print('Results stored in %s' % feature_file)
+            return
+
+        if opt.model in ['deit_pretrained', 'clip_pretrained']:
+            deit_clip_readout()
+        else:
+            svg_readout()
 
 
     with torch.no_grad():
@@ -347,16 +445,16 @@ def run(
             return
 
 # --------- plotting funtions ------------------------------------
-    def plot(x, epoch):
+    def plot(x, epoch, model):
         nsample = 20 
         gen_seq = [[] for i in range(nsample)]
-        gt_seq = [x[i] for i in range(len(x))]
+        gt_seq = [utils.unnorm(x[i], model) for i in range(len(x))]
 
         for s in range(nsample):
             frame_predictor.hidden = frame_predictor.init_hidden()
             posterior.hidden = posterior.init_hidden()
             prior.hidden = prior.init_hidden()
-            gen_seq[s].append(x[0])
+            gen_seq[s].append(utils.unnorm(x[0], model))
             x_in = x[0]
             for i in range(1, opt.n_eval):
                 h = encoder(x_in)
@@ -372,12 +470,12 @@ def run(
                     prior(h)
                     frame_predictor(torch.cat([h, z_t], 1))
                     x_in = x[i]
-                    gen_seq[s].append(x_in)
+                    gen_seq[s].append(utils.unnorm(x_in, model))
                 else:
                     z_t, _, _ = prior(h)
                     h = frame_predictor(torch.cat([h, z_t], 1))
                     x_in = decoder([h, skip])
-                    gen_seq[s].append(x_in)
+                    gen_seq[s].append(utils.unnorm(x_in, model))
 
         to_plot = []
         gifs = [ [] for t in range(opt.n_eval) ]
@@ -391,6 +489,7 @@ def run(
 
             # best sequence
             min_mse = 1e7
+            min_idx = 0
             for s in range(nsample):
                 mse = 0
                 for t in range(opt.n_eval):
@@ -423,13 +522,14 @@ def run(
 
         fname = '%s/gen/sample_%d.gif' % (opt.log_dir, epoch) 
         utils.save_gif(fname, gifs)
+        print("Saved at %s" % fname)
 
 
-    def plot_rec(x, epoch):
+    def plot_rec(x, epoch, model):
         frame_predictor.hidden = frame_predictor.init_hidden()
         posterior.hidden = posterior.init_hidden()
         gen_seq = []
-        gen_seq.append(x[0])
+        gen_seq.append(utils.unnorm(x[0], model))
         x_in = x[0]
         for i in range(1, opt.n_past+opt.n_future):
             h = encoder(x[i-1])
@@ -444,11 +544,11 @@ def run(
             z_t, _, _= posterior(h_target)
             if i < opt.n_past:
                 frame_predictor(torch.cat([h, z_t], 1)) 
-                gen_seq.append(x[i])
+                gen_seq.append(utils.unnorm(x[i], model))
             else:
                 h_pred = frame_predictor(torch.cat([h, z_t], 1))
                 x_pred = decoder([h_pred, skip])
-                gen_seq.append(x_pred)
+                gen_seq.append(utils.unnorm(x_pred, model))
        
         to_plot = []
         nrow = min(opt.batch_size, 10)
@@ -459,9 +559,41 @@ def run(
             to_plot.append(row)
         fname = '%s/gen/rec_%d.png' % (opt.log_dir, epoch) 
         utils.save_tensors_image(fname, to_plot)
+        print("Saved at %s" % fname)
 
+    if opt.write_feat == 'plot':
+        # Test plotting
+        print("Plotting mode")
+        with torch.no_grad():
+            progress = progressbar.ProgressBar().start()
+            counter = 10000
+            for sequence in test_loader:
+                counter += 1
+                progress.update(counter)
+                images = sequence["images"]
+                x = utils.normalize_data(opt, dtype, images)
+                plot(x, counter, opt.model)
+                plot_rec(x, counter, opt.model)
+            return
 
 # --------- training funtions ------------------------------------
+    def seconds_to_time(seconds_time):
+        hours = seconds_time // 3600
+        minutes = (seconds_time - (hours * 3600)) // 60
+        seconds = seconds_time - (minutes * 60)
+        return hours, minutes, seconds
+
+
+    def exceeded_time(start_time, max_run_time):
+        run_time = time.time() - start_time
+        if run_time > max_run_time:
+            print("Maximum run time (%d h %d m %d s) exceeded after %d h %d m %d s" % \
+                    (*seconds_to_time(max_run_time),
+                        *seconds_to_time(run_time)))
+            return True
+        else:
+            return False
+
     def train(x):
         frame_predictor.zero_grad()
         posterior.zero_grad()
@@ -503,6 +635,9 @@ def run(
         return mse.data.cpu().numpy()/(opt.n_past+opt.n_future), kld.data.cpu().numpy()/(opt.n_future+opt.n_past)
 
 # --------- training loop ------------------------------------
+    # train start time
+    start_time = time.time()
+    best_loss = 1e6
     for epoch in range(opt.niter):
         frame_predictor.train()
         posterior.train()
@@ -525,7 +660,11 @@ def run(
         progress.finish()
         utils.clear_progressbar()
 
-        print('[%02d] mse loss: %.5f | kld loss: %.5f (%d)' % (epoch, epoch_mse/opt.epoch_size, epoch_kld/opt.epoch_size, epoch*opt.epoch_size*opt.batch_size))
+        print_message = '[%02d] mse loss: %.5f | kld loss: %.5f (%d)' % (epoch, epoch_mse/opt.epoch_size, epoch_kld/opt.epoch_size, epoch*opt.epoch_size*opt.batch_size)
+        print(print_message)
+
+        with open('%s/log.txt' % opt.log_dir, 'a+') as f:
+            f.write(print_message + '\n')
 
         # plot some stuff
         frame_predictor.eval()
@@ -536,8 +675,8 @@ def run(
         
         with torch.no_grad():
             x = next(testing_batch_generator)
-            plot(x, epoch)
-            plot_rec(x, epoch)
+            plot(x, epoch, opt.model)
+            plot_rec(x, epoch, opt.model)
 
         # save the model
         torch.save({
@@ -547,9 +686,27 @@ def run(
             'posterior': posterior,
             'prior': prior,
             'opt': opt},
-            '%s/model.pth' % opt.model_dir)
+            '%s/latest_model.pth' % opt.model_dir)
+
+        # save the best model
+        current_loss = (epoch_mse + epoch_kld) / opt.epoch_size
+        if current_loss < best_loss:
+            best_loss = current_loss
+            torch.save({
+                'encoder': encoder,
+                'decoder': decoder,
+                'frame_predictor': frame_predictor,
+                'posterior': posterior,
+                'prior': prior,
+                'opt': opt},
+                '%s/model.pth' % opt.model_dir)
+            print('best loss: %f' % best_loss)
+
         if epoch % 10 == 0:
             print('log dir: %s' % opt.log_dir)
+
+        if exceeded_time(start_time, max_run_time):
+            break
 
 
 
@@ -562,9 +719,11 @@ class Objective(PhysOptObjective):
             output_dir,
             extract_feat,
             debug,
+            max_run_time,
             model,
             freeze_encoder_weights):
-        super().__init__(exp_key, seed, train_data, feat_data, output_dir, extract_feat, debug)
+        super().__init__(exp_key, seed, train_data, feat_data, output_dir,
+                extract_feat, debug, max_run_time)
         self.model = model
         self.freeze_encoder_weights = freeze_encoder_weights
 
@@ -572,7 +731,12 @@ class Objective(PhysOptObjective):
     def __call__(self, *args, **kwargs):
         results = super().__call__()
         if self.extract_feat:
-            write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
+            write_feat = 'train'
+            if 'human' in self.feat_data['name']:
+                write_feat = 'human'
+            if 'test' in self.feat_data['name']:
+                write_feat = 'test'
+            #write_feat = 'plot'
             run(datasets=self.feat_data['data'], seed=self.seed, data_root='',
                     model_dir=self.model_dir, feature_file=self.feature_file,
                     write_feat=write_feat, model=self.model,
@@ -581,7 +745,8 @@ class Objective(PhysOptObjective):
             run(datasets=self.train_data['data'], seed=self.seed, data_root='',
                     model_dir=self.model_dir, feature_file=self.feature_file,
                     write_feat='', model=self.model,
-                    freeze_encoder_weights=self.freeze_encoder_weights)
+                    freeze_encoder_weights=self.freeze_encoder_weights,
+                    max_run_time=self.max_run_time)
 
         results['loss'] = 0.0
         results['model'] = self.model

@@ -1,3 +1,4 @@
+import dill
 import os
 import numpy as np
 import scipy
@@ -16,7 +17,7 @@ from physopt.metrics.physics.linear_readout_model import LinearRegressionReadout
 from physopt.metrics.physics.metric_fns import accuracy, squared_error
 from physopt.utils import PhysOptObjective
 
-SETTINGS = [ # TODO: might not want this to be hardcoded
+SETTINGS = [ # TODO: might not want this to be hardcoded, RPIN only takes 4 frames
         {
             'type': 'observed',
             'inp_time_steps': (0, 25, 1),
@@ -37,7 +38,7 @@ SETTINGS = [ # TODO: might not want this to be hardcoded
             },
         ]
 
-def build_data(path):
+def build_data(path, max_sequences = 1e9):
     with open(path, 'rb') as f:
         batched_data = pickle.load(f)
 
@@ -49,6 +50,10 @@ def build_data(path):
             for k, v in bd.items():
                 sequence[k] = v[bidx]
             data.append(sequence)
+            if len(data) > max_sequences:
+                break
+        if len(data) > max_sequences:
+            break
 
     logging.info('Data len: {}'.format(len(data)))
     logging.info('Input Shapes:')
@@ -138,7 +143,6 @@ def rebalance(data, label_fn, balancing = oversample):
 
     pos, neg = get_num_samples(balanced_data, label_fn)
     logging.info("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
-
     return balanced_data
 
 def run(
@@ -148,7 +152,7 @@ def run(
         test_feat_name,
         model_dir,
         settings,
-        grid_search_params = {'C': [0.01, 0.1, 1.0, 10.0, 100.0]},
+        grid_search_params = {'C': np.logspace(-8, 8, 17)},
         calculate_correlation = False,
         ):
     # Build physics model
@@ -192,6 +196,7 @@ def run(
         metric_model.fit(iter(train_data_balanced))
         joblib.dump(metric_model, readout_model_file)
 
+    # TODO: make sure this works for tf models too
     train_acc = metric_model.score(iter(train_data_balanced))
     test_acc = metric_model.score(iter(test_data_balanced))
     test_proba = metric_model.predict_proba(iter(test_data))
@@ -267,18 +272,18 @@ class Objective(PhysOptObjective):
 
 if __name__ == '__main__':
     seed = 0
-    train_data = {'name': 'cloth',
-            'data': ['/mnt/fs4/mrowca/neurips/images/rigid/cloth_on_object']
+    train_data = {'name': 'collision',
+            'data': ['/mnt/fs4/hsiaoyut/tdw_physics/data/collision/tfrecords/train']
             }
     feat_data = (
-        {'name': 'cloth',
-            'data': ['/mnt/fs4/mrowca/neurips/images/rigid/cloth_on_object']
+        {'name': 'train_collision',
+            'data': ['/mnt/fs4/hsiaoyut/tdw_physics/data/collision/tfrecords/train_readout']
             },
-        {'name': 'human_cloth',
-            'data': ['/mnt/fs4/mrowca/neurips/images/rigid/cloth_on_object']
+        {'name': 'test_collision',
+            'data': ['/mnt/fs4/hsiaoyut/tdw_physics/data/collision/tfrecords/valid_readout']
             }
         )
-    output_dir = '/mnt/fs4/mrowca/hyperopt/RPIN/'
-    exp_key = '0_cloth_human_cloth_metrics'
+    output_dir = '/mnt/fs1/mrowca/dummy1/SVG/'
+    exp_key = '0_collision_test_collision_metrics'
     objective = Objective(exp_key, seed, train_data, feat_data, output_dir, False)
     objective()

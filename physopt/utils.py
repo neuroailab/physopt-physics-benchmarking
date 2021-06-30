@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 from hyperopt import STATUS_OK, STATUS_FAIL
 
-
+MAX_RUN_TIME = 86400 * 2 # 2 days
 
 class MultiAttempt():
     def __init__(self, func, max_attempts=10):
@@ -72,6 +72,7 @@ class PhysOptObjective():
             output_dir,
             extract_feat,
             debug,
+            max_run_time=MAX_RUN_TIME,
             ):
         self.exp_key = exp_key
         self.seed = seed
@@ -82,6 +83,7 @@ class PhysOptObjective():
                 self.train_data['name'], self.seed)
         self.model_file = os.path.join(self.model_dir, 'model.pt')
         self.debug = debug
+        self.max_run_time = max_run_time
 
         # setup logging
         logging.root.handlers = [] # necessary to get handler to work

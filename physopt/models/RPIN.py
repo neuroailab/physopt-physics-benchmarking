@@ -70,9 +70,21 @@ ROLL_VS_SLIDE_CONFIG = {
         'test_len': 320 // 4,
         }
 
+ANY_CONFIG = {
+        'binary_labels': ['any_is_target_contacting_zone'],
+        'train_shift': [1, 1024, 1],
+        'train_len': 10000,
+        'test_shift': [1, 1024, 1024],
+        'test_len': 200,
+        }
 
-def get_config(subset):
-    if 'collide' in subset:
+def get_config(subset, always_return=ANY_CONFIG):
+    if always_return:
+        return always_return
+
+    if 'tfrecords' in subset:
+        return ANY_CONFIG
+    elif 'collide' in subset:
         return COLLIDE_CONFIG
     elif 'tower' in subset:
         return TOWER_CONFIG
@@ -84,6 +96,8 @@ def get_config(subset):
         return ROLL_VS_SLIDE_CONFIG
     elif 'slide' in subset:
         return ROLL_VS_SLIDE_CONFIG
+    elif 'dominoes' in subset:
+        return ANY_CONFIG
     else:
         raise ValueError("Unkown config for subset: %s" % subset)
 
@@ -103,16 +117,15 @@ def get_data_len(subsets):
 
 
 def get_binary_labels(subsets):
-    if len(subsets) > 1:
-        return ['is_colliding_dynamic']
-    else:
-        return get_config(subsets[0])['binary_labels']
+    labels = np.array([get_config(s)['binary_labels'] for s in subsets])
+    assert np.all(labels[0:1] == labels), labels
+    return list(labels[0])
 
 
 def get_shift_selector(subsets):
     if len(subsets) > 1:
-        train_shift_selector = [0, 1024, 1]
-        val_shift_selector = [0, 1024, 32]
+        train_shift_selector = [1, 1024, 1]
+        val_shift_selector = [1, 1024, 1024]
     else:
         train_shift_selector = get_config(subsets[0])['train_shift']
         val_shift_selector = get_config(subsets[0])['test_shift']
@@ -126,6 +139,7 @@ def run(
         model_dir = '/mnt/fs4/mrowca/hyperopt/rpin/default/0/model',
         feature_file = '/mnt/fs4/mrowca/hyperopt/rpin/default/0/model/features/default/feat.pkl',
         write_feat = '',
+        max_run_time = 86400 * 100, # 100 days
         ):
     # the wrapper file contains:
     # 1. setup environment
@@ -140,7 +154,7 @@ def run(
 
     # Overwrite args with passed args
     args.seed = seed if not write_feat else 0
-    args.cfg = '/home/mrowca/workspace/RPIN/configs/tdw/default_rpin.yaml' # default config
+    args.cfg = '/home/mrowca_stanford_edu/workspace/RPIN/configs/tdw/default_rpin.yaml' # default config
     args.gpus = '0'
     args.output = '' # Not used any longer
     #args.init = '' # For restart -> check for tar file
@@ -163,7 +177,7 @@ def run(
     C.SOLVER.BASE_LR *= num_gpus
     # change config based on datasets
     C['DATA_ROOT'] = get_data_paths(data_root, datasets)
-    subsets = [subset.split("/")[-1] for subset in datasets]
+    subsets = ['/'.join(subset.split("/")[-2:]) for subset in datasets]
     C['INPUT']['TRAIN_SLICE'], C['INPUT']['VAL_SLICE'] = get_shift_selector(subsets)
     C['INPUT']['TRAIN_NUM'], C['INPUT']['VAL_NUM'] = get_data_len(subsets)
     C['INPUT']['BINARY_LABELS'] = get_binary_labels(subsets)
@@ -176,21 +190,21 @@ def run(
         os.makedirs(model_dir, exist_ok=True)
 
     if write_feat:
-        test(args, model_dir, feature_file)
+        test(args, model_dir, feature_file, write_feat)
     else:
-        train(args, model_dir, num_gpus)
+        train(args, model_dir, num_gpus, max_run_time)
     return
 
 
-def train(args, output_dir, num_gpus):
+def train(args, output_dir, num_gpus, max_run_time):
     from neuralphys.datasets.tdw import TDWPhys as PyPhys
     # TODO Changed this to 4 + 6 frame prediction
     C['RPIN']['INPUT_SIZE'] = 4
-    C['RPIN']['PRED_SIZE_TRAIN'] = 6 #12
-    C['RPIN']['PRED_SIZE_TEST'] = 6 #23
+    C['RPIN']['PRED_SIZE_TRAIN'] = 8 #20 #6 #12
+    C['RPIN']['PRED_SIZE_TEST'] = 18 #44 #6 #23
 
     shutil.copy(args.cfg, os.path.join(output_dir, 'config.yaml'))
-    shutil.copy(os.path.join('/home/mrowca/workspace/RPIN/neuralphys/models/', C.RPIN.ARCH + '.py'), os.path.join(output_dir, 'arch.py'))
+    shutil.copy(os.path.join('/home/mrowca_stanford_edu/workspace/RPIN/neuralphys/models/', C.RPIN.ARCH + '.py'), os.path.join(output_dir, 'arch.py'))
 
     # ---- setup logger
     logger = setup_logger('RPIN', output_dir)
@@ -242,7 +256,8 @@ def train(args, output_dir, num_gpus):
               'output_dir': output_dir,
               'logger': logger,
               'num_gpus': num_gpus,
-              'max_iters': C.SOLVER.MAX_ITERS}
+              'max_iters': C.SOLVER.MAX_ITERS,
+              'max_run_time': max_run_time}
     trainer = Trainer(**kwargs)
 
     #try:
@@ -253,24 +268,32 @@ def train(args, output_dir, num_gpus):
     #    raise
 
 
-def test(args, model_dir, feature_file):
+def test(args, model_dir, feature_file, write_feat):
     from neuralphys.evaluator_feat import PredEvaluator
-    if 'human' in feature_file:
+    if write_feat == 'human':
         from neuralphys.datasets.tdw_human import TDWPhys as PyPhys
     else:
         from neuralphys.datasets.tdw_feat import TDWPhys as PyPhys
-    C['RPIN']['INPUT_SIZE'] = 10
-    C['RPIN']['PRED_SIZE_TRAIN'] = 5
-    C['RPIN']['PRED_SIZE_TEST'] = 5
+    C['RPIN']['INPUT_SIZE'] = 24 #49 #10 for human, adjust infer start in tdw_feat.py
+    C['RPIN']['PRED_SIZE_TRAIN'] = 19 #44 #5
+    C['RPIN']['PRED_SIZE_TEST'] = 19 #44 #5
+
+    assert C['RPIN']['INPUT_SIZE'] - C['RPIN']['PRED_SIZE_TRAIN'] == 5, \
+            "Change tdw_feat.py if you want to adjust this"
+    assert C['RPIN']['INPUT_SIZE'] - C['RPIN']['PRED_SIZE_TEST'] == 5, \
+            "Change tdw_feat.py if you want to adjust this"
 
     if not os.path.exists(os.path.dirname(feature_file)):
         os.makedirs(os.path.dirname(feature_file), exist_ok=True)
 
     # --- setup data loader
     print('initialize dataset')
-    split_name = 'test'
+    if write_feat in ['test', 'human']:
+        split_name = 'test'
+    else:
+        split_name = 'train'
     val_set = PyPhys(data_root=C.DATA_ROOT, split=split_name, test=True)
-    batch_size = 1 if C.RPIN.VAE else C.SOLVER.BATCH_SIZE
+    batch_size = 4 #2 #if C.RPIN.VAE else C.SOLVER.BATCH_SIZE
     val_loader = torch.utils.data.DataLoader(val_set, batch_size=batch_size, num_workers=0) #16
 
     model = eval(args.predictor_arch + '.Net')()
@@ -298,7 +321,11 @@ class Objective(PhysOptObjective):
     def __call__(self, *args, **kwargs):
         results = super().__call__()
         if self.extract_feat:
-            write_feat = 'human' if 'human' in self.feat_data['name'] else 'train'
+            write_feat = 'train'
+            if 'test' in self.feat_data['name']:
+                write_feat = 'test'
+            if 'human' in self.feat_data['name']:
+                write_feat = 'human'
             run(datasets=self.feat_data['data'], seed=self.seed, data_root='',
                     model_dir=self.model_dir, feature_file=self.feature_file,
                     write_feat=write_feat)
@@ -306,7 +333,7 @@ class Objective(PhysOptObjective):
         else:
             run(datasets=self.train_data['data'], seed=self.seed, data_root='',
                     model_dir=self.model_dir, feature_file=self.feature_file,
-                    write_feat='')
+                    write_feat='', max_run_time=self.max_run_time)
 
         results['loss'] = 0.0
         return results

@@ -7,13 +7,12 @@ import argparse
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
 
-from physopt.utils import MultiAttempt
+from physopt.utils import MultiAttempt, MAX_RUN_TIME
 from physopt.models import get_Objective
 from physopt.data import get_data_space
 from physopt.search.grid_search import suggest
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])
-
 
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
@@ -30,6 +29,8 @@ def arg_parse():
     parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
     parser.add_argument('--debug', action='store_true', help='debug mode')
     parser.add_argument('--mongo', action='store_true', help='whether to use mongo trials')
+    parser.add_argument('--max_train_time', default=MAX_RUN_TIME,
+            help='Maximum model training time in seconds', type=int)
 
     return parser.parse_args()
 
@@ -63,6 +64,7 @@ def run(
         compute_metrics = False,
         debug=False,
         mongo=False,
+        max_run_time=MAX_RUN_TIME,
         ):
 
     def run_once(data):
@@ -91,12 +93,12 @@ def run(
             Objective = get_Objective('metrics')
         else:
             Objective = get_Objective(model)
-        objective = Objective(exp_key, seed, train_data, feat_data, output_dir, extract_feat, debug) # TODO: more flexible args
+        objective = Objective(exp_key, seed, train_data, feat_data, output_dir,
+                extract_feat, debug, max_run_time) # TODO: more flexible args
 
         try:
             fmin(
-                # MultiAttempt(objective),
-                objective,
+                MultiAttempt(objective),
                 space=optimization_space, trials=trials,
                 algo=algo, max_evals=max_evals,
                 )
@@ -144,6 +146,7 @@ class OptimizationPipeline():
         self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
         self.debug = args.debug
         self.mongo = args.mongo
+        self.max_run_time = args.max_run_time
 
     def __del__(self):
         self.close()
@@ -154,6 +157,7 @@ class OptimizationPipeline():
         train_model(self.model, self.data['train_feat'], self.output_dir,
                 self.mongo_path, exp_key_suffix = exp_key_suffix,
                 multiprocessing_pool = self.pool, debug=self.debug, mongo=self.mongo,
+                max_run_time = self.max_run_time,
                 )
         print('...all models trained!')
 
