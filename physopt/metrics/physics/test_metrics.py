@@ -145,26 +145,6 @@ def rebalance(data, label_fn, balancing = oversample):
     logging.info("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
     return balanced_data
 
-def load_best_params(metrics_file, reuse_best_params, num_params):
-    if not os.path.isfile(metrics_file):
-        best_params = [None] * num_params
-        return best_params
-
-    with open(metrics_file, 'rb') as f:
-        metrics = pickle.load(f)
-
-    best_params = []
-    for result in metrics['results']:
-        if reuse_best_params and 'best_params' in result['result']:
-            best_params.append(result['result']['best_params'])
-        else:
-            best_params.append(None)
-
-    while len(best_params) < num_params:
-        best_params.append(None)
-    return best_params
-
-
 def compute_per_example_results(model, file_path, time_steps):
     def reference_label_fn(data):
         labels = subselect(data['reference_ids'], time_steps)
@@ -274,11 +254,6 @@ def run(
     # Build logistic regression model
     readout_model = LogisticRegressionReadoutModel(max_iter = 100, C=1.0, verbose=1)
 
-    # Score unfitted predictions
-    if best_params:
-        # Reuse best params instead of running grid search
-        grid_search_params = best_params
-        grid_search_params = {k: [v] for k, v in grid_search_params.items()}
     metric_model = BatchMetricModel(feature_extractor, readout_model,
             accuracy, label_fn, grid_search_params,
             )
