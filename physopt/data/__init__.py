@@ -1,9 +1,9 @@
 # Register data spaces
 def get_data_space(data_space, debug):
-    if debug or data_space == 'DEBUG':
+    if data_space == 'DEBUG':
         from physopt.data.debug_space import SPACE as DEBUG_SPACE
         return DEBUG_SPACE
-    if data_space == 'TDW': # TODO: combine TDW and DEBUG space - i.e. get_tdw_data_space(debug)
+    elif data_space == 'TDW': # TODO: combine TDW and DEBUG space - i.e. get_tdw_data_space(debug)
         from physopt.data.tdw_space import SPACE as TDW_SPACE
         return TDW_SPACE
     elif data_space == 'DOMINOES':

@@ -29,7 +29,7 @@ def arg_parse():
     parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
     parser.add_argument('--debug', action='store_true', help='debug mode')
     parser.add_argument('--mongo', action='store_true', help='whether to use mongo trials')
-    parser.add_argument('--max_train_time', default=MAX_RUN_TIME,
+    parser.add_argument('--max_run_time', default=MAX_RUN_TIME,
             help='Maximum model training time in seconds', type=int)
 
     return parser.parse_args()
@@ -98,7 +98,7 @@ def run(
 
         try:
             fmin(
-                MultiAttempt(objective),
+                MultiAttempt(objective) if not debug else objective,
                 space=optimization_space, trials=trials,
                 algo=algo, max_evals=max_evals,
                 )

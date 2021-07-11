@@ -4,8 +4,10 @@ from physopt.data.data_space import get_all_subsets, construct_data_spaces
 
 _NUM_SEEDS = 1
 
-BASE_DIR = '/mnt/fs4/hsiaoyut/tdw_physics/data/'
-NEW_BASE_DIR = '/mnt/fs4/tdw_datasets/'
+# BASE_DIR = '/mnt/fs4/hsiaoyut/tdw_physics/data/'
+# NEW_BASE_DIR = '/mnt/fs4/tdw_datasets/'
+BASE_DIR = '/data2/eliwang/'
+NEW_BASE_DIR = BASE_DIR
 
 # Data subsets
 _TRAIN_CLOTH = {'name': 'cloth',

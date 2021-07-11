@@ -44,6 +44,15 @@ def get_Objective(model):
     elif model == 'DEITFrozenLSTM':
         from  physopt.models.physion.FROZEN import DEITFrozenLSTMObjective
         return DEITFrozenLSTMObjective
+    elif model == 'CLIPFrozenID':
+        from  physopt.models.physion.FROZEN import CLIPFrozenIDObjective
+        return CLIPFrozenIDObjective
+    elif model == 'CLIPFrozenMLP':
+        from  physopt.models.physion.FROZEN import CLIPFrozenMLPObjective
+        return CLIPFrozenMLPObjective
+    elif model == 'CLIPFrozenLSTM':
+        from  physopt.models.physion.FROZEN import CLIPFrozenLSTMObjective
+        return CLIPFrozenLSTMObjective
     elif model == 'CSWM':
         from physopt.models.cswm.CSWM import Objective
         return Objective
