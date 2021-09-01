@@ -139,11 +139,11 @@ class OptimizationPipeline():
     def __init__(self, args = None):
         args = arg_parse() if not args else args
 
+        self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
         self.data = get_data_space(args.data, args.debug)
         self.model = args.model
         self.output_dir = get_output_directory(args.output, args.model)
         self.mongo_path = get_mongo_path(args.host, args.port, args.database)
-        self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
         self.debug = args.debug
         self.mongo = args.mongo
         self.max_run_time = args.max_run_time
