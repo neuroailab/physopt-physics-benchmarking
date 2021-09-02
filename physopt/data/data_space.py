@@ -1,4 +1,5 @@
 import os
+from .config import get_cfg_defaults
 
 # Each subset is defined as a dict('name': NAME, 'data': DATA), where
 # NAME = str, DATA = list(subset_paths)
@@ -48,29 +49,40 @@ def construct_data_spaces(seeds, train_data, train_feat_data, test_feat_data, me
     spaces['metrics'] = construct_metrics_space(seeds, train_data, metrics_data)
     return spaces
 
+def _get_subsets(basedir, scenarios, filepattern):
+    return [{'name': scenario, 'data': [os.path.join(basedir, scenario, filepattern)]} for scenario in scenarios]
+
 def get_data_space(
         data_space,
-        debug,
-        train_dir='/data1/eliwang/physion_train_data', # TODO
-        test_dir='/data1/eliwang/physion_test_data', # TODO
-        scenarios=['Collide', 'Contain', 'Dominoes', 'Drape', 'Drop', 'Link', 'Roll', 'Support'],
-        num_seeds=1,
         ):
-
+    cfg = get_cfg_defaults()
+    dirname = os.path.dirname(__file__)
+    cfg.merge_from_file(os.path.join(dirname, data_space+'.yaml'))
+    # TODO: add merge debug config?
+    cfg.freeze()
+    print(cfg)
+    
     # Data subsets
-    train_data = []
-    train_feat_data = []
-    test_feat_data = []
-    for scenario in scenarios:
-        train_data.append({'name': scenario, 'data': [os.path.join(train_dir, 'dynamics_training', scenario, '*.hdf5')]}) # TODO: might need to make compatible with tfrecords too
-        train_feat_data.append({'name': scenario, 'data': [os.path.join(train_dir, 'readout_training', scenario, '*.hdf5')]})
-        test_feat_data.append({'name': scenario, 'data': [os.path.join(test_dir, 'model_testing', scenario, '*.hdf5')]})
+    only_dynamics_train_data = _get_subsets(cfg.DYNAMICS_TRAIN_DIR, cfg.SCENARIOS, cfg.FILE_PATTERN)
+    dynamics_train_data = []
+    if len(cfg.SCENARIOS) > 1:
+        if 'only' in cfg.TRAINING_PROTOCOLS:
+            dynamics_train_data.extend(only_dynamics_train_data)
+        if 'abo' in cfg.TRAINING_PROTOCOLS:
+            abo_dynamics_train_data = get_combined_but_one_subset(only_dynamics_train_data)
+            dynamics_train_data.extend(abo_dynamics_train_data)
+        if 'all' in cfg.TRAINING_PROTOCOLS:
+            all_dynamics_train_data = get_combined_subset(only_dynamics_train_data)
+            dynamics_train_data.append(all_dynamics_train_data)
+    else:
+        assert 'abo' not in cfg.TRAINING_PROTOCOLS, "Can't use all-but-one training protocol when there's only one scenario"
+        dynamics_train_data = only_dynamics_train_data
 
-    # Spaces
-    seeds = list(range(num_seeds))
+    readout_train_data = _get_subsets(cfg.READOUT_TRAIN_DIR, cfg.SCENARIOS, cfg.FILE_PATTERN)
+    readout_test_data = _get_subsets(cfg.READOUT_TEST_DIR, cfg.SCENARIOS, cfg.FILE_PATTERN)
 
-    train_data = get_all_subsets(train_data) # TODO: have param specifying what train protocol all/abo/only
-    metrics_data = zip(train_feat_data, test_feat_data)
+    metrics_data = zip(readout_train_data, readout_test_data)
+    seeds = list(range(cfg.NUM_SEEDS))
 
-    space = construct_data_spaces(seeds, train_data, train_feat_data, test_feat_data, metrics_data)
+    space = construct_data_spaces(seeds, dynamics_train_data, readout_train_data, readout_test_data, metrics_data)
     return space
