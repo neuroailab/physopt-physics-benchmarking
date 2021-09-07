@@ -16,7 +16,6 @@ from physopt.metrics.physics.linear_readout_model import LinearRegressionReadout
         LogisticRegressionReadoutModel
 
 from physopt.metrics.physics.metric_fns import accuracy, squared_error
-from physopt.utils import PhysOptObjective, MAX_RUN_TIME
 
 SETTINGS = [ # TODO: might not want this to be hardcoded, RPIN only takes 4 frames
         {
@@ -303,47 +302,6 @@ def write_results(
         pickle.dump(data, f)
     print('Metrics results written to %s' % metrics_file)
     return
-
-
-class Objective(PhysOptObjective):
-    def __init__(self,
-            exp_key,
-            seed,
-            train_data,
-            feat_data,
-            output_dir,
-            mode,
-            debug,
-            max_run_time = MAX_RUN_TIME,
-            ):
-        assert len(feat_data) == 2, feat_data
-        super().__init__(exp_key, seed, train_data, feat_data, output_dir,
-                mode, debug, max_run_time)
-        self.experiment_name = 'Compute_Metrics' # TODO
-
-    def compute_metrics(self):
-        mlflow.set_experiment(self.experiment_name)
-        mlflow.start_run(run_name=self.exp_key)
-
-        logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
-        for settings in SETTINGS:
-            result = run(self.seed, self.train_feature_file,
-                    self.test_feature_file, self.test_feat_data['name'],
-                    self.model_dir, settings, 
-                    grid_search_params=None if self.debug else {'C': np.logspace(-8, 8, 17)},
-                    )
-            result = {'result': result}
-            result.update(settings) 
-            mlflow.log_metrics({
-                'train_acc_'+settings['type']: result['result']['train_accuracy'], 
-                'test_acc_'+settings['type']: result['result']['test_accuracy']
-                }) # TODO: cleanup and log other info too
-            # Write every iteration to be safe
-            write_results(self.metrics_file, self.seed, self.train_data['name'],
-                    self.train_feature_file, self.test_feature_file, self.model_dir, result) # TODO: log artifact
-
-        mlflow.end_run()
-
 
 if __name__ == '__main__':
     seed = 0

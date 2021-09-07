@@ -1,8 +1,5 @@
-def get_Objective(model):
-    if model == 'metrics':
-        import physopt.metrics.physics.test_metrics as test_metrics
-        return test_metrics.Objective
-    elif model == 'RPIN':
+def get_Objective(model): # TODO: figure out better implementation for this
+    if model == 'RPIN':
         from physopt.models.RPIN import Objective as RPINObjective
         return RPINObjective
     elif model == 'SVG':

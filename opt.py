@@ -88,10 +88,7 @@ def run(
         else:
             trials = Trials()
 
-        if mode == 'compute_metric': # TODO
-            Objective = get_Objective('metrics')
-        else:
-            Objective = get_Objective(model)
+        Objective = get_Objective(model)
         objective = Objective(exp_key, seed, train_data, feat_data, output_dir,
                 mode, debug, max_run_time) # TODO: more flexible args
 
