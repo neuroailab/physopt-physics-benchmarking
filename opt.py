@@ -60,11 +60,10 @@ def run(
         algo=suggest,
         max_evals=1e5,
         multiprocessing_pool = None,
-        extract_feat = False,
-        compute_metrics = False,
         debug=False,
         mongo=False,
         max_run_time=MAX_RUN_TIME,
+        mode='train_dynamics',
         ):
 
     def run_once(data):
@@ -89,12 +88,12 @@ def run(
         else:
             trials = Trials()
 
-        if compute_metrics:
+        if mode == 'compute_metric': # TODO
             Objective = get_Objective('metrics')
         else:
             Objective = get_Objective(model)
         objective = Objective(exp_key, seed, train_data, feat_data, output_dir,
-                extract_feat, debug, max_run_time) # TODO: more flexible args
+                mode, debug, max_run_time) # TODO: more flexible args
 
         try:
             fmin(
@@ -109,7 +108,7 @@ def run(
         return
 
     # Model training requires training only once
-    if not extract_feat and not compute_metrics:
+    if mode == 'train_dynamics':
         data_space = (data_space[0], data_space[1], [{'name': 'train', 'data': []}])
 
     # Parallel processing
@@ -123,15 +122,15 @@ def run(
 
 
 def train_model(*args, **kwargs):
-    return run(*args, **kwargs)
+    return run(*args, **kwargs, mode='train_dynamics')
 
 
 def extract_features(*args, **kwargs):
-    return run(*args, **kwargs, extract_feat = True)
+    return run(*args, **kwargs, mode='extract_feat')
 
 
 def compute_metrics(*args, **kwargs):
-    return run(*args, **kwargs, compute_metrics = True)
+    return run(*args, **kwargs, mode='compute_metric')
 
 
 

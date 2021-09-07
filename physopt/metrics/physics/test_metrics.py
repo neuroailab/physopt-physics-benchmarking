@@ -6,6 +6,7 @@ import pickle
 import logging
 import dill
 import joblib
+import mlflow
 
 from physopt.metrics.base.feature_extractor import FeatureExtractor
 from physopt.metrics.base.readout_model import IdentityModel
@@ -311,18 +312,19 @@ class Objective(PhysOptObjective):
             train_data,
             feat_data,
             output_dir,
-            extract_feat,
+            mode,
             debug,
             max_run_time = MAX_RUN_TIME,
             ):
         assert len(feat_data) == 2, feat_data
         super().__init__(exp_key, seed, train_data, feat_data, output_dir,
-                extract_feat, debug, max_run_time)
+                mode, debug, max_run_time)
+        self.experiment_name = 'Compute_Metrics' # TODO
 
+    def compute_metrics(self):
+        mlflow.set_experiment(self.experiment_name)
+        mlflow.start_run(run_name=self.exp_key)
 
-    def __call__(self, *args, **kwargs):
-        ret = super().__call__()
-        results = []
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
         for settings in SETTINGS:
             result = run(self.seed, self.train_feature_file,
@@ -331,16 +333,16 @@ class Objective(PhysOptObjective):
                     grid_search_params=None if self.debug else {'C': np.logspace(-8, 8, 17)},
                     )
             result = {'result': result}
-            result.update(settings)
-            results.append(result)
+            result.update(settings) 
+            mlflow.log_metrics({
+                'train_acc_'+settings['type']: result['result']['train_accuracy'], 
+                'test_acc_'+settings['type']: result['result']['test_accuracy']
+                }) # TODO: cleanup and log other info too
             # Write every iteration to be safe
             write_results(self.metrics_file, self.seed, self.train_data['name'],
-                    self.train_feature_file, self.test_feature_file, self.model_dir, results)
+                    self.train_feature_file, self.test_feature_file, self.model_dir, result) # TODO: log artifact
 
-        ret['loss'] = 0.0
-        ret['results'] = results
-        return ret
-
+        mlflow.end_run()
 
 
 if __name__ == '__main__':

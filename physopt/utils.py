@@ -70,7 +70,7 @@ class PhysOptObjective():
             train_data,
             feat_data,
             output_dir,
-            extract_feat,
+            mode,
             debug,
             max_run_time=MAX_RUN_TIME,
             ):
@@ -78,14 +78,14 @@ class PhysOptObjective():
         self.seed = seed
         self.train_data = train_data
         self.output_dir = output_dir
-        self.extract_feat = extract_feat
+        self.mode = mode
         self.model_dir = self.get_model_dir(self.output_dir,
                 self.train_data['name'], self.seed)
         self.model_file = os.path.join(self.model_dir, 'model.pt')
         self.debug = debug
         self.max_run_time = max_run_time
 
-        # setup logging
+        # setup logging TODO
         logging.root.handlers = [] # necessary to get handler to work
         logging.basicConfig(
             handlers=[
@@ -132,6 +132,17 @@ class PhysOptObjective():
         return metrics_file
 
     def __call__(self, *args, **kwargs):
+        if self.mode == 'train_dynamics':  # run model training
+            self.datapaths = self.train_data['data'] # TODO
+            self.train()
+        elif self.mode == 'extract_feat':# save out model features from trained model
+            self.datapaths = self.feat_data['data'] # TODO
+            self.test() 
+        elif self.mode == 'compute_metric':
+            self.compute_metrics()
+        else:
+            raise NotImplementedError
+
         ret = {
                 'loss': 0.0,
                 'status': STATUS_OK,
@@ -139,7 +150,7 @@ class PhysOptObjective():
                 'seed': self.seed,
                 'train_data': self.train_data,
                 'output_dir': self.output_dir,
-                'extract_feat': self.extract_feat,
+                'mode': self.mode,
                 'model_dir': self.model_dir,
                 }
 
