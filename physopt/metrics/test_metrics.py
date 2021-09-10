@@ -8,14 +8,14 @@ import dill
 import joblib
 import mlflow
 
-from physopt.metrics.base.feature_extractor import FeatureExtractor
-from physopt.metrics.base.readout_model import IdentityModel
-from physopt.metrics.base.metric_model import BatchMetricModel
+from physopt.metrics.feature_extractor import FeatureExtractor
+from physopt.metrics.readout_model import IdentityModel
+from physopt.metrics.metric_model import BatchMetricModel
 
-from physopt.metrics.physics.linear_readout_model import LinearRegressionReadoutModel, \
+from physopt.metrics.linear_readout_model import LinearRegressionReadoutModel, \
         LogisticRegressionReadoutModel
 
-from physopt.metrics.physics.metric_fns import accuracy, squared_error
+from physopt.metrics.metric_fns import accuracy, squared_error
 
 SETTINGS = [ # TODO: might not want this to be hardcoded, RPIN only takes 4 frames
         {

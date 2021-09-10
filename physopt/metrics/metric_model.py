@@ -1,5 +1,5 @@
-from physopt.metrics.base.feature_extractor import FeatureExtractor
-from physopt.metrics.base.readout_model import ReadoutModel
+from physopt.metrics.feature_extractor import FeatureExtractor
+from physopt.metrics.readout_model import ReadoutModel
 import numpy as np
 
 from sklearn.model_selection import GridSearchCV

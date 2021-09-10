@@ -7,7 +7,7 @@ import time
 import torch
 from datetime import datetime
 from hyperopt import STATUS_OK, STATUS_FAIL
-from physopt.metrics.physics.test_metrics import * # TODO
+from physopt.metrics.test_metrics import * # TODO
 
 MAX_RUN_TIME = 86400 * 2 # 2 days in seconds
 NUM_EPOCHS = 2 # TODO: remove hard-coded num epochs
