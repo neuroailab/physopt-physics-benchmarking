@@ -3,6 +3,7 @@ from yacs.config import CfgNode as CN
 _C = CN()
 
 _C.DYNAMICS_TRAIN_DIR = None
+_C.DYNAMICS_TEST_DIR = None
 _C.READOUT_TRAIN_DIR = None
 _C.READOUT_TEST_DIR = None
 _C.FILE_PATTERN = '*.hdf5'

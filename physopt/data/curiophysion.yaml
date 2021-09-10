@@ -1,8 +1,9 @@
 DYNAMICS_TRAIN_DIR: '/data1/eliwang/curiophysion'
-READOUT_TRAIN_DIR: '/data1/eliwang/curiophysion'
-READOUT_TEST_DIR: '/data1/eliwang/curiophysion'
+DYNAMICS_TEST_DIR: '/data1/eliwang/curiophysion' # TODO
+READOUT_TRAIN_DIR: '/data1/eliwang/curiophysion' # TODO
+READOUT_TEST_DIR: '/data1/eliwang/curiophysion' # TODO
 
 FILE_PATTERN: '*/*.hdf5'
 
-SCENARIOS: ['drop_pilotv2']
+SCENARIOS: ['drop_pilotv2_interesting', 'drop_pilotv2_boring'] #, 'drop_pilotv2_boring', 'drop_pilotv2_interesting1', 'drop_pilotv2_interesting2', 'drop_pilotv2_interesting3']
 TRAINING_PROTOCOLS: ['only']

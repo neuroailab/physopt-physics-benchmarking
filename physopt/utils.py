@@ -68,8 +68,8 @@ class PhysOptObjective():
     def __init__(self,
             exp_key,
             seed,
-            train_data,
-            feat_data,
+            dynamics_data,
+            readout_data,
             output_dir,
             mode,
             debug,
@@ -77,12 +77,17 @@ class PhysOptObjective():
             ):
         self.exp_key = exp_key
         self.seed = seed
-        self.train_data = train_data
+        self.dynamics_data = dynamics_data
+        self.dynamics_name = dynamics_data['name']
+        self.readout_data = readout_data
+        self.readout_name = None if readout_data is None else readout_data['name']
         self.output_dir = output_dir
         self.mode = mode
-        self.model_dir = get_model_dir(self.output_dir,
-                self.train_data['name'], self.seed)
+        self.model_dir = get_model_dir(self.output_dir, self.dynamics_name, self.seed)
         self.model_file = os.path.join(self.model_dir, 'model.pt')
+        self.train_feature_file = get_feature_file(self.model_dir, self.readout_name, 'train')
+        self.test_feature_file = get_feature_file(self.model_dir, self.readout_name, 'test')
+        self.metrics_file = get_metrics_file(self.model_dir, self.readout_name)
         self.debug = debug
         self.max_run_time = max_run_time
 
@@ -97,32 +102,11 @@ class PhysOptObjective():
             level=logging.DEBUG if self.debug else logging.INFO,
             )
 
-        if isinstance(feat_data, dict):
-            # feature data space
-            self.feat_data = feat_data
-            self.feature_file = get_feature_file(self.model_dir,
-                    self.feat_data['name'])
-        else:
-            # metrics data space
-            assert len(feat_data) == 2, feat_data
-            self.train_feat_data = feat_data[0]
-            self.test_feat_data = feat_data[1]
-            self.train_feature_file = get_feature_file(self.model_dir,
-                    self.train_feat_data['name'])
-            self.test_feature_file = get_feature_file(self.model_dir,
-                    self.test_feat_data['name'])
-            self.metrics_file = get_metrics_file(self.model_dir,
-                    self.test_feat_data['name'])
-
     def __call__(self, *args, **kwargs):
-        if self.mode == 'train_dynamics':  # run model training
-            self.datapaths = self.train_data['data'] # TODO
-            self.train()
-        elif self.mode == 'extract_feat':# save out model features from trained model
-            self.datapaths = self.feat_data['data'] # TODO
-            self.test() 
-        elif self.mode == 'compute_metric':
-            self.compute_metrics()
+        if self.mode == 'dynamics':  # run model training
+            self.dynamics()
+        elif self.mode == 'readout':# extract features, then train and test readout
+            self.readout() 
         else:
             raise NotImplementedError
 
@@ -131,57 +115,56 @@ class PhysOptObjective():
                 'status': STATUS_OK,
                 'exp_key': self.exp_key,
                 'seed': self.seed,
-                'train_data': self.train_data,
                 'output_dir': self.output_dir,
                 'mode': self.mode,
                 'model_dir': self.model_dir,
                 }
 
         for k in ['feat_data', 'train_feat_data', 'test_feat_data',
-                'feature_file', 'train_feature_file', 'test_feature_file', 'metrics_file']:
+                'feature_file', 'train_feature_file', 'test_feature_file', 'metrics_file']: # TODO
             if hasattr(self, k):
                 ret[k] = getattr(self, k)
 
         return ret
 
     def compute_metrics(self):
-        mlflow.set_experiment(self.experiment_name)
-        mlflow.start_run(run_name=self.exp_key)
-
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
+        results = []
         for settings in SETTINGS:
             result = run(self.seed, self.train_feature_file,
-                    self.test_feature_file, self.test_feat_data['name'],
+                    self.test_feature_file, self.readout_name,
                     self.model_dir, settings, 
                     grid_search_params=None if self.debug else {'C': np.logspace(-8, 8, 17)},
                     )
             result = {'result': result}
             result.update(settings) 
+            results.append(result)
             mlflow.log_metrics({
                 'train_acc_'+settings['type']: result['result']['train_accuracy'], 
                 'test_acc_'+settings['type']: result['result']['test_accuracy']
                 }) # TODO: cleanup and log other info too
             # Write every iteration to be safe
-            write_results(self.metrics_file, self.seed, self.train_data['name'],
-                    self.train_feature_file, self.test_feature_file, self.model_dir, result) # TODO: log artifact
-
-        mlflow.end_run()
+            write_results(self.metrics_file, self.seed, self.dynamics_name,
+                    self.train_feature_file, self.test_feature_file, self.model_dir, results) # TODO: log artifact
 
 def get_model_dir(output_dir, train_name, seed):
+    assert train_name is not None
     model_dir = os.path.join(output_dir, train_name, str(seed), 'model/')
     _create_dir(model_dir)
     return model_dir
 
-def get_feature_file(model_dir, test_name):
-    feature_file = os.path.join(model_dir, 'features', test_name, 'feat.pkl')
-    _create_dir(feature_file)
-    return feature_file
+def get_feature_file(model_dir, test_name, mode):
+    if test_name is not None:
+        feature_file = os.path.join(model_dir, 'features', test_name, mode+'_feat.pkl')
+        _create_dir(feature_file)
+        return feature_file
 
 
 def get_metrics_file(model_dir, test_name):
-    metrics_file = os.path.join(model_dir, 'features', test_name, 'metrics_results.pkl')
-    _create_dir(metrics_file)
-    return metrics_file
+    if test_name is not None:
+        metrics_file = os.path.join(model_dir, 'features', test_name, 'metrics_results.pkl')
+        _create_dir(metrics_file)
+        return metrics_file
 
 def _create_dir(path): # creates dir from path or filename, if doesn't exist
     dirname, basename = os.path.split(path)
