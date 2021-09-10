@@ -4,11 +4,13 @@ import errno
 import traceback
 import tempfile
 import time
+import torch
 from datetime import datetime
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.metrics.physics.test_metrics import * # TODO
 
-MAX_RUN_TIME = 86400 * 2 # 2 days
+MAX_RUN_TIME = 86400 * 2 # 2 days in seconds
+NUM_EPOCHS = 2 # TODO: remove hard-coded num epochs
 
 class MultiAttempt():
     def __init__(self, func, max_attempts=10):
@@ -91,6 +93,8 @@ class PhysOptObjective():
         self.debug = debug
         self.max_run_time = max_run_time
 
+        self.experiment_name = exp_key.split('_')[0]
+
         # setup logging TODO
         logging.root.handlers = [] # necessary to get handler to work
         logging.basicConfig(
@@ -120,12 +124,53 @@ class PhysOptObjective():
                 'model_dir': self.model_dir,
                 }
 
-        for k in ['feat_data', 'train_feat_data', 'test_feat_data',
-                'feature_file', 'train_feature_file', 'test_feature_file', 'metrics_file']: # TODO
-            if hasattr(self, k):
-                ret[k] = getattr(self, k)
-
         return ret
+
+    def dynamics(self):
+        mlflow.set_experiment(self.experiment_name)
+        mlflow.start_run(run_name=self.exp_key)
+
+        trainloader = self.get_dataloader(self.dynamics_data['train'], train=True)
+        best_loss = 1e9
+        for epoch in range(NUM_EPOCHS): 
+            logging.info('Starting epoch {}/{}'.format(epoch+1, NUM_EPOCHS))
+            running_loss = 0.
+            for i, data in enumerate(trainloader):
+                loss = self.train_step(data)
+                running_loss += loss
+                avg_loss = running_loss/(i+1)
+                print(avg_loss)
+            mlflow.log_metric(key='avg_loss', value=avg_loss, step=epoch)
+            # TODO: add validation
+
+        if avg_loss < best_loss:
+            best_loss = avg_loss
+            logging.info('Saving model with loss {} at epoch {}'.format(best_loss, epoch))
+            self.save_model()
+        mlflow.end_run()
+
+    def readout(self):
+        mlflow.set_experiment(self.experiment_name)
+        mlflow.start_run(run_name=self.exp_key)
+
+        assert os.path.isfile(self.model_file), 'No model ckpt found, cannot extract features'
+
+        trainloader = self.get_dataloader(self.readout_data['train'], train=False)
+        self.extract_feats(trainloader, self.train_feature_file)
+        testloader = self.get_dataloader(self.readout_data['test'], train=False)
+        self.extract_feats(testloader, self.test_feature_file)
+
+        self.compute_metrics()
+
+        mlflow.end_run()
+
+    def extract_feats(self, dataloader, feature_file):
+        extracted_feats = []
+        for i, data in enumerate(dataloader):
+            output = self.test_step(data)
+            extracted_feats.append(output)
+        pickle.dump(extracted_feats, open(feature_file, 'wb')) 
+        print('Saved features to {}'.format(feature_file))
 
     def compute_metrics(self):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
@@ -146,6 +191,25 @@ class PhysOptObjective():
             # Write every iteration to be safe
             write_results(self.metrics_file, self.seed, self.dynamics_name,
                     self.train_feature_file, self.test_feature_file, self.model_dir, results) # TODO: log artifact
+
+class PytorchPhysOptObjective(PhysOptObjective):
+    def load_model(self):
+        if os.path.isfile(self.model_file): # load existing model ckpt TODO: add option to disable reloading
+            self.model.load_state_dict(torch.load(self.model_file))
+            logging.info('Loaded existing ckpt')
+        else:
+            torch.save(self.model.state_dict(), self.model_file) # save initial model
+            logging.info('Training from scratch')
+        return self.model
+
+    def save_model(self):
+        torch.save(self.model.state_dict(), self.model_file)
+        logging.info('Saved model checkpoint to: {}'.format(self.model_file))
+
+    def init_seed(self):
+        np.random.seed(self.seed)
+        torch.manual_seed(self.seed)
+        torch.cuda.manual_seed(self.seed)
 
 def get_model_dir(output_dir, train_name, seed):
     assert train_name is not None
