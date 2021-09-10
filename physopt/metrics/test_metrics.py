@@ -1,21 +1,17 @@
-import dill
 import os
 import numpy as np
 import scipy
 import pickle
 import logging
-import dill
 import joblib
+import dill
 import mlflow
 
 from physopt.metrics.feature_extractor import FeatureExtractor
 from physopt.metrics.readout_model import IdentityModel
 from physopt.metrics.metric_model import BatchMetricModel
-
-from physopt.metrics.linear_readout_model import LinearRegressionReadoutModel, \
-        LogisticRegressionReadoutModel
-
-from physopt.metrics.metric_fns import accuracy, squared_error
+from physopt.metrics.linear_readout_model import LogisticRegressionReadoutModel
+from physopt.metrics.metric_fns import accuracy 
 
 SETTINGS = [ # TODO: might not want this to be hardcoded, RPIN only takes 4 frames
         {
@@ -144,78 +140,6 @@ def rebalance(data, label_fn, balancing = oversample):
     pos, neg = get_num_samples(balanced_data, label_fn)
     logging.info("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
     return balanced_data
-
-def compute_per_example_results(model, file_path, time_steps):
-    def reference_label_fn(data):
-        labels = subselect(data['reference_ids'], time_steps)
-        # Return file index
-        assert np.all(labels[0:1,0] == labels[:, 0]), labels
-        return labels[0,0].reshape([1])
-
-    data = build_data(file_path)
-    proba, file_reference_id = model.predict_proba(data, label_fn = reference_label_fn,
-            return_labels = True)
-    results = {
-            'proba': proba,
-            'ref_id': np.array(file_reference_id),
-            }
-    return results
-
-
-def get_per_example_labels(label_fn, test_feature_file):
-    # Get per example labels
-    test_data = build_data(test_feature_file)
-    labels = np.array([label_fn(d)[0] for d in test_data])
-    return labels
-
-def decode_references(references_path):
-    assert os.path.isfile(references_path) and references_path.endswith('.txt'), references_path
-
-    with open(references_path, 'r') as f:
-        lines = f.read().splitlines()
-
-    refs = {}
-    for l in lines:
-        idx, path = l.split('->')
-        idx = int(idx.replace('.hdf5', ''))
-        if idx not in refs:
-            refs[idx] = path
-        else:
-            raise KeyError('Index already exists in references! %d: %s' % (idx, path))
-
-    return refs
-
-
-def reference2path(reference_ids, test_feat_name):
-    reference_files = {
-    'cloth': '/mnt/fs1/tdw_datasets/pilot-clothSagging-redyellow/tfrecords/references.txt',
-    'collision': '/mnt/fs1/tdw_datasets/pilot-collision-redyellow/tfrecords/references.txt',
-    'containment': '/mnt/fs1/tdw_datasets/pilot-containment-redyellow/tfrecords/references.txt',
-    'dominoes': '/mnt/fs1/tdw_datasets/pilot-dominoes-redyellow/tfrecords/references.txt',
-    'drop': '/mnt/fs1/tdw_datasets/pilot-drop-redyellow/tfrecords/references.txt',
-    'linking': '/mnt/fs1/tdw_datasets/pilot-linking-redyellow/tfrecords/references.txt',
-    'rollslide': '/mnt/fs1/tdw_datasets/pilot-rollingSliding-redyellow/tfrecords/references.txt',
-    'towers': '/mnt/fs1/tdw_datasets/pilot-towers-redyellow/tfrecords/references.txt',
-    }
-
-    references = np.array([])
-    for k in reference_files:
-        if k in test_feat_name:
-            reference_dict = decode_references(reference_files[k])
-            references = np.array([reference_dict[idx[0]] for idx in reference_ids])
-            break
-
-    return references
-
-
-def path2name(path):
-    assert len(path) > 0, len(path)
-    names = []
-    for p in path:
-        stimulus_set, file_name = p.split(os.sep)[-2:]
-        names.append(stimulus_set + '_' + file_name[:4])
-    return np.array(names)
-
 
 def run(
         seed,
