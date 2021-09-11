@@ -93,7 +93,8 @@ class PhysOptObjective():
         self.debug = debug
         self.max_run_time = max_run_time
 
-        self.experiment_name = exp_key.split('_')[0]
+        self.experiment_name = self.get_experiment_name()
+        self.cfg = self.get_config()
 
         # setup logging TODO
         logging.root.handlers = [] # necessary to get handler to work
@@ -105,6 +106,12 @@ class PhysOptObjective():
             format="%(asctime)s [%(levelname)s] %(message)s",
             level=logging.DEBUG if self.debug else logging.INFO,
             )
+
+    def get_config(self):
+        raise NotImplementedError
+
+    def get_experiment_name(self):
+        return self.exp_key.split('_')[0]
 
     def __call__(self, *args, **kwargs):
         if self.mode == 'dynamics':  # run model training
@@ -174,20 +181,43 @@ class PhysOptObjective():
 
     def compute_metrics(self):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
+        settings = [
+                {
+                    'protocol': 'observed',
+                    'inp_time_steps': (0, self.cfg.SEQ_LEN, 1),
+                    },
+                {
+                    'protocol': 'simulated',
+                    'inp_time_steps': (0, self.cfg.SEQ_LEN, 1),
+                    },
+                {
+                    'protocol': 'input',
+                    'inp_time_steps': (0, self.cfg.STATE_LEN, 1),
+                    },
+                ]
+
         results = []
-        for settings in SETTINGS:
-            result = run(self.seed, self.train_feature_file,
-                    self.test_feature_file, self.readout_name,
-                    self.model_dir, settings, 
-                    grid_search_params=None if self.debug else {'C': np.logspace(-8, 8, 17)},
-                    )
+        for setting in settings:
+            print(setting)
+            result = run(
+                self.seed,
+                self.train_feature_file,
+                self.test_feature_file, 
+                setting, 
+                grid_search_params=None if self.debug else {'C': np.logspace(-8, 8, 17)},
+                )
             result = {'result': result}
-            result.update(settings) 
+            result.update(setting) 
             results.append(result)
             mlflow.log_metrics({
-                'train_acc_'+settings['type']: result['result']['train_accuracy'], 
-                'test_acc_'+settings['type']: result['result']['test_accuracy']
+                'train_acc_'+setting['protocol']: result['result']['train_accuracy'], 
+                'test_acc_'+setting['protocol']: result['result']['test_accuracy']
                 }) # TODO: cleanup and log other info too
+            mlflow.log_params({
+                'train_feature_file': self.train_feature_file,
+                'test_feature_file': self.test_feature_file,
+                })
+
             # Write every iteration to be safe
             write_results(self.metrics_file, self.seed, self.dynamics_name,
                     self.train_feature_file, self.test_feature_file, self.model_dir, results) # TODO: log artifact

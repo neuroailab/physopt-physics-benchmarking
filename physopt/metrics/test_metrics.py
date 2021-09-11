@@ -13,27 +13,6 @@ from physopt.metrics.metric_model import BatchMetricModel
 from physopt.metrics.linear_readout_model import LogisticRegressionReadoutModel
 from physopt.metrics.metric_fns import accuracy 
 
-SETTINGS = [ # TODO: might not want this to be hardcoded, RPIN only takes 4 frames
-        {
-            'type': 'observed',
-            'inp_time_steps': (0, 25, 1),
-            'val_time_steps': (7, 25, 1),
-            'model_fn': 'visual_scene_model_fn',
-            },
-        {
-            'type': 'predicted',
-            'inp_time_steps': (0, 25, 1),
-            'val_time_steps': (7, 25, 1),
-            'model_fn': 'rollout_scene_model_fn',
-            },
-        {
-            'type': 'inferred',
-            'inp_time_steps': (0, 7, 1),
-            'val_time_steps': (7, 25, 1),
-            'model_fn': 'visual_scene_model_fn',
-            },
-        ]
-
 def build_data(path, max_sequences = 1e9):
     with open(path, 'rb') as f:
         batched_data = pickle.load(f)
@@ -67,7 +46,7 @@ def subselect(data, time_steps):
     return data[time_steps]
 
 
-def build_model(model_fn, time_steps):
+def build_model(protocol, time_steps):
     def visual_scene_model_fn(data):
         predictions = subselect(data['encoded_states'], time_steps)
         predictions = np.reshape(predictions, [predictions.shape[0], -1])
@@ -78,16 +57,16 @@ def build_model(model_fn, time_steps):
         predictions = np.reshape(predictions, [predictions.shape[0], -1])
         return predictions
 
-    if model_fn == 'visual_scene_model_fn':
+    if protocol in {'observed', 'input'}:
         return visual_scene_model_fn
-    elif model_fn == 'rollout_scene_model_fn':
+    elif protocol in {'simulated'}:
         return rollout_scene_model_fn
     else:
         raise NotImplementedError('Unknown model function!')
 
-def select_label_fn(time_steps, experiment):
-    def label_fn(data, time_steps = time_steps, experiment = experiment):
-        labels = subselect(data['binary_labels'], time_steps)
+def select_label_fn():
+    def label_fn(data):
+        labels = data['binary_labels'] # use full sequence for labels
         labels = np.any(labels, axis=(0,1)).astype(np.int32).reshape([1])
         return labels
     return label_fn
@@ -145,44 +124,37 @@ def run(
         seed,
         train_feature_file,
         test_feature_file,
-        test_feat_name,
-        model_dir,
         settings,
         grid_search_params = {'C': np.logspace(-8, 8, 17)},
-        calculate_correlation = False,
         ):
     # Build physics model
-    feature_model = build_model(settings['model_fn'], slice(*settings['inp_time_steps']))
+    feature_model = build_model(settings['protocol'], slice(*settings['inp_time_steps']))
     feature_extractor = FeatureExtractor(feature_model)
 
     # Construct data providers
-    logging.info('Train feature file: {}'.format(train_feature_file))
-    logging.info('Test feature file: {}'.format(test_feature_file))
     train_data = build_data(train_feature_file)
     test_data = build_data(test_feature_file)
 
     # Select label function
-    label_fn = select_label_fn(slice(*settings['val_time_steps']), test_feat_name)
+    label_fn = select_label_fn()
 
     # Get stimulus names and labels for test data
     stimulus_names = [d['stimulus_name'] for d in test_data]
     labels = [label_fn(d)[0] for d in test_data]
 
     # Rebalance data
-    np.random.seed(0)
+    np.random.seed(seed)
     logging.info("Rebalancing training data")
     train_data_balanced = rebalance(train_data, label_fn)
     logging.info("Rebalancing testing data")
     test_data_balanced = rebalance(test_data, label_fn)
 
     # Build logistic regression model
-    readout_model = LogisticRegressionReadoutModel(max_iter = 100, C=1.0, verbose=1)
+    readout_model = LogisticRegressionReadoutModel(max_iter=100, C=1.0, verbose=1)
+    metric_model = BatchMetricModel(feature_extractor, readout_model, accuracy, label_fn, grid_search_params)
 
-    metric_model = BatchMetricModel(feature_extractor, readout_model,
-            accuracy, label_fn, grid_search_params,
-            )
-
-    readout_model_file = os.path.join(os.path.dirname(train_feature_file), settings['type']+'_readout_model.joblib')
+    # TODO: clean up this part
+    readout_model_file = os.path.join(os.path.dirname(train_feature_file), settings['protocol']+'_readout_model.joblib')
     if os.path.exists(readout_model_file):
         logging.info('Loading readout model from: {}'.format(readout_model_file))
         metric_model = joblib.load(readout_model_file)
@@ -191,15 +163,17 @@ def run(
         metric_model.fit(iter(train_data_balanced))
         joblib.dump(metric_model, readout_model_file)
 
-    # TODO: make sure this works for tf models too
     train_acc = metric_model.score(iter(train_data_balanced))
     test_acc = metric_model.score(iter(test_data_balanced))
     test_proba = metric_model.predict_proba(iter(test_data))
 
-    logging.info("Categorization train accuracy: %f" % train_acc)
-    logging.info("Categorization test accuracy: %f" % test_acc)
-
-    result = {'train_accuracy': train_acc, 'test_accuracy': test_acc, 'test_proba': test_proba, 'stimulus_name': stimulus_names, 'labels': labels}
+    result = {
+        'train_accuracy': train_acc, 
+        'test_accuracy': test_acc, 
+        'test_proba': test_proba, 
+        'stimulus_name': stimulus_names, 
+        'labels': labels
+        }
     if grid_search_params is not None:
         result['best_params'] = metric_model._readout_model.best_params_
 
