@@ -6,11 +6,13 @@ import tempfile
 import time
 import torch
 from datetime import datetime
+import numpy as np
+import mlflow
+import pickle
 from hyperopt import STATUS_OK, STATUS_FAIL
-from physopt.metrics.test_metrics import * # TODO
+from physopt.metrics.test_metrics import run_metrics, write_metrics
 
 MAX_RUN_TIME = 86400 * 2 # 2 days in seconds
-NUM_EPOCHS = 2 # TODO: remove hard-coded num epochs
 
 class MultiAttempt():
     def __init__(self, func, max_attempts=10):
@@ -87,7 +89,7 @@ class PhysOptObjective():
         self.mode = mode
         self.model_dir = get_model_dir(self.output_dir, self.dynamics_name, self.seed)
         self.model_file = os.path.join(self.model_dir, 'model.pt')
-        self.train_feature_file = get_feature_file(self.model_dir, self.readout_name, 'train')
+        self.train_feature_file = get_feature_file(self.model_dir, self.readout_name, 'train') # TODO: consolidate into feature_dir?
         self.test_feature_file = get_feature_file(self.model_dir, self.readout_name, 'test')
         self.metrics_file = get_metrics_file(self.model_dir, self.readout_name)
         self.debug = debug
@@ -95,6 +97,9 @@ class PhysOptObjective():
 
         self.experiment_name = self.get_experiment_name()
         self.cfg = self.get_config()
+        self.model = self.get_model()
+        self.model = self.load_model()
+
 
         # setup logging TODO
         logging.root.handlers = [] # necessary to get handler to work
@@ -106,6 +111,12 @@ class PhysOptObjective():
             format="%(asctime)s [%(levelname)s] %(message)s",
             level=logging.DEBUG if self.debug else logging.INFO,
             )
+
+    def get_model(self):
+        raise NotImplementedError
+
+    def load_model(self):
+        raise NotImplementedError
 
     def get_config(self):
         raise NotImplementedError
@@ -139,8 +150,8 @@ class PhysOptObjective():
 
         trainloader = self.get_dataloader(self.dynamics_data['train'], train=True)
         best_loss = 1e9
-        for epoch in range(NUM_EPOCHS): 
-            logging.info('Starting epoch {}/{}'.format(epoch+1, NUM_EPOCHS))
+        for epoch in range(self.cfg.EPOCHS): 
+            logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.EPOCHS))
             running_loss = 0.
             for i, data in enumerate(trainloader):
                 loss = self.train_step(data)
@@ -198,8 +209,7 @@ class PhysOptObjective():
 
         results = []
         for setting in settings:
-            print(setting)
-            result = run(
+            result = run_metrics(
                 self.seed,
                 self.train_feature_file,
                 self.test_feature_file, 
@@ -213,16 +223,19 @@ class PhysOptObjective():
                 'train_acc_'+setting['protocol']: result['result']['train_accuracy'], 
                 'test_acc_'+setting['protocol']: result['result']['test_accuracy']
                 }) # TODO: cleanup and log other info too
-            mlflow.log_params({
-                'train_feature_file': self.train_feature_file,
-                'test_feature_file': self.test_feature_file,
-                })
+            mlflow.log_artifact(self.train_feature_file, artifact_path='features')
+            mlflow.log_artifact(self.test_feature_file, artifact_path='features')
 
             # Write every iteration to be safe
-            write_results(self.metrics_file, self.seed, self.dynamics_name,
+            write_metrics(self.metrics_file, self.seed, self.dynamics_name,
                     self.train_feature_file, self.test_feature_file, self.model_dir, results) # TODO: log artifact
 
 class PytorchPhysOptObjective(PhysOptObjective):
+    def __init__(self, *args, **kwargs):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        super().__init__(*args, **kwargs)
+        self.init_seed()
+
     def load_model(self):
         if os.path.isfile(self.model_file): # load existing model ckpt TODO: add option to disable reloading
             self.model.load_state_dict(torch.load(self.model_file))

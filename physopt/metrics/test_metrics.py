@@ -5,7 +5,6 @@ import pickle
 import logging
 import joblib
 import dill
-import mlflow
 
 from physopt.metrics.feature_extractor import FeatureExtractor
 from physopt.metrics.readout_model import IdentityModel
@@ -120,7 +119,7 @@ def rebalance(data, label_fn, balancing = oversample):
     logging.info("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
     return balanced_data
 
-def run(
+def run_metrics(
         seed,
         train_feature_file,
         test_feature_file,
@@ -179,7 +178,7 @@ def run(
 
     return result
 
-def write_results(
+def write_metrics(
         metrics_file,
         seed,
         train_name,

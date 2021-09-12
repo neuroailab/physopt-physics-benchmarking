@@ -21,7 +21,7 @@ class TDWDataset(Dataset):
         state_len,
         train=True,
         debug=False,
-        subsample_factor=6,
+        subsample_factor=6, # TODO: change default to 1 probably
         ):
         assert isinstance(data_root, list)
         self.imsize = imsize
@@ -86,5 +86,4 @@ class TDWDataset(Dataset):
             'binary_labels': labels,
             'stimulus_name': stimulus_name,
         }
-        # TODO: add human_prob
         return sample
