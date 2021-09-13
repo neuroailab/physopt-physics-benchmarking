@@ -5,7 +5,11 @@ READOUT_TEST_DIR: '/data1/eliwang/curiophysion' # TODO
 
 FILE_PATTERN: '*/*.hdf5'
 
-SCENARIOS: ['drop_pilotv2_interesting'] 
+# SCENARIOS: ['drop_pilotv2_interesting'] 
 # SCENARIOS: ['drop_pilotv2_interesting', 'drop_pilotv2_boring']
+SCENARIOS: ['drop_pilotv2_interesting', 'drop_pilotv2_boring', 'drop_pilotv2_random1']
 # SCENARIOS: ['drop_pilotv2_interesting', 'drop_pilotv2_boring', 'drop_pilotv2_random1', 'drop_pilotv2_random2', 'drop_pilotv2_random3']
-TRAINING_PROTOCOLS: ['only']
+# TRAINING_PROTOCOLS: ['only']
+TRAINING_PROTOCOLS: ['only', 'abo', 'all']
+
+NUM_SEEDS: 2

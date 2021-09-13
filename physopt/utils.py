@@ -70,8 +70,8 @@ class PhysOptObjective():
     def __init__(self,
             model,
             seed,
-            dynamics_data,
-            readout_data,
+            dynamics_space,
+            readout_space,
             output_dir,
             mode,
             debug,
@@ -79,10 +79,10 @@ class PhysOptObjective():
             ):
         self.model = model
         self.seed = seed
-        self.dynamics_data = dynamics_data
-        self.dynamics_name = dynamics_data['name']
-        self.readout_data = readout_data
-        self.readout_name = None if readout_data is None else readout_data['name']
+        self.dynamics_space = dynamics_space
+        self.dynamics_name = dynamics_space['name']
+        self.readout_space = readout_space
+        self.readout_name = None if readout_space is None else readout_space['name']
         self.output_dir = output_dir
         self.mode = mode
         self.model_dir = get_model_dir(self.output_dir, self.dynamics_name, self.seed)
@@ -140,9 +140,10 @@ class PhysOptObjective():
         mlflow.start_run(run_name=self.run_name)
         mlflow.log_params({
             'seed': self.seed,
-            'dynamics_name': self.dynamics_name,
-            'readout_name': self.readout_name,
             })
+        mlflow.log_params({f'dynamics_{k}':v for k,v in self.dynamics_space.items()})
+        if self.readout_space is not None:
+            mlflow.log_params({f'readout_{k}':v for k,v in self.readout_space.items()})
 
         if self.mode == 'dynamics':  # run model training
             self.dynamics()
@@ -166,7 +167,7 @@ class PhysOptObjective():
         return ret
 
     def dynamics(self):
-        trainloader = self.get_dataloader(self.dynamics_data['train'], train=True)
+        trainloader = self.get_dataloader(self.dynamics_space['train'], train=True)
         best_loss = 1e9
         for epoch in range(self.cfg.EPOCHS): 
             logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.EPOCHS))
@@ -179,7 +180,7 @@ class PhysOptObjective():
             mlflow.log_metric(key='train_loss', value=avg_loss, step=epoch)
 
             # perform validation step after every epoch
-            valloader = self.get_dataloader(self.dynamics_data['test'], train=False)
+            valloader = self.get_dataloader(self.dynamics_space['test'], train=False)
             val_losses = []
             for i, data in enumerate(valloader):
                 val_losses.append(self.val_step(data))
@@ -193,9 +194,9 @@ class PhysOptObjective():
     def readout(self):
         assert os.path.isfile(self.model_file), 'No model ckpt found, cannot extract features'
 
-        trainloader = self.get_dataloader(self.readout_data['train'], train=False)
+        trainloader = self.get_dataloader(self.readout_space['train'], train=False)
         self.extract_feats(trainloader, self.train_feature_file)
-        testloader = self.get_dataloader(self.readout_data['test'], train=False)
+        testloader = self.get_dataloader(self.readout_space['test'], train=False)
         self.extract_feats(testloader, self.test_feature_file)
 
         self.compute_metrics()

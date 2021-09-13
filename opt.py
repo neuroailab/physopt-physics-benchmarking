@@ -67,19 +67,18 @@ class OptimizationPipeline():
         algo = suggest
         max_evals = 1e5
         def run_once(data_space): # data_space: list of space tuples, first corresponds to dynamics training and the rest are readout
-            seed, dynamics_data, readout_data = data_space
-            def run_inner(data_space):
-                seed, dynamics_data, readout_data = data_space
-                mode  = 'dynamics' if readout_data is None else 'readout'
-                readout_name = 'none' if readout_data is None else readout_data['name']
-                exp_key = get_exp_key(self.model, seed, dynamics_data['name'], readout_name, mode)
+            seed, dynamics_space, readout_spaces = (data_space['seed'], data_space['dynamics'], data_space['readout'])
+            def run_inner(readout_space):
+                mode  = 'dynamics' if readout_space is None else 'readout'
+                readout_name = 'none' if readout_space is None else readout_space['name']
+                exp_key = get_exp_key(self.model, seed, dynamics_space['name'], readout_name, mode)
                 print("Experiment: {0}".format(exp_key))
                 if self.mongo:
                     trials = MongoTrials(self.mongo_path, exp_key)
                 else:
                     trials = Trials()
                 Objective = get_Objective(self.model) # TODO: consolidate?
-                objective = Objective(self.model, seed, dynamics_data, readout_data, self.output_dir,
+                objective = Objective(self.model, seed, dynamics_space, readout_space, self.output_dir,
                         mode, self.debug, self.max_run_time)
 
                 try:
@@ -94,15 +93,13 @@ class OptimizationPipeline():
                 return 
 
             # Train dynamics model
-            run_inner((seed, dynamics_data, None))
+            run_inner(None)
 
-            print(len(readout_data))
-            print(readout_data)
-            for _rd in readout_data:
-                run_inner((seed, dynamics_data, _rd))
+            for readout_space in readout_spaces:
+                run_inner(readout_space)
             # TODO: Evaluate readout in parallel, doesn't work yet
-            # pool = Pool(len(readout_data)) # setup pool to do readouts across scenarios in parallel
-            # pool.map(run_inner, itertools.product([seed], [dynamics_data], readout_data))
+            # pool = Pool(len(readout_spaces)) # setup pool to do readouts across scenarios in parallel
+            # pool.map(run_inner, itertools.product([seed], [dynamics_space], readout_spaces))
             # pool.close()
             # pool.join()
 
