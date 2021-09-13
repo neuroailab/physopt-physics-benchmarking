@@ -124,6 +124,12 @@ class PhysOptObjective():
     def get_experiment_name(self):
         return self.exp_key.split('_')[0]
 
+    def train_step(self, data):
+        raise NotImplementedError
+
+    def extract_feat_step(self, data):
+        raise NotImplementedError
+
     def __call__(self, *args, **kwargs):
         if self.mode == 'dynamics':  # run model training
             self.dynamics()
@@ -185,43 +191,28 @@ class PhysOptObjective():
     def extract_feats(self, dataloader, feature_file):
         extracted_feats = []
         for i, data in enumerate(dataloader):
-            output = self.test_step(data)
+            output = self.extract_feat_step(data)
             extracted_feats.append(output)
         pickle.dump(extracted_feats, open(feature_file, 'wb')) 
         print('Saved features to {}'.format(feature_file))
 
     def compute_metrics(self):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
-        settings = [
-                {
-                    'protocol': 'observed',
-                    'inp_time_steps': (0, self.cfg.SEQ_LEN, 1),
-                    },
-                {
-                    'protocol': 'simulated',
-                    'inp_time_steps': (0, self.cfg.SEQ_LEN, 1),
-                    },
-                {
-                    'protocol': 'input',
-                    'inp_time_steps': (0, self.cfg.STATE_LEN, 1),
-                    },
-                ]
-
+        protocols = ['observed', 'simulated', 'input']
         results = []
-        for setting in settings:
+        for protocol in protocols:
             result = run_metrics(
                 self.seed,
                 self.train_feature_file,
                 self.test_feature_file, 
-                setting, 
+                protocol, 
                 grid_search_params=None if self.debug else {'C': np.logspace(-8, 8, 17)},
                 )
             result = {'result': result}
-            result.update(setting) 
             results.append(result)
             mlflow.log_metrics({
-                'train_acc_'+setting['protocol']: result['result']['train_accuracy'], 
-                'test_acc_'+setting['protocol']: result['result']['test_accuracy']
+                'train_acc_'+protocol: result['result']['train_accuracy'], 
+                'test_acc_'+protocol: result['result']['test_accuracy']
                 }) # TODO: cleanup and log other info too
             mlflow.log_artifact(self.train_feature_file, artifact_path='features')
             mlflow.log_artifact(self.test_feature_file, artifact_path='features')
@@ -232,7 +223,7 @@ class PhysOptObjective():
 
 class PytorchPhysOptObjective(PhysOptObjective):
     def __init__(self, *args, **kwargs):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # must set device first since used in get_model, called in super
         super().__init__(*args, **kwargs)
         self.init_seed()
 
@@ -242,7 +233,7 @@ class PytorchPhysOptObjective(PhysOptObjective):
             logging.info('Loaded existing ckpt')
         else:
             torch.save(self.model.state_dict(), self.model_file) # save initial model
-            logging.info('Training from scratch')
+            logging.info('No model found, saved initial model')
         return self.model
 
     def save_model(self):

@@ -45,30 +45,32 @@ def subselect(data, time_steps):
     return data[time_steps]
 
 
-def build_model(protocol, time_steps):
-    def visual_scene_model_fn(data):
-        predictions = subselect(data['encoded_states'], time_steps)
-        predictions = np.reshape(predictions, [predictions.shape[0], -1])
-        return predictions
-
-    def rollout_scene_model_fn(data):
-        predictions = subselect(data['rollout_states'], time_steps)
-        predictions = np.reshape(predictions, [predictions.shape[0], -1])
-        return predictions
-
-    if protocol in {'observed', 'input'}:
-        return visual_scene_model_fn
-    elif protocol in {'simulated'}:
-        return rollout_scene_model_fn
+def build_model(protocol):
+    if protocol == 'observed':
+        def observed_model_fn(data):
+            states = np.concatenate([data['input_states'], data['observed_states']], axis=0)
+            states = np.reshape(states, [states.shape[0], -1])
+            return states
+        return observed_model_fn
+    elif protocol == 'simulated':
+        def simulated_model_fn(data):
+            states = np.concatenate([data['input_states'], data['simulated_states']], axis=0)
+            states = np.reshape(states, [states.shape[0], -1])
+            return states
+        return simulated_model_fn
+    elif protocol == 'input':
+        def input_model_fn(data):
+            states = data['input_states']
+            states = np.reshape(states, [states.shape[0], -1])
+            return states
+        return input_model_fn
     else:
         raise NotImplementedError('Unknown model function!')
 
-def select_label_fn():
-    def label_fn(data):
-        labels = data['binary_labels'] # use full sequence for labels
-        labels = np.any(labels, axis=(0,1)).astype(np.int32).reshape([1])
-        return labels
-    return label_fn
+def label_fn(data):
+    labels = data['labels'] # use full sequence for labels
+    labels = np.any(labels, axis=(0,1)).astype(np.int32).reshape([1])
+    return labels
 
 def get_num_samples(data, label_fn):
     pos = []
@@ -123,19 +125,16 @@ def run_metrics(
         seed,
         train_feature_file,
         test_feature_file,
-        settings,
+        protocol,
         grid_search_params = {'C': np.logspace(-8, 8, 17)},
         ):
     # Build physics model
-    feature_model = build_model(settings['protocol'], slice(*settings['inp_time_steps']))
+    feature_model = build_model(protocol)
     feature_extractor = FeatureExtractor(feature_model)
 
     # Construct data providers
     train_data = build_data(train_feature_file)
     test_data = build_data(test_feature_file)
-
-    # Select label function
-    label_fn = select_label_fn()
 
     # Get stimulus names and labels for test data
     stimulus_names = [d['stimulus_name'] for d in test_data]
@@ -153,7 +152,7 @@ def run_metrics(
     metric_model = BatchMetricModel(feature_extractor, readout_model, accuracy, label_fn, grid_search_params)
 
     # TODO: clean up this part
-    readout_model_file = os.path.join(os.path.dirname(train_feature_file), settings['protocol']+'_readout_model.joblib')
+    readout_model_file = os.path.join(os.path.dirname(train_feature_file), protocol+'_readout_model.joblib')
     if os.path.exists(readout_model_file):
         logging.info('Loading readout model from: {}'.format(readout_model_file))
         metric_model = joblib.load(readout_model_file)
@@ -171,7 +170,8 @@ def run_metrics(
         'test_accuracy': test_acc, 
         'test_proba': test_proba, 
         'stimulus_name': stimulus_names, 
-        'labels': labels
+        'labels': labels,
+        'protocol': protocol,
         }
     if grid_search_params is not None:
         result['best_params'] = metric_model._readout_model.best_params_
