@@ -132,7 +132,13 @@ class PhysOptObjective():
     def train_step(self, data):
         raise NotImplementedError
 
+    def val_step(self, data):
+        raise NotImplementedError
+
     def extract_feat_step(self, data):
+        raise NotImplementedError
+
+    def get_dataloader(self, datapaths, train, shuffle): # returns object that can be iterated over for batches of data
         raise NotImplementedError
 
     def __call__(self, *args, **kwargs):
@@ -167,7 +173,7 @@ class PhysOptObjective():
         return ret
 
     def dynamics(self):
-        trainloader = self.get_dataloader(self.dynamics_space['train'], train=True)
+        trainloader = self.get_dataloader(self.dynamics_space['train'], train=True, shuffle=True)
         best_loss = 1e9
         for epoch in range(self.cfg.EPOCHS): 
             logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.EPOCHS))
@@ -180,7 +186,7 @@ class PhysOptObjective():
             mlflow.log_metric(key='train_loss', value=avg_loss, step=epoch)
 
             # perform validation step after every epoch
-            valloader = self.get_dataloader(self.dynamics_space['test'], train=False)
+            valloader = self.get_dataloader(self.dynamics_space['test'], train=True, shuffle=False) # Train since this is part of dynamics training
             val_losses = []
             for i, data in enumerate(valloader):
                 val_losses.append(self.val_step(data))
@@ -194,9 +200,9 @@ class PhysOptObjective():
     def readout(self):
         assert os.path.isfile(self.model_file), 'No model ckpt found, cannot extract features'
 
-        trainloader = self.get_dataloader(self.readout_space['train'], train=False)
+        trainloader = self.get_dataloader(self.readout_space['train'], train=False, shuffle=False)
         self.extract_feats(trainloader, self.train_feature_file)
-        testloader = self.get_dataloader(self.readout_space['test'], train=False)
+        testloader = self.get_dataloader(self.readout_space['test'], train=False, shuffle=False)
         self.extract_feats(testloader, self.test_feature_file)
 
         self.compute_metrics()
