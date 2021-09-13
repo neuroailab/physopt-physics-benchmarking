@@ -79,7 +79,7 @@ class OptimizationPipeline():
                 else:
                     trials = Trials()
                 Objective = get_Objective(self.model) # TODO: consolidate?
-                objective = Objective(exp_key, seed, dynamics_data, readout_data, self.output_dir,
+                objective = Objective(self.model, seed, dynamics_data, readout_data, self.output_dir,
                         mode, self.debug, self.max_run_time)
 
                 try:

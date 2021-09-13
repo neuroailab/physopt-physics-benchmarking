@@ -66,11 +66,9 @@ class MultiAttempt():
             f.write('\n\n')
         print("Stack trace written to %s" % self.log_file)
 
-
-
 class PhysOptObjective():
     def __init__(self,
-            exp_key,
+            model,
             seed,
             dynamics_data,
             readout_data,
@@ -79,7 +77,7 @@ class PhysOptObjective():
             debug,
             max_run_time=MAX_RUN_TIME,
             ):
-        self.exp_key = exp_key
+        self.model = model
         self.seed = seed
         self.dynamics_data = dynamics_data
         self.dynamics_name = dynamics_data['name']
@@ -96,6 +94,7 @@ class PhysOptObjective():
         self.max_run_time = max_run_time
 
         self.experiment_name = self.get_experiment_name()
+        self.run_name = self.get_run_name()
         self.cfg = self.get_config()
         self.model = self.get_model()
         self.model = self.load_model()
@@ -122,7 +121,13 @@ class PhysOptObjective():
         raise NotImplementedError
 
     def get_experiment_name(self):
-        return self.exp_key.split('_')[0]
+        return self.model
+
+    def get_run_name(self):
+        to_join = [self.mode, str(self.seed), self.dynamics_name]
+        if self.readout_name is not None:
+            to_join.append(self.readout_name)
+        return '{' + '}_{'.join(to_join) + '}'
 
     def train_step(self, data):
         raise NotImplementedError
@@ -131,6 +136,14 @@ class PhysOptObjective():
         raise NotImplementedError
 
     def __call__(self, *args, **kwargs):
+        mlflow.set_experiment(self.experiment_name)
+        mlflow.start_run(run_name=self.run_name)
+        mlflow.log_params({
+            'seed': self.seed,
+            'dynamics_name': self.dynamics_name,
+            'readout_name': self.readout_name,
+            })
+
         if self.mode == 'dynamics':  # run model training
             self.dynamics()
         elif self.mode == 'readout':# extract features, then train and test readout
@@ -138,10 +151,12 @@ class PhysOptObjective():
         else:
             raise NotImplementedError
 
+        mlflow.end_run()
+
         ret = {
                 'loss': 0.0,
                 'status': STATUS_OK,
-                'exp_key': self.exp_key,
+                'model': self.model,
                 'seed': self.seed,
                 'output_dir': self.output_dir,
                 'mode': self.mode,
@@ -151,9 +166,6 @@ class PhysOptObjective():
         return ret
 
     def dynamics(self):
-        mlflow.set_experiment(self.experiment_name)
-        mlflow.start_run(run_name=self.exp_key)
-
         trainloader = self.get_dataloader(self.dynamics_data['train'], train=True)
         best_loss = 1e9
         for epoch in range(self.cfg.EPOCHS): 
@@ -177,12 +189,8 @@ class PhysOptObjective():
             best_loss = avg_loss
             logging.info('Saving model with loss {} at epoch {}'.format(best_loss, epoch))
             self.save_model()
-        mlflow.end_run()
 
     def readout(self):
-        mlflow.set_experiment(self.experiment_name)
-        mlflow.start_run(run_name=self.exp_key)
-
         assert os.path.isfile(self.model_file), 'No model ckpt found, cannot extract features'
 
         trainloader = self.get_dataloader(self.readout_data['train'], train=False)
@@ -191,8 +199,6 @@ class PhysOptObjective():
         self.extract_feats(testloader, self.test_feature_file)
 
         self.compute_metrics()
-
-        mlflow.end_run()
 
     def extract_feats(self, dataloader, feature_file):
         extracted_feats = []
