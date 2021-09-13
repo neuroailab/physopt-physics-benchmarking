@@ -7,7 +7,7 @@ import argparse
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
 
-from physopt.utils import MultiAttempt, MAX_RUN_TIME
+from physopt.utils import MultiAttempt
 from physopt.models import get_Objective
 from physopt.data import get_data_space
 from physopt.search.grid_search import suggest
@@ -29,9 +29,6 @@ def arg_parse():
     parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
     parser.add_argument('--debug', action='store_true', help='debug mode')
     parser.add_argument('--mongo', action='store_true', help='whether to use mongo trials')
-    parser.add_argument('--max_run_time', default=MAX_RUN_TIME,
-            help='Maximum model training time in seconds', type=int)
-
     return parser.parse_args()
 
 def get_output_directory(output_dir, model):
@@ -57,7 +54,6 @@ class OptimizationPipeline():
         self.mongo_path = get_mongo_path(args.host, args.port, args.database)
         self.debug = args.debug
         self.mongo = args.mongo
-        self.max_run_time = args.max_run_time
 
     def __del__(self):
         self.close()
@@ -69,17 +65,19 @@ class OptimizationPipeline():
         def run_once(data_space): # data_space: list of space tuples, first corresponds to dynamics training and the rest are readout
             seed, dynamics_space, readout_spaces = (data_space['seed'], data_space['dynamics'], data_space['readout'])
             def run_inner(readout_space):
-                mode  = 'dynamics' if readout_space is None else 'readout'
+                phase  = 'dynamics' if readout_space is None else 'readout'
                 readout_name = 'none' if readout_space is None else readout_space['name']
-                exp_key = get_exp_key(self.model, seed, dynamics_space['name'], readout_name, mode)
+                exp_key = get_exp_key(self.model, seed, dynamics_space['name'], readout_name, phase)
                 print("Experiment: {0}".format(exp_key))
                 if self.mongo:
                     trials = MongoTrials(self.mongo_path, exp_key)
                 else:
                     trials = Trials()
-                Objective = get_Objective(self.model) # TODO: consolidate?
-                objective = Objective(self.model, seed, dynamics_space, readout_space, self.output_dir,
-                        mode, self.debug, self.max_run_time)
+                Objective = get_Objective(self.model)
+                objective = Objective(
+                    self.model, seed, dynamics_space, readout_space, 
+                    self.output_dir, phase, self.debug,
+                    )
 
                 try:
                     fmin(

@@ -12,8 +12,6 @@ import pickle
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.metrics.test_metrics import run_metrics, write_metrics
 
-MAX_RUN_TIME = 86400 * 2 # 2 days in seconds
-
 class MultiAttempt():
     def __init__(self, func, max_attempts=10):
         self.func = func
@@ -73,9 +71,8 @@ class PhysOptObjective():
             dynamics_space,
             readout_space,
             output_dir,
-            mode,
+            phase,
             debug,
-            max_run_time=MAX_RUN_TIME,
             ):
         self.model = model
         self.seed = seed
@@ -84,14 +81,13 @@ class PhysOptObjective():
         self.readout_space = readout_space
         self.readout_name = None if readout_space is None else readout_space['name']
         self.output_dir = output_dir
-        self.mode = mode
+        self.phase = phase
         self.model_dir = get_model_dir(self.output_dir, self.dynamics_name, self.seed)
         self.model_file = os.path.join(self.model_dir, 'model.pt')
         self.train_feature_file = get_feature_file(self.model_dir, self.readout_name, 'train') # TODO: consolidate into feature_dir?
         self.test_feature_file = get_feature_file(self.model_dir, self.readout_name, 'test')
         self.metrics_file = get_metrics_file(self.model_dir, self.readout_name)
         self.debug = debug
-        self.max_run_time = max_run_time
 
         self.experiment_name = self.get_experiment_name()
         self.run_name = self.get_run_name()
@@ -117,17 +113,8 @@ class PhysOptObjective():
     def load_model(self):
         raise NotImplementedError
 
-    def get_config(self):
+    def save_model(self):
         raise NotImplementedError
-
-    def get_experiment_name(self):
-        return self.model
-
-    def get_run_name(self):
-        to_join = [self.mode, str(self.seed), self.dynamics_name]
-        if self.readout_name is not None:
-            to_join.append(self.readout_name)
-        return '{' + '}_{'.join(to_join) + '}'
 
     def train_step(self, data):
         raise NotImplementedError
@@ -138,8 +125,20 @@ class PhysOptObjective():
     def extract_feat_step(self, data):
         raise NotImplementedError
 
-    def get_dataloader(self, datapaths, train, shuffle): # returns object that can be iterated over for batches of data
+    def get_dataloader(self, datapaths, phase, train, shuffle): # returns object that can be iterated over for batches of data
         raise NotImplementedError
+
+    def get_config(self):
+        logging.info('No config provided')
+
+    def get_experiment_name(self):
+        return self.model
+
+    def get_run_name(self):
+        to_join = [self.phase, str(self.seed), self.dynamics_name]
+        if self.readout_name is not None:
+            to_join.append(self.readout_name)
+        return '{' + '}_{'.join(to_join) + '}'
 
     def __call__(self, *args, **kwargs):
         mlflow.set_experiment(self.experiment_name)
@@ -151,9 +150,9 @@ class PhysOptObjective():
         if self.readout_space is not None:
             mlflow.log_params({f'readout_{k}':v for k,v in self.readout_space.items()})
 
-        if self.mode == 'dynamics':  # run model training
+        if self.phase == 'dynamics':  # run model training
             self.dynamics()
-        elif self.mode == 'readout':# extract features, then train and test readout
+        elif self.phase == 'readout':# extract features, then train and test readout
             self.readout() 
         else:
             raise NotImplementedError
@@ -166,14 +165,14 @@ class PhysOptObjective():
                 'model': self.model,
                 'seed': self.seed,
                 'output_dir': self.output_dir,
-                'mode': self.mode,
+                'phase': self.phase,
                 'model_dir': self.model_dir,
                 }
 
         return ret
 
     def dynamics(self):
-        trainloader = self.get_dataloader(self.dynamics_space['train'], train=True, shuffle=True)
+        trainloader = self.get_dataloader(self.dynamics_space['train'], phase='dynamics', train=True, shuffle=True)
         best_loss = 1e9
         for epoch in range(self.cfg.EPOCHS): 
             logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.EPOCHS))
@@ -186,7 +185,7 @@ class PhysOptObjective():
             mlflow.log_metric(key='train_loss', value=avg_loss, step=epoch)
 
             # perform validation step after every epoch
-            valloader = self.get_dataloader(self.dynamics_space['test'], train=True, shuffle=False) # Train since this is part of dynamics training
+            valloader = self.get_dataloader(self.dynamics_space['test'], phase='dynamics', train=False, shuffle=False)
             val_losses = []
             for i, data in enumerate(valloader):
                 val_losses.append(self.val_step(data))
@@ -200,9 +199,9 @@ class PhysOptObjective():
     def readout(self):
         assert os.path.isfile(self.model_file), 'No model ckpt found, cannot extract features'
 
-        trainloader = self.get_dataloader(self.readout_space['train'], train=False, shuffle=False)
+        trainloader = self.get_dataloader(self.readout_space['train'], phase='readout', train=False, shuffle=False)
         self.extract_feats(trainloader, self.train_feature_file)
-        testloader = self.get_dataloader(self.readout_space['test'], train=False, shuffle=False)
+        testloader = self.get_dataloader(self.readout_space['test'], phase='readout', train=False, shuffle=False)
         self.extract_feats(testloader, self.test_feature_file)
 
         self.compute_metrics()

@@ -10,7 +10,7 @@ import torch
 from  torch.utils.data import Dataset
 
 pil_logger = logging.getLogger('PIL')
-pil_logger.setLevel(logging.INFO)
+pil_logger.setLevel(logging.ERROR)
 
 class TDWDataset(Dataset):
     def __init__(
@@ -19,7 +19,7 @@ class TDWDataset(Dataset):
         imsize,
         seq_len,
         state_len,
-        train=True,
+        random_seq=True,
         debug=False,
         subsample_factor=6, # TODO: change default to 1 probably
         ):
@@ -28,7 +28,7 @@ class TDWDataset(Dataset):
         self.seq_len = seq_len
         self.state_len = state_len # not necessarily always used
         assert self.seq_len > self.state_len, 'Sequence length {} must be greater than state length {}'.format(self.seq_len, self.state_len)
-        self.train = train
+        self.random_seq = random_seq # whether sequence should be sampled randomly from whole video or taken from the beginning
         self.debug = debug
         self.subsample_factor = subsample_factor
 
@@ -73,7 +73,7 @@ class TDWDataset(Dataset):
         labels = torch.unsqueeze(labels, -1)
 
         assert images.shape[0] >= self.seq_len, 'Images must be at least len {}, but are shape {}'.format(self.seq_len, images.shape)
-        if self.train: # randomly sample sequence of seq_len
+        if self.random_seq: # randomly sample sequence of seq_len
             start_idx = torch.randint(0, images.shape[0]-self.seq_len+1, (1,))[0]
             images = images[start_idx:start_idx+self.seq_len]
             labels = labels[start_idx:start_idx+self.seq_len]
