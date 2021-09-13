@@ -59,9 +59,6 @@ class OptimizationPipeline():
         self.close()
 
     def run(self):
-        optimization_space = NO_PARAM_SPACE
-        algo = suggest
-        max_evals = 1e5
         def run_once(data_space): # data_space: list of space tuples, first corresponds to dynamics training and the rest are readout
             seed, dynamics_space, readout_spaces = (data_space['seed'], data_space['dynamics'], data_space['readout'])
             def run_inner(readout_space):
@@ -82,8 +79,8 @@ class OptimizationPipeline():
                 try:
                     fmin(
                         MultiAttempt(objective) if not self.debug else objective,
-                        space=optimization_space, trials=trials,
-                        algo=algo, max_evals=max_evals,
+                        space=NO_PARAM_SPACE, trials=trials,
+                        algo=suggest, max_evals=1e5,
                         )
                 except ValueError as e:
                     print("Job died: {0}/{1}".format(self.mongo_path, exp_key))
