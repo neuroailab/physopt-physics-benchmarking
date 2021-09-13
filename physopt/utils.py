@@ -164,8 +164,14 @@ class PhysOptObjective():
                 running_loss += loss
                 avg_loss = running_loss/(i+1)
                 print(avg_loss)
-            mlflow.log_metric(key='avg_loss', value=avg_loss, step=epoch)
-            # TODO: add validation
+            mlflow.log_metric(key='train_loss', value=avg_loss, step=epoch)
+
+            # perform validation step after every epoch
+            valloader = self.get_dataloader(self.dynamics_data['test'], train=False)
+            val_losses = []
+            for i, data in enumerate(valloader):
+                val_losses.append(self.val_step(data))
+            mlflow.log_metric(key='val_loss', value=np.mean(val_losses), step=epoch)
 
         if avg_loss < best_loss:
             best_loss = avg_loss
