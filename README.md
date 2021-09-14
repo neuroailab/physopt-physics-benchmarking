@@ -7,14 +7,14 @@
 The goal of this repository is to train and evaluate different physics prediction models on one or many different physics scenarios. The inputs are model specific, however all currently implemented models predict from images. The output metrics are dataset specific, however all currently used datasets are evaluated on some form of binary prediction task. The procedure consists of two phases, as follows:
 
 1. **Dynamics**: Train the physics prediction model on its specific prediction task on the specific train dataset.
-  - Output: Model-specific trained checkpoint file saved to ``[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/model.pt``
+    - Output: Model-specific trained checkpoint file saved to ``[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/model.pt``
 2. **Readout**: Evaulate the trained models under different readout protocols.
-  - __Feature Extraction__: Extract latent model features on the readout training and testing datasets.
-    - Output: List of dicts, each dict corresponding to results from a batch, saved to `[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/{train/test}_feat.pkl`
-    - Each dict has the following keys: `input_states`, `observed_states`, `simulated_states`, `labels`, `stimulus_name`
-  - __Metrics Computation__: Train a classifier / regressor to predict the task using extracted latent train features and ground truth train labels, and test the trained classifier on the extracted latent test features to predict the test labels and evaluate them against the ground truth test labels using the the dataset specific test metric.
-    - Output: Metric results and other data used for model-human comparisons saved to `[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/metric_results.csv`
-    - Used for analysis in [physics-benchmarking-neurips2021](https://github.com/cogtoolslab/physics-benchmarking-neurips2021)
+    - __Feature Extraction__: Extract latent model features on the readout training and testing datasets.
+        - Output: List of dicts, each dict corresponding to results from a batch, saved to `[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/{train/test}_feat.pkl`
+        - Each dict has the following keys: `input_states`, `observed_states`, `simulated_states`, `labels`, `stimulus_name`
+    - __Metrics Computation__: Train a classifier / regressor to predict the task using extracted latent train features and ground truth train labels, and test the trained classifier on the extracted latent test features to predict the test labels and evaluate them against the ground truth test labels using the the dataset specific test metric.
+        - Output: Metric results and other data used for model-human comparisons saved to `[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/metric_results.csv`
+        - Used for analysis in [physics-benchmarking-neurips2021](https://github.com/cogtoolslab/physics-benchmarking-neurips2021)
      
 
 ## How to Install
