@@ -7,7 +7,6 @@ import argparse
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
 
-from physopt.utils import MultiAttempt
 from physopt.models import get_Objective
 from physopt.data import build_data_spaces
 from physopt.data.data_space import get_data_space # TODO: this should be moved elsewhere probably
@@ -79,7 +78,7 @@ class OptimizationPipeline():
 
                 try:
                     fmin(
-                        MultiAttempt(objective) if not self.debug else objective,
+                        objective,
                         space=NO_PARAM_SPACE, trials=trials,
                         algo=suggest, max_evals=1e5,
                         )
