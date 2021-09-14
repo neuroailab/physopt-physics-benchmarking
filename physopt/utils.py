@@ -11,6 +11,7 @@ import mlflow
 import pickle
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.metrics.test_metrics import run_metrics, write_metrics
+from physopt.models.config import get_cfg
 
 class MultiAttempt():
     def __init__(self, func, max_attempts=10):
@@ -129,7 +130,9 @@ class PhysOptObjective():
         raise NotImplementedError
 
     def get_config(self):
-        logging.info('No config provided')
+        cfg = get_cfg()
+        cfg.freeze()
+        return cfg
 
     def get_experiment_name(self):
         return self.model
@@ -174,8 +177,8 @@ class PhysOptObjective():
     def dynamics(self):
         trainloader = self.get_dataloader(self.dynamics_space['train'], phase='dynamics', train=True, shuffle=True)
         best_loss = 1e9
-        for epoch in range(self.cfg.EPOCHS): 
-            logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.EPOCHS))
+        for epoch in range(self.cfg.TRAIN.EPOCHS): 
+            logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.TRAIN.EPOCHS))
             running_loss = 0.
             for i, data in enumerate(trainloader):
                 loss = self.train_step(data)
