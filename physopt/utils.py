@@ -32,7 +32,7 @@ class PhysOptObjective():
         self.output_dir = output_dir
         self.phase = phase
         self.debug = debug
-        self.model_dir = get_model_dir(self.output_dir, self.dynamics_name, self.seed, self.debug)
+        self.model_dir = get_model_dir(self.output_dir, self.model, self.dynamics_name, self.seed, self.debug)
         self.model_file = os.path.join(self.model_dir, 'model.pt')
         self.train_feature_file = get_feature_file(self.model_dir, self.readout_name, 'train') # TODO: consolidate into feature_dir?
         self.test_feature_file = get_feature_file(self.model_dir, self.readout_name, 'test')
@@ -214,11 +214,12 @@ class PytorchPhysOptObjective(PhysOptObjective):
         torch.manual_seed(self.seed)
         torch.cuda.manual_seed(self.seed)
 
-def get_model_dir(output_dir, train_name, seed, debug=False):
+def get_model_dir(output_dir, model_name, train_name, seed, debug=False):
     assert train_name is not None
-    model_dir = os.path.join(output_dir, train_name, str(seed), 'model/')
     if debug:
-        model_dir = os.path.join(model_dir, 'debug/')
+        model_dir = os.path.join(output_dir,'debug', model_name, train_name, str(seed), 'model/')
+    else:
+        model_dir = os.path.join(output_dir, model_name, train_name, str(seed), 'model/')
     assert model_dir[-1] == '/', '"{}" missing trailing "/"'.format(model_dir) # need trailing '/' to make dir explicit
     _create_dir(model_dir)
     return model_dir

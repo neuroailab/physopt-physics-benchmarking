@@ -31,9 +31,9 @@ def arg_parse():
     parser.add_argument('--mongo', action='store_true', help='whether to use mongo trials')
     return parser.parse_args()
 
-def get_output_directory(output_dir, model):
+def get_output_directory(output_dir):
     output_dir = output_dir.format(getpass.getuser()) # fill in current username into path
-    return os.path.join(output_dir, model)
+    return output_dir
 
 
 def get_mongo_path(host, port, database):
@@ -50,7 +50,7 @@ class OptimizationPipeline():
         self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
         self.data_spaces  = build_data_spaces(get_data_space, args.data)
         self.model = args.model
-        self.output_dir = get_output_directory(args.output, args.model)
+        self.output_dir = get_output_directory(args.output)
         self.mongo_path = get_mongo_path(args.host, args.port, args.database)
         self.debug = args.debug
         self.mongo = args.mongo
