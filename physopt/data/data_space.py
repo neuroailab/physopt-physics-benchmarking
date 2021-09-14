@@ -8,12 +8,10 @@ def build_paths(name, scenarios, filepattern, traindir, testdir):
         'test': [os.path.join(testdir, scenario, filepattern) for scenario in scenarios],
         } 
 
-def get_data_space(
-        data_space,
-        ):
+def get_data_space(data_space_name):
     cfg = get_cfg_defaults()
     dirname = os.path.dirname(__file__)
-    cfg.merge_from_file(os.path.join(dirname, data_space+'.yaml'))
+    cfg.merge_from_file(os.path.join(dirname, data_space_name+'.yaml'))
     # TODO: add merge debug config?
     cfg.freeze()
     print(cfg)
