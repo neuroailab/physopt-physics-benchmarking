@@ -40,22 +40,6 @@ To see all available argument options use
 
 `python opt.py --help`
 
-## Model Specification
-
-An overview over all available models can be found in `physopt/models/\_\_init\_\_.py`.
-
-To add a new model simply create a new `Objective` and update ``physopt/models/\_\_init\_\_.py`. `Objective` inherits from `PhysOptObjective` as implemented in `physopt/utils.py` which primarily takes care of running the different phases and managing where intermediate results are stored. 
-
-For a new `Objective` you will need to implement:
-- `get_model`: Returns the model object
-- `load_model`: Implements loading of model if model checkpoint file exists
-- `save_model`: Implements saving of the model
-- `get_dataloader`: Takes as input params `datapaths`, `phase`, `train`, and `shuffle`. Returns the dataloader object that can be iterated over for batches of data
-- `train_step`: Takes as input a batch of data, performs the train optimization step, and returns the scalar loss value for that step
-- `val_step`: Takes as input a batch of data, performs validation on that batch, and returns the scalar metric used for validation
-- `extract_feat_step`: Takes as input a batc
-- Optionally, `get_config`: Loads a configuration object. Must contain at least the settings in `physopt/models/config.py` and be accessible with dot notation. 
-
 ## Dataset Specification
 
 An overview of the required data settings and defaults can be found in `physopt/data/config.py`. 
@@ -70,3 +54,19 @@ The default settings can be overwritten by using a `.yaml` file located in `phys
 -  `seed`: random seed to used initialize random generators
 - `dynamics`: dict with `name`, `train`, and `test` that specify the dataset/scenario name, train datapaths, and test datapaths, respectively
 - `readout`: same as for `dynamics` but for the readout phase instead
+
+## Model Specification
+
+An overview over all available models can be found in `physopt/models/\_\_init\_\_.py`.
+
+To add a new model simply create a new `Objective` and update `physopt/models/\_\_init\_\_.py`. `Objective` inherits from `PhysOptObjective` as implemented in `physopt/utils.py` which primarily takes care of running the different phases and managing where intermediate results are stored. 
+
+For a new `Objective` you will need to implement:
+- `get_model`: Returns the model object
+- `load_model`: Implements loading of model if model checkpoint file exists
+- `save_model`: Implements saving of the model
+- `get_dataloader`: Takes as input params `datapaths`, `phase`, `train`, and `shuffle`. Returns the dataloader object that can be iterated over for batches of data
+- `train_step`: Takes as input a batch of data, performs the train optimization step, and returns the scalar loss value for that step
+- `val_step`: Takes as input a batch of data, performs validation on that batch, and returns the scalar metric used for validation
+- `extract_feat_step`: Takes as input a batc
+- Optionally, `get_config`: Loads a configuration object. Must contain at least the settings in `physopt/models/config.py` and be accessible with dot notation. 
