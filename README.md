@@ -68,5 +68,5 @@ For a new `Objective` you will need to implement:
 - `get_dataloader`: Takes as input params `datapaths`, `phase`, `train`, and `shuffle`. Returns the dataloader object that can be iterated over for batches of data
 - `train_step`: Takes as input a batch of data, performs the train optimization step, and returns the scalar loss value for that step
 - `val_step`: Takes as input a batch of data, performs validation on that batch, and returns the scalar metric used for validation
-- `extract_feat_step`: Takes as input a batc
+- `extract_feat_step`: Takes as input a batch of data, and outputs a dict with `input_states`, `observed_states`, `simulated_states`, `labels`, and `stimulus_name`.
 - Optionally, `get_config`: Loads a configuration object. Must contain at least the settings in `physopt/models/config.py` and be accessible with dot notation. 
