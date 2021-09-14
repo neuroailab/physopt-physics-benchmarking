@@ -57,9 +57,9 @@ The default settings can be overwritten by using a `.yaml` file located in `phys
 
 ## Model Specification
 
-An overview over all available models can be found in `physopt/models/\_\_init\_\_.py`.
+An overview over all available models can be found in `physopt/models/__init__.py`.
 
-To add a new model simply create a new `Objective` and update `physopt/models/\_\_init\_\_.py`. `Objective` inherits from `PhysOptObjective` as implemented in `physopt/utils.py` which primarily takes care of running the different phases and managing where intermediate results are stored. 
+To add a new model simply create a new `Objective` and update `physopt/models/__init__.py`. `Objective` inherits from `PhysOptObjective` as implemented in `physopt/utils.py` which primarily takes care of running the different phases and managing where intermediate results are stored. 
 
 For a new `Objective` you will need to implement:
 - `get_model`: Returns the model object
