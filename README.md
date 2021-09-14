@@ -4,73 +4,35 @@
 
 ## Overview
 
-The goal of this repository is to train and evaluate different physics prediction models on one or many different physics scenarios. The inputs are model specific, however all currently implemented models predict from images. The output metrics are dataset specific, however all currently used datasets are evaluated on some form of binary prediction task. The procedure to extract metrics for each dataset and model is as follows:
+The goal of this repository is to train and evaluate different physics prediction models on one or many different physics scenarios. The inputs are model specific, however all currently implemented models predict from images. The output metrics are dataset specific, however all currently used datasets are evaluated on some form of binary prediction task. The procedure consists of two phases, as follows:
 
-1. Train the physics prediction model on its specific prediction task on the specific train dataset.
-  - Input: Model-specific train data (e.g. images and bounding boxes).
-  - Output: Model-specific trained checkpoint file
-    - stored at `{output_directory}/{train_data_name}/{seed}/model`
-    - stored as `model-specific (e.g. pytorch or tensorflow checkpoint file)`
-2. Extract latent model features on the specific train dataset.
-  - Input: Model-specific train data and labels and trained checkpoint file.
-  - Output: Latent train features and labels per data example
-    - stored at `{output_directory}/{train_data_name}/{seed}/model/features/{train_feat_data_name}/feat.pkl`
-    - stored as `list(batch) with batch = dict(encoded_states: visual_features, rollout_states: predicted_features, binary_labels: labels]))`.
-3. Extract latent model features on the specific test dataset.
-  - Input: Model-specific test data and labels and trained checkpoint file.
-  - Output: Latent test features and labels per data example 
-    - stored at `{output_directory}/{train_data_name}/{seed}/model/features/{test_feat_data_name}/feat.pkl`
-    - stored as `list(batch) with batch = dict(encoded_states: visual_features, rollout_states: predicted_features, binary_labels: labels))`.
-4. Train a classifier / regressor to predict the task using extracted latent train features and ground truth train labels, and test the trained classifier on the extracted latent test features to predict the test labels and evaluate them against the ground truth test labels using the the dataset specific test metric.
-  - Input: Latent train and test features and labels.
-  - Output: Test dataset specific metrics 
-    - stored at `{output_directory}/{train_data_name}/{seed}/model/features/{test_feat_data_name}/metrics_results.pkl`
-    - stored as `list(setting_result) with setting_result = dict(results: metric_results, seed: seed, train_name: train_model_data_name, train_feat_name: train_feat_data_name, test_feat_name: test_feat_data_name, model_dir: model_dir)`. 
+1. **Dynamics**: Train the physics prediction model on its specific prediction task on the specific train dataset.
+  - Output: Model-specific trained checkpoint file saved to ``[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/model.pt``
+2. **Readout**: Evaulate the trained models under different readout protocols.
+  1. __Feature Extraction__: Extract latent model features on the readout training and testing datasets.
+    - Output: List of dicts, each dict corresponding to results from a batch, saved to `[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/{train/test}_feat.pkl`
+      - Each dict has the following keys: `input_states`, `observed_states`, `simulated_states`, `labels`, `stimulus_name`
+  2. __Metrics Computation__: Train a classifier / regressor to predict the task using extracted latent train features and ground truth train labels, and test the trained classifier on the extracted latent test features to predict the test labels and evaluate them against the ground truth test labels using the the dataset specific test metric.
+    - Output: Metric results and other data used for model-human comparisons saved to `[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/metric_results.csv`
+      - Used for analysis in [physics-benchmarking-neurips2021](https://github.com/cogtoolslab/physics-benchmarking-neurips2021)
+     
 
 ## How to Install
 
-Run
+Run `pip install -e .`
 
-`pip install -r requirements.txt`
-
-and add [RPIN](https://github.com/neuroailab/RPIN), [SVG](https://github.com/neuroailab/svg), [CLIP](https://github.com/openai/CLIP) and [physopt](https://github.com/neuroailab/physopt) to your PYTHONPATH with 
-
-`export PYTHONPATH=$PYTHONPATH:{path_to_RPIN}:{path_to_SVG}:{path_to_CLIP}:{path_to_physopt}`.
 
 ## How To Run
 
 Physopt uses [Hyperopt](https://github.com/neuroailab/hyperopt) to train and evaluate physics prediction models on one or many different datasets. In order to evaluate a model, you first need to launch a MongoDB database, then a optimization server that distributes jobs across workers, and finally as many workers as you want that execute the server jobs.
 
-For example,
+For example, to run C-SWM, use:
 
-a) to evaluate ROI pooling run
-
-`python opt.py --data TDW --model RPIN --host localhost --port 25555 --database rpin --output rpin_output_directory --num_threads 1`
+`python opt.py --data physion --model CSWM --host localhost --port 25555 --database physion --output [OUTPUT_DIR]`
 
 and then start up as many workers as you want with
 
-`hyperopt/scripts/hyperopt-mongo-worker --mongo=localhost:25555/rpin --logfile=logfile.txt`
-
-
-b) to evaluate SVG run
-
-`python opt.py --data TDW --model SVG --host localhost --port 25555 --database svg --output svg_output_directory --num_threads 1`
-
-and then start up as many workers as you want with:
-
-`hyperopt/scripts/hyperopt-mongo-worker --mongo=localhost:25555/svg --logfile=logfile.txt`
-
-c) to evaluate multiple models run in separate threads:
-
-`python opt.py --data TDW --model RPIN --host localhost --port 25555 --database database --output rpin_output_directory --num_threads 1`
-
-`python opt.py --data TDW --model SVG --host localhost --port 25555 --database database --output svg_output_directory --num_threads 1`
-
-etc.
-
-and then start up as many workers as you want with:
-
-`hyperopt/scripts/hyperopt-mongo-worker --mongo=localhost:25555/database --logfile=logfile.txt`
+`hyperopt/scripts/hyperopt-mongo-worker --mongo=localhost:25555/physion --logfile=logfile.txt`
 
 This approach has the advantage that you only need one set of workers pointing all to the same database `database`. Although currently not a problem, potential library conflicts between models might make approach c) infeasible in the future without separate python environments. In that case each model would have to be run in model-specific python environment which is beyond the scope of this documentation.
 
@@ -80,40 +42,31 @@ To see all available argument options use
 
 ## Model Specification
 
-An overview over all available models can be found in [physopt/models/\_\_init\_\_.py](https://github.com/neuroailab/physopt/blob/main/physopt/models/__init__.py).
+An overview over all available models can be found in `physopt/models/\_\_init\_\_.py`.
 
-To add a new model simply create a new `Objective` following the format outlined in [physopt/models/RPIN.py#L297-L322](https://github.com/neuroailab/physopt/blob/main/physopt/models/RPIN.py#L297-L322). `Objective` inherits from `PhysOptObjective` as implemented in [physopt/utils.py#L64-L126](https://github.com/neuroailab/physopt/blob/main/physopt/utils.py#L64-L126) which primarily takes care of managing where intermediate results are stored. 
+To add a new model simply create a new `Objective` and update ``physopt/models/\_\_init\_\_.py`. `Objective` inherits from `PhysOptObjective` as implemented in `physopt/utils.py` which primarily takes care of running the different phases and managing where intermediate results are stored. 
 
-The input arguments are
-- a experiment key in the mongo database `exp_key`
-- an integer seed `seed`
-- a train dataset `train_data` defined as `{'name': dataset_name, 'data': list(dataset_paths)}`
-- a feature extraction dataset `feat_data` defined as `{'name': dataset_name, 'data': list(dataset_paths)}` (or for metrics data defined as a tuple thereof as specified below).
-- an output directory `output_dir` which is the root directory to where all results will be stored
-- a boolean flag `extract_feat` which 
-  - if `False` indicates to train a new model from scratch on `train_data` or 
-  - if `True` indicates to extract features from a trained model on `feat_data`
-  
-Your task is then to implement the [`__call__(self, *args, **kwargs)`](https://github.com/neuroailab/physopt/blob/main/physopt/models/RPIN.py#L308-L322) method which
-
-a) if `extract_feat == False` executes a method to train a model on `train_data` and stores it under [`self.model_dir`](https://github.com/neuroailab/physopt/blob/main/physopt/utils.py#L77-L78).
-
-b) if `extract_feat == True` executes a method to extract latent features from a trained model on `feat_data` and stores it under [`self.feature_file`](https://github.com/neuroailab/physopt/blob/main/physopt/utils.py#L83-L84).
-
-Don't forget to call `results = super().__call__()` at the beginning of your `__call__(self, *args, **kwargs)` method which returns a dictionary in which you can store your results in the mongo database.
-
-The rest is taken care of. The pipeline will then execute the 4 steps described in "Overview" store the results in a pickle file stored at `{output_directory}/{train_data_name}/{seed}/model/features/{test_feat_data_name}/metrics_results.pkl`.
+For a new `Objective` you will need to implement:
+- `get_model`: Returns the model object
+- `load_model`: Implements loading of model if model checkpoint file exists
+- `save_model`: Implements saving of the model
+- `get_dataloader`: Takes as input params `datapaths`, `phase`, `train`, and `shuffle`. Returns the dataloader object that can be iterated over for batches of data
+- `train_step`: Takes as input a batch of data, performs the train optimization step, and returns the scalar loss value for that step
+- `val_step`: Takes as input a batch of data, performs validation on that batch, and returns the scalar metric used for validation
+- `extract_feat_step`: Takes as input a batc
+- Optionally, `get_config`: Loads a configuration object. Must contain at least the settings in `physopt/models/config.py` and be accessible with dot notation. 
 
 ## Dataset Specification
 
-An overview over all available datasets can be found in [physopt/data/\_\_init\_\_.py](https://github.com/neuroailab/physopt/blob/main/physopt/data/__init__.py).
+An overview of the required data settings and defaults can be found in `physopt/data/config.py`. 
+- `DYNAMICS_TRAIN_DIR`, `DYNAMICS_TEST_DIR`, `READOUT_TRAIN_DIR`, and `READOUT_TEST_DIR` correspond to the base paths to the {dynamics/readout} {train/test} datasets.
+- `SCENARIOS` is a list of the subdirs in each of the base dirs, which correspond to different datasets.
+- `FILE_PATTERN` is used to allow for specifying what to match for to get each data file. 
+- The fully constructed path provided to the dataloader will be `[BASE_DIR]/[SCENARIO]/[FILE_PATTERN]` (e.g. `../dynamics_train_data/Dominoes/*.hdf5`), which can be used by `glob` or similar to get the list of data files.
 
-To add a new dataset simply follow the format outlined in [physopt/data/tdw\_space.py](https://github.com/neuroailab/physopt/blob/main/physopt/data/tdw_space.py) and add the newly created dataset to `get_data_space` in [physopt/data/\_\_init\_\_.py](https://github.com/neuroailab/physopt/blob/main/physopt/data/__init__.py).
+The default settings can be overwritten by using a `.yaml` file located in `physopt/data` and passing the filename (without the `.yaml` extension) as the `--data` commandline arg when running `opt.py`. See `physopt/data/physion.yaml` for an exmaple. 
 
-Physopt 
-- first trains a selected model on all the datasets defined in `TRAIN_DATA` and seeds defined in `SEEDS`,
-- then extracts the train features for the datasets defined in `TRAIN_FEAT_DATA` and 
-- then extracts test features for the datasets defined in `TEST_FEAT_DATA` and 
-- finally uses the extracted features to calculate the evaluation metrics for the train-test dataset pairs defined in `METRICS_DATA`. 
-
-Each `*_DATA` is a list of single datasets. A single dataset is a dictionary of `{'name': dataset_name, 'data': list(dataset_paths)}`. `METRICS_DATA` is a tuple of `(TRAIN_FEAT_DATA, TEST_FEAT_DATA)`. A seed is an integer.
+`get_data_space`, defined in `physopt/data/data_space.py`, returns a list of dicts with the following structure:
+-  `seed`: random seed to used initialize random generators
+- `dynamics`: dict with `name`, `train`, and `test` that specify the dataset/scenario name, train datapaths, and test datapaths, respectively
+- `readout`: same as for `dynamics` but for the readout phase instead
