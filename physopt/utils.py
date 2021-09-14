@@ -83,12 +83,12 @@ class PhysOptObjective():
         self.readout_name = None if readout_space is None else readout_space['name']
         self.output_dir = output_dir
         self.phase = phase
-        self.model_dir = get_model_dir(self.output_dir, self.dynamics_name, self.seed)
+        self.debug = debug
+        self.model_dir = get_model_dir(self.output_dir, self.dynamics_name, self.seed, self.debug)
         self.model_file = os.path.join(self.model_dir, 'model.pt')
         self.train_feature_file = get_feature_file(self.model_dir, self.readout_name, 'train') # TODO: consolidate into feature_dir?
         self.test_feature_file = get_feature_file(self.model_dir, self.readout_name, 'test')
         self.metrics_file = get_metrics_file(self.model_dir, self.readout_name)
-        self.debug = debug
 
         self.experiment_name = self.get_experiment_name()
         self.run_name = self.get_run_name()
@@ -177,8 +177,8 @@ class PhysOptObjective():
     def dynamics(self):
         trainloader = self.get_dataloader(self.dynamics_space['train'], phase='dynamics', train=True, shuffle=True)
         best_loss = 1e9
-        for epoch in range(self.cfg.TRAIN.EPOCHS): 
-            logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.TRAIN.EPOCHS))
+        for epoch in range(self.cfg.EPOCHS): 
+            logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.EPOCHS))
             running_loss = 0.
             for i, data in enumerate(trainloader):
                 loss = self.train_step(data)
@@ -266,9 +266,11 @@ class PytorchPhysOptObjective(PhysOptObjective):
         torch.manual_seed(self.seed)
         torch.cuda.manual_seed(self.seed)
 
-def get_model_dir(output_dir, train_name, seed):
+def get_model_dir(output_dir, train_name, seed, debug=False):
     assert train_name is not None
     model_dir = os.path.join(output_dir, train_name, str(seed), 'model/')
+    if debug:
+        model_dir = os.path.join(model_dir, 'debug/')
     _create_dir(model_dir)
     return model_dir
 
