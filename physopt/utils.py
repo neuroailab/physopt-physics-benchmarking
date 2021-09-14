@@ -62,7 +62,7 @@ class PhysOptObjective():
     def load_model(self):
         raise NotImplementedError
 
-    def save_model(self):
+    def save_model(self, step):
         raise NotImplementedError
 
     def train_step(self, data):
@@ -79,6 +79,8 @@ class PhysOptObjective():
 
     def get_config(self):
         cfg = get_cfg()
+        if self.debug:
+            cfg.merge_from_list(['EPOCHS', 1, 'LOG_FREQ', 1, 'VAL_FREQ', 1, 'CKPT_FREQ', 1])
         cfg.freeze()
         return cfg
 
@@ -125,27 +127,30 @@ class PhysOptObjective():
     def dynamics(self):
         trainloader = self.get_dataloader(self.dynamics_space['train'], phase='dynamics', train=True, shuffle=True)
         best_loss = 1e9
+        step = 0
         for epoch in range(self.cfg.EPOCHS): 
             logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.EPOCHS))
-            running_loss = 0.
             for i, data in enumerate(trainloader):
                 loss = self.train_step(data)
-                running_loss += loss
-                avg_loss = running_loss/(i+1)
-                print(avg_loss)
-            mlflow.log_metric(key='train_loss', value=avg_loss, step=epoch)
+                logging.info('Step: {0:>10} Loss: {1:>10.4f}'.format(step, loss))
 
-            # perform validation step after every epoch
-            valloader = self.get_dataloader(self.dynamics_space['test'], phase='dynamics', train=False, shuffle=False)
-            val_losses = []
-            for i, data in enumerate(valloader):
-                val_losses.append(self.val_step(data))
-            mlflow.log_metric(key='val_loss', value=np.mean(val_losses), step=epoch)
+                if (step % self.cfg.LOG_FREQ) == 0:
+                    mlflow.log_metric(key='train_loss', value=loss, step=step)
+                if (step % self.cfg.VAL_FREQ) == 0:
+                    valloader = self.get_dataloader(self.dynamics_space['test'], phase='dynamics', train=False, shuffle=False)
+                    val_results = []
+                    for i, data in enumerate(valloader):
+                        val_res = self.val_step(data)
+                        assert isinstance(val_res, dict)
+                        val_results.append(val_res)
+                    # convert list of dicts into single dict by aggregating over values for a given key
+                    val_results = {k: np.mean([res[k] for res in val_results]) for k in val_results[0]} # assumes all keys are the same across list
+                    mlflow.log_metrics(val_results, step=step)
+                if (step % self.cfg.CKPT_FREQ) == 0:
+                    logging.info('Saving model at step {}'.format(step))
+                    self.save_model(step)
 
-        if avg_loss < best_loss:
-            best_loss = avg_loss
-            logging.info('Saving model with loss {} at epoch {}'.format(best_loss, epoch))
-            self.save_model()
+                step += 1
 
     def readout(self):
         assert os.path.isfile(self.model_file), 'No model ckpt found, cannot extract features'
@@ -205,9 +210,12 @@ class PytorchPhysOptObjective(PhysOptObjective):
             logging.info('No model found, saved initial model')
         return self.model
 
-    def save_model(self):
+    def save_model(self, step):
         torch.save(self.model.state_dict(), self.model_file)
         logging.info('Saved model checkpoint to: {}'.format(self.model_file))
+        step_model_file = '_{}.'.format(step).join(self.model_file.split('.')) # create model file with step 
+        torch.save(self.model.state_dict(), step_model_file)
+        mlflow.log_artifact(step_model_file, artifact_path='model_ckpts')
 
     def init_seed(self):
         np.random.seed(self.seed)
