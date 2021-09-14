@@ -8,14 +8,15 @@ def build_paths(name, scenarios, filepattern, traindir, testdir):
         'test': [os.path.join(testdir, scenario, filepattern) for scenario in scenarios],
         } 
 
-def get_data_space(data_space_name):
+def get_data_space(cfg_file):
     cfg = get_cfg_defaults()
-    dirname = os.path.dirname(__file__)
-    cfg.merge_from_file(os.path.join(dirname, data_space_name+'.yaml'))
+    if not os.path.isabs(cfg_file): # if not absolute path, looks in this file's dir (i.e. `.../physopt/data/`)
+        dirname =  os.path.dirname(__file__)
+        cfg_file = os.path.join(dirname, cfg_file)
+    cfg.merge_from_file(cfg_file)
     # TODO: add merge debug config?
     cfg.freeze()
-    print(cfg)
-    
+
     # TODO: constructing the data_spaces could be a bit cleaner
     data_spaces = [] # only dynamics and readout spaces
     for scenario in cfg.SCENARIOS:
@@ -52,3 +53,30 @@ def get_data_space(data_space_name):
             full_data_spaces.append(space)
 
     return full_data_spaces
+
+def verify_data_spaces(data_spaces):
+    def check_inner(space):
+        assert space.keys() == {'name', 'train', 'test'}
+        assert isinstance(space['name'], str)
+        assert isinstance(space['train'], list)
+        assert isinstance(space['test'], list)
+        
+    assert isinstance(data_spaces, list)
+    for data_space in data_spaces:
+        assert data_space.keys() == {'seed', 'dynamics', 'readout'}
+        assert isinstance(data_space['seed'], int)
+        assert isinstance(data_space['dynamics'], dict)
+        check_inner(data_space['dynamics'])
+        assert isinstance(data_space['readout'], list)
+        for space in data_space['readout']:
+            check_inner(space)
+
+def build_data_spaces(func, cfg_file):
+    if not isinstance(func, list):
+        func = [func]
+    
+    data_spaces = []
+    for f in func:
+        data_spaces.extend(f(cfg_file))
+    verify_data_spaces(data_spaces)
+    return data_spaces

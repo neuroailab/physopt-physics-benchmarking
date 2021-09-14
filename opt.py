@@ -9,7 +9,8 @@ from hyperopt.mongoexp import MongoTrials
 
 from physopt.utils import MultiAttempt
 from physopt.models import get_Objective
-from physopt.data import get_data_space
+from physopt.data import build_data_spaces
+from physopt.data.data_space import get_data_space # TODO: this should be moved elsewhere probably
 from physopt.search.grid_search import suggest
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])
@@ -48,7 +49,7 @@ class OptimizationPipeline():
         args = arg_parse() if not args else args
 
         self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
-        self.data_spaces  = get_data_space(args.data)
+        self.data_spaces  = build_data_spaces(get_data_space, args.data)
         self.model = args.model
         self.output_dir = get_output_directory(args.output, args.model)
         self.mongo_path = get_mongo_path(args.host, args.port, args.database)

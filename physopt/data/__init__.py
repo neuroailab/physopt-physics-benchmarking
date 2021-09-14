@@ -1,1 +1,1 @@
-from .data_space import get_data_space
+from .data_space import build_data_spaces

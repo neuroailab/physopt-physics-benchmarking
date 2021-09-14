@@ -271,6 +271,7 @@ def get_model_dir(output_dir, train_name, seed, debug=False):
     model_dir = os.path.join(output_dir, train_name, str(seed), 'model/')
     if debug:
         model_dir = os.path.join(model_dir, 'debug/')
+    assert model_dir[-1] == '/', '"{}" missing trailing "/"'.format(model_dir) # need trailing '/' to make dir explicit
     _create_dir(model_dir)
     return model_dir
 
