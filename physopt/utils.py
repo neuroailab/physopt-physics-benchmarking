@@ -79,8 +79,6 @@ class PhysOptObjective():
 
     def get_config(self):
         cfg = get_cfg()
-        if self.debug:
-            cfg.merge_from_list(['EPOCHS', 1, 'LOG_FREQ', 1, 'VAL_FREQ', 1, 'CKPT_FREQ', 1])
         cfg.freeze()
         return cfg
 
@@ -96,6 +94,7 @@ class PhysOptObjective():
     def __call__(self, *args, **kwargs):
         mlflow.set_experiment(self.experiment_name)
         mlflow.start_run(run_name=self.run_name)
+        mlflow.set_tag('phase', self.phase)
         mlflow.log_params({
             'seed': self.seed,
             })
