@@ -1,9 +1,0 @@
-[submodule "physopt/models/physion"]
-	path = physopt/models/physion
-	url = git@github.com:neuroailab/physion.git
-[submodule "physopt/models/cswm"]
-	path = physopt/models/cswm
-	url = git@github.com:neuroailab/c-swm.git
-[submodule "physopt/models/op3"]
-	path = physopt/models/op3
-	url = git@github.com:neuroailab/OP3-physion.git
