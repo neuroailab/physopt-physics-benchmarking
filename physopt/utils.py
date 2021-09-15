@@ -2,13 +2,11 @@ import os
 import logging
 import errno
 import traceback
-import tempfile
 import time
-import torch
-from datetime import datetime
 import numpy as np
 import mlflow
 import pickle
+
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.metrics.test_metrics import run_metrics, write_metrics
 from physopt.models.config import get_cfg
@@ -197,33 +195,6 @@ class PhysOptObjective():
             # Write every iteration to be safe
             write_metrics(self.metrics_file, self.seed, self.dynamics_name,
                     self.train_feature_file, self.test_feature_file, self.model_dir, results) # TODO: log artifact
-
-class PytorchPhysOptObjective(PhysOptObjective):
-    def __init__(self, *args, **kwargs):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # must set device first since used in get_model, called in super
-        super().__init__(*args, **kwargs)
-        self.init_seed()
-
-    def load_model(self):
-        if os.path.isfile(self.model_file): # load existing model ckpt TODO: add option to disable reloading
-            self.model.load_state_dict(torch.load(self.model_file))
-            logging.info('Loaded existing ckpt')
-        else:
-            torch.save(self.model.state_dict(), self.model_file) # save initial model
-            logging.info('No model found, saved initial model')
-        return self.model
-
-    def save_model(self, step):
-        torch.save(self.model.state_dict(), self.model_file)
-        logging.info('Saved model checkpoint to: {}'.format(self.model_file))
-        step_model_file = '_{}.'.format(step).join(self.model_file.split('.')) # create model file with step 
-        torch.save(self.model.state_dict(), step_model_file)
-        mlflow.log_artifact(step_model_file, artifact_path='model_ckpts')
-
-    def init_seed(self):
-        np.random.seed(self.seed)
-        torch.manual_seed(self.seed)
-        torch.cuda.manual_seed(self.seed)
 
 def get_model_dir(output_dir, model_name, train_name, seed, debug=False):
     assert train_name is not None
