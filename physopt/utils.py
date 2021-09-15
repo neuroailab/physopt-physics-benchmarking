@@ -43,13 +43,16 @@ class PhysOptObjective():
         self.cfg = self.get_config()
         self.model = self.get_model()
         self.model = self.load_model()
+        self.setup_logger()
 
 
-        # setup logging TODO
+    def setup_logger(self):
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        self.log_file = os.path.join(self.model_dir, 'output_{}.log'.format(timestr))
         logging.root.handlers = [] # necessary to get handler to work
         logging.basicConfig(
             handlers=[
-                logging.FileHandler(os.path.join(self.model_dir, 'output.log')),
+                logging.FileHandler(self.log_file),
                 logging.StreamHandler(),
                 ],
             format="%(asctime)s [%(levelname)s] %(message)s",
@@ -109,6 +112,7 @@ class PhysOptObjective():
         else:
             raise NotImplementedError
 
+        mlflow.log_artifact(self.log_file)
         mlflow.end_run()
 
         ret = {
