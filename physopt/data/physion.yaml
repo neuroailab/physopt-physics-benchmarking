@@ -1,7 +1,0 @@
-DYNAMICS_TRAIN_DIR: '/data1/eliwang/physion_train_data/dynamics_training'
-DYNAMICS_TEST_DIR: '/data1/eliwang/physion_train_data/dynamics_training' # TODO
-READOUT_TRAIN_DIR: '/data1/eliwang/physion_train_data/readout_training'
-READOUT_TEST_DIR: '/data1/eliwang/physion_test_data/model_testing' 
-
-SCENARIOS: ['Drop']
-TRAINING_PROTOCOLS: ['only']

@@ -9,8 +9,8 @@ from hyperopt.mongoexp import MongoTrials
 
 from physopt.models import get_Objective
 from physopt.data import build_data_spaces
-from physopt.data.data_space import get_data_space # TODO: this should be moved elsewhere probably
 from physopt.search.grid_search import suggest
+from physion.data.data_space import get_data_space
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])
 
