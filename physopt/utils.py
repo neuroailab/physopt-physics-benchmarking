@@ -6,6 +6,8 @@ import time
 import numpy as np
 import mlflow
 import pickle
+import psycopg2
+import boto3
 
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.metrics.test_metrics import run_metrics, write_metrics
@@ -42,7 +44,36 @@ class PhysOptObjective():
         if store_name == 'local':
             artifact_location = None
         else:
-            mlflow.set_tracking_uri('sqlite:///{}.db'.format(store_name)) # need to make sure backend store is setup before we look up experiment name TODO: change this to postgres
+            # create postgres db, and use for backend store
+            connection = None
+            try:
+                connection = psycopg2.connect("user='physopt' password='physopt' host='localhost' port='5432' dbname='postgres'") # TODO: use args
+                print('Database connected.')
+
+            except:
+                print('Database not connected.')
+
+            if connection is not None:
+                connection.autocommit = True
+
+                cur = connection.cursor()
+
+                cur.execute("SELECT datname FROM pg_database;")
+
+                list_database = cur.fetchall()
+
+                database_name = store_name
+                if (database_name,) in list_database:
+                    print("'{}' Database already exist".format(database_name))
+                else:
+                    print("'{}' Database not exist.".format(database_name))
+                    sql_create_database = 'create database "{}";'.format(database_name)
+                    cur.execute(sql_create_database)
+                connection.close()
+            mlflow.set_tracking_uri('postgresql://physopt:physopt@localhost/{}'.format(store_name)) # need to make sure backend store is setup before we look up experiment name 
+            # create s3 bucket, and use for artifact store
+            s3 = boto3.resource('s3')
+            s3.create_bucket(Bucket=store_name)
             artifact_location =  's3://{}'.format(store_name) # TODO: add run name to make it more human-readable?
         if mlflow.get_experiment_by_name(self.experiment_name) is None: # create experiment if doesn't exist
             self.experiment_id = mlflow.create_experiment(self.experiment_name, artifact_location=artifact_location)
@@ -208,7 +239,8 @@ class PhysOptObjective():
 
             # Write every iteration to be safe
             write_metrics(self.metrics_file, self.seed, self.dynamics_name,
-                    self.train_feature_file, self.test_feature_file, self.model_dir, results) # TODO: log artifact
+                    self.train_feature_file, self.test_feature_file, self.model_dir, results)
+            mlflow.log_artifact(self.metrics_file)
 
 def get_model_dir(output_dir, model_name, train_name, seed, debug=False):
     assert train_name is not None
