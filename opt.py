@@ -29,6 +29,7 @@ def arg_parse():
     parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
     parser.add_argument('--debug', action='store_true', help='debug mode')
     parser.add_argument('--mongo', action='store_true', help='whether to use mongo trials')
+    parser.add_argument('-S', '--store_name', default='local', help='mlflow store name, if not "local" uses postgres and S3 backend', type=str)
     return parser.parse_args()
 
 def get_output_directory(output_dir):
@@ -44,9 +45,7 @@ def get_exp_key(model, seed, dynamics_name, readout_name, suffix=''):
     return '{0}_{1}_{2}_{3}_{4}'.format(model, seed, dynamics_name, readout_name, suffix)
 
 class OptimizationPipeline():
-    def __init__(self, args = None):
-        args = arg_parse() if not args else args
-
+    def __init__(self, args):
         self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
         self.data_spaces  = build_data_spaces(get_data_space, args.data)
         self.model = args.model
@@ -54,6 +53,7 @@ class OptimizationPipeline():
         self.mongo_path = get_mongo_path(args.host, args.port, args.database)
         self.debug = args.debug
         self.mongo = args.mongo
+        self.store_name = args.store_name
 
     def __del__(self):
         self.close()
@@ -73,7 +73,7 @@ class OptimizationPipeline():
                 Objective = get_Objective(self.model)
                 objective = Objective(
                     self.model, seed, dynamics_space, readout_space, 
-                    self.output_dir, phase, self.debug,
+                    self.output_dir, phase, self.debug, self.store_name,
                     )
 
                 try:

@@ -20,6 +20,7 @@ class PhysOptObjective():
             output_dir,
             phase,
             debug,
+            store_name,
             ):
         self.model = model
         self.seed = seed
@@ -38,6 +39,16 @@ class PhysOptObjective():
 
         self.experiment_name = self.get_experiment_name()
         self.run_name = self.get_run_name()
+        if store_name == 'local':
+            artifact_location = None
+        else:
+            mlflow.set_tracking_uri('sqlite:///{}.db'.format(store_name)) # need to make sure backend store is setup before we look up experiment name TODO: change this to postgres
+            artifact_location =  's3://{}'.format(store_name) # TODO: add run name to make it more human-readable?
+        if mlflow.get_experiment_by_name(self.experiment_name) is None: # create experiment if doesn't exist
+            self.experiment_id = mlflow.create_experiment(self.experiment_name, artifact_location=artifact_location)
+        else: # uses old experiment settings (e.g. artifact store location)
+            self.experiment_id = mlflow.get_experiment_by_name(self.experiment_name).experiment_id
+
         self.cfg = self.get_config()
         self.model = self.get_model()
         self.model = self.load_model()
@@ -95,6 +106,9 @@ class PhysOptObjective():
     def __call__(self, *args, **kwargs):
         mlflow.set_experiment(self.experiment_name)
         mlflow.start_run(run_name=self.run_name)
+        logging.info(mlflow.get_tracking_uri())
+        logging.info(mlflow.get_artifact_uri())
+        logging.info(mlflow.active_run())
         mlflow.set_tag('phase', self.phase)
         mlflow.log_params({
             'seed': self.seed,
