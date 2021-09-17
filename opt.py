@@ -10,19 +10,18 @@ from hyperopt.mongoexp import MongoTrials
 from physopt.models import get_Objective
 from physopt.data import build_data_spaces
 from physopt.search.grid_search import suggest
-from physion.data.data_space import get_data_space
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])
 
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
 
-    parser.add_argument('-D', '--data', required=True,
-            help='Check "physopt/data/__init__.py" for options', type=str)
     parser.add_argument('-M', '--model', required=True,
             help='Check "physopt/models/__init__.py" for options', type=str)
     parser.add_argument('-O', '--output', default='/home/{}/physopt/',
             help='output directory', type=str)
+    parser.add_argument('--data_module', required=True, type=str)
+    parser.add_argument('--data_cfg', required=True, type=str)
     parser.add_argument('--host', default='localhost', help='mongo/postgres host', type=str)
     parser.add_argument('--mongo_port', default='25555', help='mongo port', type=str)
     parser.add_argument('--postgres_port', default='5432', help='postgres port', type=str)
@@ -50,7 +49,7 @@ class OptimizationPipeline():
         self.host =  args.host
         self.mongo_port = args.mongo_port
         self.postgres_port = args.postgres_port
-        self.data_spaces  = build_data_spaces(get_data_space, args.data)
+        self.data_spaces  = build_data_spaces(args.data_module, args.data_cfg)
         self.model = args.model
         self.output_dir = get_output_directory(args.output)
         self.debug = args.debug

@@ -1,3 +1,5 @@
+import importlib
+
 def verify_data_spaces(data_spaces):
     def check_inner(space):
         assert space.keys() == {'name', 'train', 'test'}
@@ -15,12 +17,8 @@ def verify_data_spaces(data_spaces):
         for space in data_space['readout']:
             check_inner(space)
 
-def build_data_spaces(func, cfg_file):
-    if not isinstance(func, list):
-        func = [func]
-    
-    data_spaces = []
-    for f in func:
-        data_spaces.extend(f(cfg_file))
+def build_data_spaces(module_name, cfg_file):
+    module = importlib.import_module(module_name, package=None)
+    data_spaces = module.get_data_spaces(cfg_file)
     verify_data_spaces(data_spaces)
     return data_spaces
