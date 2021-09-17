@@ -21,7 +21,8 @@ def arg_parse():
     parser.add_argument('-O', '--output', default='/home/{}/physopt/',
             help='output directory', type=str)
     parser.add_argument('--data_module', required=True, type=str)
-    parser.add_argument('--data_cfg', required=True, type=str)
+    parser.add_argument('--data_func', default='get_data_spaces', type=str)
+    parser.add_argument('--data_cfg', type=str)
     parser.add_argument('--host', default='localhost', help='mongo/postgres host', type=str)
     parser.add_argument('--mongo_port', default='25555', help='mongo port', type=str)
     parser.add_argument('--postgres_port', default='5432', help='postgres port', type=str)
@@ -49,7 +50,7 @@ class OptimizationPipeline():
         self.host =  args.host
         self.mongo_port = args.mongo_port
         self.postgres_port = args.postgres_port
-        self.data_spaces  = build_data_spaces(args.data_module, args.data_cfg)
+        self.data_spaces  = build_data_spaces(args.data_module, args.data_func, args.data_cfg)
         self.model = args.model
         self.output_dir = get_output_directory(args.output)
         self.debug = args.debug

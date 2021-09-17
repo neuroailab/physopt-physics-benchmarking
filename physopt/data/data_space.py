@@ -17,8 +17,12 @@ def verify_data_spaces(data_spaces):
         for space in data_space['readout']:
             check_inner(space)
 
-def build_data_spaces(module_name, cfg_file):
+def build_data_spaces(module_name, func_name='get_data_spaces', cfg_file=None):
     module = importlib.import_module(module_name, package=None)
-    data_spaces = module.get_data_spaces(cfg_file)
+    func = getattr(module, func_name)
+    if cfg_file is not None:
+        data_spaces = func(cfg_file) 
+    else:
+        data_spaces = func()
     verify_data_spaces(data_spaces)
     return data_spaces
