@@ -5,6 +5,8 @@ import pickle
 import logging
 import joblib
 import dill
+import csv
+import mlflow
 
 from physopt.metrics.feature_extractor import FeatureExtractor
 from physopt.metrics.readout_model import IdentityModel
@@ -160,6 +162,7 @@ def run_metrics(
         logging.info('Training readout model and saving to: {}'.format(readout_model_file))
         metric_model.fit(iter(train_data_balanced))
         joblib.dump(metric_model, readout_model_file)
+    mlflow.log_artifact(readout_model_file, artifact_path='readout_models')
 
     train_acc = metric_model.score(iter(train_data_balanced))
     test_acc = metric_model.score(iter(test_data_balanced))
@@ -172,48 +175,46 @@ def run_metrics(
         'stimulus_name': stimulus_names, 
         'labels': labels,
         'protocol': protocol,
+        'seed': seed,
         }
     if grid_search_params is not None:
         result['best_params'] = metric_model._readout_model.best_params_
 
     return result
 
-def write_metrics(
-        metrics_file,
-        seed,
-        train_name,
-        train_feature_file,
-        test_feature_file,
-        model_dir,
-        results,
-        ):
-    data = {
-            'seed': seed,
-            'train_name': train_name,
-            'train_feature_file': train_feature_file,
-            'test_feature_file': test_feature_file,
-            'model_dir': model_dir,
-            'results': results,
-            }
-    with open(metrics_file, 'wb') as f:
-        pickle.dump(data, f)
-    print('Metrics results written to %s' % metrics_file)
-    return
+def write_metrics(results, metrics_file):
+    output = []
+    count = 0
+    processed = set()
+    for i, (stim_name, test_proba, label) in enumerate(zip(results['stimulus_name'], results['test_proba'], results['labels'])):
+        if stim_name in processed:
+            print('Duplicated item: {}'.format(stim_name))
+        else:
+            count += 1
+            processed.add(stim_name)
+            data = {
+                'Model': results['model_name'],
+                'Readout Train Data': results['readout_name'],
+                'Readout Test Data': results['readout_name'],
+                'Train Accuracy': results['train_accuracy'],
+                'Test Accuracy': results['test_accuracy'],
+                'Readout Type': results['protocol'],
+                'Predicted Prob_false': test_proba[0],
+                'Predicted Prob_true': test_proba[1],
+                'Predicted Outcome': np.argmax(test_proba),
+                'Actual Outcome': label,
+                'Stimulus Name': stim_name,
+                }
+            # TODO: add remaining model attribute fields
+            output.append(data)
+    print('Model: {}, Train: {}, Test: {}, Type: {}, Len: {}'.format(
+        results['model_name'], results['pretraining_name'], results['readout_name'], results['protocol'], count))
 
-if __name__ == '__main__':
-    seed = 0
-    train_data = {'name': 'collision',
-            'data': ['/mnt/fs4/hsiaoyut/tdw_physics/data/collision/tfrecords/train']
-            }
-    feat_data = (
-        {'name': 'train_collision',
-            'data': ['/mnt/fs4/hsiaoyut/tdw_physics/data/collision/tfrecords/train_readout']
-            },
-        {'name': 'test_collision',
-            'data': ['/mnt/fs4/hsiaoyut/tdw_physics/data/collision/tfrecords/valid_readout']
-            }
-        )
-    output_dir = '/mnt/fs1/mrowca/dummy1/SVG/'
-    exp_key = '0_collision_test_collision_metrics'
-    objective = Objective(exp_key, seed, train_data, feat_data, output_dir, False)
-    objective()
+    file_exists = os.path.isfile(metrics_file) # check before opening file
+    with open(metrics_file, 'a', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames = list(output[0].keys()))
+        if not file_exists: # only write header once - if file doesn't exist yet
+            writer.writeheader()
+        writer.writerows(output)
+
+    logging.info('%d results written to %s' % (len(output), metrics_file))

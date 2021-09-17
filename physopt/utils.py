@@ -15,7 +15,7 @@ from physopt.models.config import get_cfg
 
 class PhysOptObjective():
     def __init__(self,
-            model,
+            model_name,
             seed,
             pretraining_space,
             readout_space,
@@ -26,7 +26,7 @@ class PhysOptObjective():
             port,
             dbname,
             ):
-        self.model = model
+        self.model_name = model_name
         self.seed = seed
         self.pretraining_space = pretraining_space
         self.pretraining_name = pretraining_space['name']
@@ -35,7 +35,7 @@ class PhysOptObjective():
         self.output_dir = output_dir
         self.phase = phase
         self.debug = debug
-        self.model_dir = get_model_dir(self.output_dir, self.model, self.pretraining_name, self.seed, self.debug)
+        self.model_dir = get_model_dir(self.output_dir, self.model_name, self.pretraining_name, self.seed, self.debug)
         self.model_file = os.path.join(self.model_dir, 'model.pt')
         self.train_feature_file = get_feature_file(self.model_dir, self.readout_name, 'train') # TODO: consolidate into feature_dir?
         self.test_feature_file = get_feature_file(self.model_dir, self.readout_name, 'test')
@@ -127,7 +127,7 @@ class PhysOptObjective():
         return cfg
 
     def get_experiment_name(self):
-        return self.model
+        return self.model_name
 
     def get_run_name(self):
         to_join = [self.phase, str(self.seed), self.pretraining_name]
@@ -162,7 +162,7 @@ class PhysOptObjective():
         ret = {
                 'loss': 0.0,
                 'status': STATUS_OK,
-                'model': self.model,
+                'model': self.model_name,
                 'seed': self.seed,
                 'output_dir': self.output_dir,
                 'phase': self.phase,
@@ -215,32 +215,36 @@ class PhysOptObjective():
             output = self.extract_feat_step(data)
             extracted_feats.append(output)
         pickle.dump(extracted_feats, open(feature_file, 'wb')) 
-        print('Saved features to {}'.format(feature_file))
+        logging.info('Saved features to {}'.format(feature_file))
 
     def compute_metrics(self):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
+        if os.path.exists(self.metrics_file): # rename old results, just in case
+            dst = os.path.join(os.path.dirname(self.metrics_file), '.metric_results.csv')
+            os.rename(self.metrics_file, dst)
         protocols = ['observed', 'simulated', 'input']
-        results = []
         for protocol in protocols:
-            result = run_metrics(
+            results = run_metrics(
                 self.seed,
                 self.train_feature_file,
                 self.test_feature_file, 
                 protocol, 
                 grid_search_params=None if self.debug else {'C': np.logspace(-8, 8, 17)},
                 )
-            result = {'result': result}
-            results.append(result)
+            results.update({
+                'model_name': self.model_name,
+                'pretraining_name': self.pretraining_name,
+                'readout_name': self.readout_name,
+                })
             mlflow.log_metrics({
-                'train_acc_'+protocol: result['result']['train_accuracy'], 
-                'test_acc_'+protocol: result['result']['test_accuracy']
-                }) # TODO: cleanup and log other info too
+                'train_acc_'+protocol: results['train_accuracy'], 
+                'test_acc_'+protocol: results['test_accuracy'],
+                })
             mlflow.log_artifact(self.train_feature_file, artifact_path='features')
             mlflow.log_artifact(self.test_feature_file, artifact_path='features')
 
             # Write every iteration to be safe
-            write_metrics(self.metrics_file, self.seed, self.pretraining_name,
-                    self.train_feature_file, self.test_feature_file, self.model_dir, results)
+            write_metrics(results, self.metrics_file)
             mlflow.log_artifact(self.metrics_file)
 
 def get_model_dir(output_dir, model_name, train_name, seed, debug=False):
@@ -259,10 +263,9 @@ def get_feature_file(model_dir, test_name, mode):
         _create_dir(feature_file)
         return feature_file
 
-
 def get_metrics_file(model_dir, test_name):
     if test_name is not None:
-        metrics_file = os.path.join(model_dir, 'features', test_name, 'metrics_results.pkl')
+        metrics_file = os.path.join(model_dir, 'features', test_name, 'metrics_results.csv')
         _create_dir(metrics_file)
         return metrics_file
 
@@ -275,20 +278,3 @@ def _create_dir(path): # creates dir from path or filename, if doesn't exist
         except OSError as exc: # Guard against race condition
             if exc.errno != errno.EEXIST:
                 raise
-
-if __name__ == '__main__':
-    # ---PhysOptObjective tests---
-
-    # ------dir and files---------
-    output_dir = '/mnt/fs4/eliwang/'
-    model_dir = get_model_dir(output_dir, 'train_name', 0)
-    assert os.path.exists(model_dir)
-    print('Model dir: {}'.format(model_dir))
-
-    feature_file = get_feature_file(model_dir, 'test_name')
-    assert os.path.exists(os.path.dirname(feature_file))
-    print('Feature file: {}'.format(feature_file))
-
-    metrics_file = get_metrics_file(model_dir, 'test_name')
-    assert os.path.exists(os.path.dirname(metrics_file))
-    print('Metrics file: {}'.format(metrics_file))
