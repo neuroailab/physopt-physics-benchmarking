@@ -23,13 +23,12 @@ def arg_parse():
             help='Check "physopt/models/__init__.py" for options', type=str)
     parser.add_argument('-O', '--output', default='/home/{}/physopt/',
             help='output directory', type=str)
-    parser.add_argument('--host', default='localhost', help='mongo host', type=str)
-    parser.add_argument('--port', default='25555', help='mongo port', type=str)
-    parser.add_argument('--database', default='physopt', help='mongo database name', type=str)
+    parser.add_argument('--host', default='localhost', help='mongo/postgres host', type=str)
+    parser.add_argument('--mongo_port', default='25555', help='mongo port', type=str)
+    parser.add_argument('--postgres_port', default='5432', help='postgres port', type=str)
+    parser.add_argument('--dbname', default='local', help='mongodb, postgres database and s3 bucket name, if not "local"', type=str)
     parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
     parser.add_argument('--debug', action='store_true', help='debug mode')
-    parser.add_argument('--mongo', action='store_true', help='whether to use mongo trials')
-    parser.add_argument('-S', '--store_name', default='local', help='mlflow store name, if not "local" uses postgres and S3 backend', type=str)
     return parser.parse_args()
 
 def get_output_directory(output_dir):
@@ -47,13 +46,14 @@ def get_exp_key(model, seed, dynamics_name, readout_name, suffix=''):
 class OptimizationPipeline():
     def __init__(self, args):
         self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
+        self.dbname = args.dbname
+        self.host =  args.host
+        self.mongo_port = args.mongo_port
+        self.postgres_port = args.postgres_port
         self.data_spaces  = build_data_spaces(get_data_space, args.data)
         self.model = args.model
         self.output_dir = get_output_directory(args.output)
-        self.mongo_path = get_mongo_path(args.host, args.port, args.database)
         self.debug = args.debug
-        self.mongo = args.mongo
-        self.store_name = args.store_name
 
     def __del__(self):
         self.close()
@@ -66,14 +66,15 @@ class OptimizationPipeline():
                 readout_name = 'none' if readout_space is None else readout_space['name']
                 exp_key = get_exp_key(self.model, seed, dynamics_space['name'], readout_name, phase)
                 print("Experiment: {0}".format(exp_key))
-                if self.mongo:
-                    trials = MongoTrials(self.mongo_path, exp_key)
-                else:
+                if self.dbname == 'local' or self.debug: # don't use MongoTrials when debugging
                     trials = Trials()
+                else:
+                    mongo_path = get_mongo_path(self.host, self.mongo_port, self.dbname)
+                    trials = MongoTrials(mongo_path, exp_key)
                 Objective = get_Objective(self.model)
                 objective = Objective(
                     self.model, seed, dynamics_space, readout_space, 
-                    self.output_dir, phase, self.debug, self.store_name,
+                    self.output_dir, phase, self.debug, self.host, self.postgres_port, self.dbname,
                     )
 
                 try:
@@ -83,7 +84,7 @@ class OptimizationPipeline():
                         algo=suggest, max_evals=1e5,
                         )
                 except ValueError as e:
-                    print("Job died: {0}/{1}".format(self.mongo_path, exp_key))
+                    print("Job died: {0}".format(exp_key))
                     traceback.print_exc()
                 return 
 
