@@ -9,10 +9,10 @@ def verify_data_spaces(data_spaces):
         
     assert isinstance(data_spaces, list)
     for data_space in data_spaces:
-        assert data_space.keys() == {'seed', 'dynamics', 'readout'}
+        assert data_space.keys() == {'seed', 'pretraining', 'readout'}
         assert isinstance(data_space['seed'], int)
-        assert isinstance(data_space['dynamics'], dict)
-        check_inner(data_space['dynamics'])
+        assert isinstance(data_space['pretraining'], dict)
+        check_inner(data_space['pretraining'])
         assert isinstance(data_space['readout'], list)
         for space in data_space['readout']:
             check_inner(space)

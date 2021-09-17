@@ -39,8 +39,8 @@ def get_mongo_path(host, port, database):
     return 'mongo://{0}:{1}/{2}/jobs'.format(host, port, database)
 
 
-def get_exp_key(model, seed, dynamics_name, readout_name, suffix=''):
-    return '{0}_{1}_{2}_{3}_{4}'.format(model, seed, dynamics_name, readout_name, suffix)
+def get_exp_key(model, seed, pretraining_name, readout_name, suffix=''):
+    return '{0}_{1}_{2}_{3}_{4}'.format(model, seed, pretraining_name, readout_name, suffix)
 
 class OptimizationPipeline():
     def __init__(self, args):
@@ -58,12 +58,12 @@ class OptimizationPipeline():
         self.close()
 
     def run(self):
-        def run_once(data_space): # data_space: list of space tuples, first corresponds to dynamics training and the rest are readout
-            seed, dynamics_space, readout_spaces = (data_space['seed'], data_space['dynamics'], data_space['readout'])
+        def run_once(data_space): # data_space: list of space tuples, first corresponds to dynamics pretraining and the rest are readout
+            seed, pretraining_space, readout_spaces = (data_space['seed'], data_space['pretraining'], data_space['readout'])
             def run_inner(readout_space):
-                phase  = 'dynamics' if readout_space is None else 'readout'
+                phase  = 'pretraining' if readout_space is None else 'readout'
                 readout_name = 'none' if readout_space is None else readout_space['name']
-                exp_key = get_exp_key(self.model, seed, dynamics_space['name'], readout_name, phase)
+                exp_key = get_exp_key(self.model, seed, pretraining_space['name'], readout_name, phase)
                 print("Experiment: {0}".format(exp_key))
                 if self.dbname == 'local' or self.debug: # don't use MongoTrials when debugging
                     trials = Trials()
@@ -72,7 +72,7 @@ class OptimizationPipeline():
                     trials = MongoTrials(mongo_path, exp_key)
                 Objective = get_Objective(self.model)
                 objective = Objective(
-                    self.model, seed, dynamics_space, readout_space, 
+                    self.model, seed, pretraining_space, readout_space, 
                     self.output_dir, phase, self.debug, self.host, self.postgres_port, self.dbname,
                     )
 
@@ -87,14 +87,15 @@ class OptimizationPipeline():
                     traceback.print_exc()
                 return 
 
-            # Train dynamics model
+            # Pretraining Phase
             run_inner(None)
 
+            # Readout Phase
             for readout_space in readout_spaces:
                 run_inner(readout_space)
             # TODO: Evaluate readout in parallel, doesn't work yet
             # pool = Pool(len(readout_spaces)) # setup pool to do readouts across scenarios in parallel
-            # pool.map(run_inner, itertools.product([seed], [dynamics_space], readout_spaces))
+            # pool.map(run_inner, itertools.product([seed], [pretraining_space], readout_spaces))
             # pool.close()
             # pool.join()
 

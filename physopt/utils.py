@@ -17,7 +17,7 @@ class PhysOptObjective():
     def __init__(self,
             model,
             seed,
-            dynamics_space,
+            pretraining_space,
             readout_space,
             output_dir,
             phase,
@@ -28,14 +28,14 @@ class PhysOptObjective():
             ):
         self.model = model
         self.seed = seed
-        self.dynamics_space = dynamics_space
-        self.dynamics_name = dynamics_space['name']
+        self.pretraining_space = pretraining_space
+        self.pretraining_name = pretraining_space['name']
         self.readout_space = readout_space
         self.readout_name = None if readout_space is None else readout_space['name']
         self.output_dir = output_dir
         self.phase = phase
         self.debug = debug
-        self.model_dir = get_model_dir(self.output_dir, self.model, self.dynamics_name, self.seed, self.debug)
+        self.model_dir = get_model_dir(self.output_dir, self.model, self.pretraining_name, self.seed, self.debug)
         self.model_file = os.path.join(self.model_dir, 'model.pt')
         self.train_feature_file = get_feature_file(self.model_dir, self.readout_name, 'train') # TODO: consolidate into feature_dir?
         self.test_feature_file = get_feature_file(self.model_dir, self.readout_name, 'test')
@@ -130,7 +130,7 @@ class PhysOptObjective():
         return self.model
 
     def get_run_name(self):
-        to_join = [self.phase, str(self.seed), self.dynamics_name]
+        to_join = [self.phase, str(self.seed), self.pretraining_name]
         if self.readout_name is not None:
             to_join.append(self.readout_name)
         return '{' + '}_{'.join(to_join) + '}'
@@ -145,12 +145,12 @@ class PhysOptObjective():
         mlflow.log_params({
             'seed': self.seed,
             })
-        mlflow.log_params({f'dynamics_{k}':v for k,v in self.dynamics_space.items()})
+        mlflow.log_params({f'pretraining_{k}':v for k,v in self.pretraining_space.items()})
         if self.readout_space is not None:
             mlflow.log_params({f'readout_{k}':v for k,v in self.readout_space.items()})
 
-        if self.phase == 'dynamics':  # run model training
-            self.dynamics()
+        if self.phase == 'pretraining':  # run model training
+            self.pretraining()
         elif self.phase == 'readout':# extract features, then train and test readout
             self.readout() 
         else:
@@ -171,8 +171,8 @@ class PhysOptObjective():
 
         return ret
 
-    def dynamics(self):
-        trainloader = self.get_dataloader(self.dynamics_space['train'], phase='dynamics', train=True, shuffle=True)
+    def pretraining(self):
+        trainloader = self.get_dataloader(self.pretraining_space['train'], phase='pretraining', train=True, shuffle=True)
         best_loss = 1e9
         step = 0
         for epoch in range(self.cfg.EPOCHS): 
@@ -184,7 +184,7 @@ class PhysOptObjective():
                 if (step % self.cfg.LOG_FREQ) == 0:
                     mlflow.log_metric(key='train_loss', value=loss, step=step)
                 if (step % self.cfg.VAL_FREQ) == 0:
-                    valloader = self.get_dataloader(self.dynamics_space['test'], phase='dynamics', train=False, shuffle=False)
+                    valloader = self.get_dataloader(self.pretraining_space['test'], phase='pretraining', train=False, shuffle=False)
                     val_results = []
                     for i, data in enumerate(valloader):
                         val_res = self.val_step(data)
@@ -239,7 +239,7 @@ class PhysOptObjective():
             mlflow.log_artifact(self.test_feature_file, artifact_path='features')
 
             # Write every iteration to be safe
-            write_metrics(self.metrics_file, self.seed, self.dynamics_name,
+            write_metrics(self.metrics_file, self.seed, self.pretraining_name,
                     self.train_feature_file, self.test_feature_file, self.model_dir, results)
             mlflow.log_artifact(self.metrics_file)
 
