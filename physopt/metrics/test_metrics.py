@@ -183,38 +183,11 @@ def run_metrics(
     return result
 
 def write_metrics(results, metrics_file):
-    output = []
-    count = 0
-    processed = set()
-    for i, (stim_name, test_proba, label) in enumerate(zip(results['stimulus_name'], results['test_proba'], results['labels'])):
-        if stim_name in processed:
-            print('Duplicated item: {}'.format(stim_name))
-        else:
-            count += 1
-            processed.add(stim_name)
-            data = {
-                'Model': results['model_name'],
-                'Readout Train Data': results['readout_name'],
-                'Readout Test Data': results['readout_name'],
-                'Train Accuracy': results['train_accuracy'],
-                'Test Accuracy': results['test_accuracy'],
-                'Readout Type': results['protocol'],
-                'Predicted Prob_false': test_proba[0],
-                'Predicted Prob_true': test_proba[1],
-                'Predicted Outcome': np.argmax(test_proba),
-                'Actual Outcome': label,
-                'Stimulus Name': stim_name,
-                }
-            # TODO: add remaining model attribute fields
-            output.append(data)
-    print('Model: {}, Train: {}, Test: {}, Type: {}, Len: {}'.format(
-        results['model_name'], results['pretraining_name'], results['readout_name'], results['protocol'], count))
-
     file_exists = os.path.isfile(metrics_file) # check before opening file
     with open(metrics_file, 'a', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames = list(output[0].keys()))
+        writer = csv.DictWriter(f, fieldnames = list(results[0].keys()))
         if not file_exists: # only write header once - if file doesn't exist yet
             writer.writeheader()
-        writer.writerows(output)
+        writer.writerows(results)
 
-    logging.info('%d results written to %s' % (len(output), metrics_file))
+    logging.info('%d results written to %s' % (len(results), metrics_file))

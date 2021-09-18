@@ -244,8 +244,30 @@ class PhysOptObjective():
             mlflow.log_artifact(self.test_feature_file, artifact_path='features')
 
             # Write every iteration to be safe
-            write_metrics(results, self.metrics_file)
+            processed_results = self.process_results(results)
+            write_metrics(processed_results, self.metrics_file)
             mlflow.log_artifact(self.metrics_file)
+
+    @staticmethod
+    def process_results(results):
+        output = []
+        for i, (stim_name, test_proba, label) in enumerate(zip(results['stimulus_name'], results['test_proba'], results['labels'])):
+            data = {
+                'Model Name': results['model_name'],
+                'Pretraining Name': results['pretraining_name'],
+                'Readout Name': results['readout_name'],
+                'Train Accuracy': results['train_accuracy'],
+                'Test Accuracy': results['test_accuracy'],
+                'Readout Protocol': results['protocol'],
+                'Predicted Prob_false': test_proba[0],
+                'Predicted Prob_true': test_proba[1],
+                'Predicted Outcome': np.argmax(test_proba),
+                'Actual Outcome': label,
+                'Stimulus Name': stim_name,
+                'Seed': results['seed'],
+                }
+            output.append(data)
+        return output
 
 def get_model_dir(output_dir, model_name, train_name, seed, debug=False):
     assert train_name is not None
