@@ -1,4 +1,5 @@
 import os
+import abc
 import logging
 import errno
 import traceback
@@ -13,9 +14,9 @@ from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.metrics.test_metrics import run_metrics, write_metrics
 from physopt.models.config import get_cfg
 
-class PhysOptObjective():
-    def __init__(self,
-            model_name,
+class PhysOptObjective(metaclass=abc.ABCMeta):
+    def __init__(
+            self,
             seed,
             pretraining_space,
             readout_space,
@@ -26,7 +27,6 @@ class PhysOptObjective():
             port,
             dbname,
             ):
-        self.model_name = model_name
         self.seed = seed
         self.pretraining_space = pretraining_space
         self.pretraining_name = pretraining_space['name']
@@ -100,24 +100,36 @@ class PhysOptObjective():
             level=logging.DEBUG if self.debug else logging.INFO,
             )
 
+    @property
+    @abc.abstractmethod
+    def model_name(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def get_model(self):
         raise NotImplementedError
 
+    @abc.abstractmethod
     def load_model(self):
         raise NotImplementedError
 
+    @abc.abstractmethod
     def save_model(self, step):
         raise NotImplementedError
 
+    @abc.abstractmethod
     def train_step(self, data):
         raise NotImplementedError
 
+    @abc.abstractmethod
     def val_step(self, data):
         raise NotImplementedError
 
+    @abc.abstractmethod
     def extract_feat_step(self, data):
         raise NotImplementedError
 
+    @abc.abstractmethod
     def get_dataloader(self, datapaths, phase, train, shuffle): # returns object that can be iterated over for batches of data
         raise NotImplementedError
 

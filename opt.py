@@ -4,10 +4,10 @@ import itertools
 import traceback
 from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
+from importlib import import_module
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
 
-from physopt.models import get_Objective
 from physopt.data import build_data_spaces
 from physopt.search.grid_search import suggest
 
@@ -16,13 +16,13 @@ NO_PARAM_SPACE = hp.choice('dummy', [0])
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
 
-    parser.add_argument('-M', '--model', required=True,
-            help='Check "physopt/models/__init__.py" for options', type=str)
     parser.add_argument('-O', '--output', default='/home/{}/physopt/',
             help='output directory', type=str)
     parser.add_argument('--data_module', required=True, type=str)
     parser.add_argument('--data_func', default='get_data_spaces', type=str)
     parser.add_argument('--data_cfg', type=str)
+    parser.add_argument('--objective_module', required=True, type=str)
+    parser.add_argument('--objective_name', default='Objective', type=str)
     parser.add_argument('--host', default='localhost', help='mongo/postgres host', type=str)
     parser.add_argument('--mongo_port', default='25555', help='mongo port', type=str)
     parser.add_argument('--postgres_port', default='5432', help='postgres port', type=str)
@@ -51,9 +51,9 @@ class OptimizationPipeline():
         self.mongo_port = args.mongo_port
         self.postgres_port = args.postgres_port
         self.data_spaces  = build_data_spaces(args.data_module, args.data_func, args.data_cfg)
-        self.model = args.model
         self.output_dir = get_output_directory(args.output)
         self.debug = args.debug
+        self.Objective = getattr(import_module(args.objective_module), args.objective_name)
 
     def __del__(self):
         self.close()
@@ -64,18 +64,19 @@ class OptimizationPipeline():
             def run_inner(readout_space):
                 phase  = 'pretraining' if readout_space is None else 'readout'
                 readout_name = 'none' if readout_space is None else readout_space['name']
-                exp_key = get_exp_key(self.model, seed, pretraining_space['name'], readout_name, phase)
+
+                objective = self.Objective(
+                    seed, pretraining_space, readout_space, 
+                    self.output_dir, phase, self.debug, self.host, self.postgres_port, self.dbname,
+                    )
+
+                exp_key = get_exp_key(objective.model_name, seed, pretraining_space['name'], readout_name, phase)
                 print("Experiment: {0}".format(exp_key))
                 if self.dbname == 'local' or self.debug: # don't use MongoTrials when debugging
                     trials = Trials()
                 else:
                     mongo_path = get_mongo_path(self.host, self.mongo_port, self.dbname)
                     trials = MongoTrials(mongo_path, exp_key)
-                Objective = get_Objective(self.model)
-                objective = Objective(
-                    self.model, seed, pretraining_space, readout_space, 
-                    self.output_dir, phase, self.debug, self.host, self.postgres_port, self.dbname,
-                    )
 
                 try:
                     fmin(
