@@ -18,9 +18,41 @@ The goal of this repository is to train and evaluate different physics predictio
      
 
 ## How to Install
+**Recommended**: Create a virtualenv with `virtualenv -p python3 .venv` and activate it using `source .venv/bin/activate`. 
 
 Run `pip install -e .`
 
+To use MongoDB for `hyperopt`, create a `mongodb.conf` file with the following:
+
+```
+net:
+    # MongoDB server listening port
+    port: [MONGO_PORT]
+storage:
+    # Data store directory
+    dbPath: "/[PATH_TO_DB]"
+    mmapv1:
+        # Reduce data files size and journal files size
+        smallFiles: true
+systemLog:
+    # Write logs to log file
+    destination: file
+    path: "/[PATH_TO_DB]/logs/mongodb.log"
+```
+
+Then run `sudo service mongodb start` and `sudo mongod -f /[PATH_TO_CONF]/mongodb.conf&` to start the MongoDB server.
+
+
+In order to use S3 as the MLflow artifact store, you'll need to add your AWS credentials to `~/.aws/credentials`. See [this link](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) for more information about the AWS credential file.
+
+In order to use PostgreSQL as the MLflow backend store, you'll need to install postgresql with `sudo apt-get install postgresql`, if it's not installed already -- you can check with `psql --version`. After it's installed, connect to the database server using `sudo -u postgres psql`. You should see the prompt start with `postgres=#`. Next, create a user with username and password "physopt" using `CREATE USER physopt WITH PASSWORD 'physopt' CREATEDB;`. Verify that the user was created successfully with `\du`. 
+
+You can change the port by changing the setting in the `postgresql.conf` file, whose location can be shown using `SHOW config_file;`. After you change `postgresql.conf` make sure to restart the server using `sudo service postgresql restart`. You can check what port is being used with `\conninfo` after connecting to the server.
+
+
+To view the MLflow tracking UI run `mlflow ui`. If you're using the postgres backend add `--backend-store-uri postgresql://<username>:<password>@<host>:<port>/<database>`.
+
+If the machine running the MongoDB and PostgreSQL servers is not publically visible, you'll need to setup the necessary ssh tunnels.
 
 ## How To Run
 
