@@ -3,8 +3,6 @@ import numpy as np
 import scipy
 import pickle
 import logging
-import joblib
-import dill
 import csv
 import mlflow
 
@@ -154,14 +152,14 @@ def run_metrics(
     metric_model = BatchMetricModel(feature_extractor, readout_model, accuracy, label_fn, grid_search_params)
 
     # TODO: clean up this part
-    readout_model_file = os.path.join(os.path.dirname(train_feature_file), protocol+'_readout_model.joblib')
+    readout_model_file = os.path.join(os.path.dirname(train_feature_file), protocol+'_readout_model.pkl')
     if os.path.exists(readout_model_file):
         logging.info('Loading readout model from: {}'.format(readout_model_file))
-        metric_model = joblib.load(readout_model_file)
+        metric_model = pickle.load(readout_model_file)
     else:
         logging.info('Training readout model and saving to: {}'.format(readout_model_file))
         metric_model.fit(iter(train_data_balanced))
-        joblib.dump(metric_model, readout_model_file)
+        pickle.dump(metric_model, open(readout_model_file, 'wb'))
     mlflow.log_artifact(readout_model_file, artifact_path='readout_models')
 
     train_acc = metric_model.score(iter(train_data_balanced))
