@@ -53,6 +53,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def setup_mlflow(self):
         if self.dbname  == 'local':
+            mlflow.set_tracking_uri(os.path.join(self.output_dir, 'mlruns'))
             artifact_location = None
         else:
             # create postgres db, and use for backend store
@@ -85,6 +86,11 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             s3 = boto3.resource('s3')
             s3.create_bucket(Bucket=self.dbname)
             artifact_location =  's3://{}'.format(self.dbname) # TODO: add run name to make it more human-readable?
+
+        if mlflow.get_experiment_by_name(self.experiment_name) is None: # create experiment if doesn't exist
+            mlflow.create_experiment(self.experiment_name, artifact_location=artifact_location)
+        else: # uses old experiment settings (e.g. artifact store location)
+            logging.info('Experiment with name "{}" already exists'.format(self.experiment_name))
 
     def setup_logger(self):
         timestr = time.strftime("%Y%m%d-%H%M%S")
