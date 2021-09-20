@@ -25,8 +25,9 @@ def arg_parse():
     parser.add_argument('--objective_name', default='Objective', type=str)
     parser.add_argument('--host', default='localhost', help='mongo/postgres host', type=str)
     parser.add_argument('--mongo_port', default='25555', help='mongo port', type=str)
+    parser.add_argument('--mongo_dbname', default='local', help='mongodb database name, if not "local"', type=str)
     parser.add_argument('--postgres_port', default='5432', help='postgres port', type=str)
-    parser.add_argument('--dbname', default='local', help='mongodb, postgres database and s3 bucket name, if not "local"', type=str)
+    parser.add_argument('--postgres_dbname', default='local', help='postgres database and s3 bucket name, if not "local"', type=str)
     parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
     parser.add_argument('--debug', action='store_true', help='debug mode')
     return parser.parse_args()
@@ -46,7 +47,8 @@ def get_exp_key(model, seed, pretraining_name, readout_name, suffix=''):
 class OptimizationPipeline():
     def __init__(self, args):
         self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
-        self.dbname = args.dbname
+        self.mongo_dbname = args.mongo_dbname
+        self.postgres_dbname = args.postgres_dbname
         self.host =  args.host
         self.mongo_port = args.mongo_port
         self.postgres_port = args.postgres_port
@@ -67,15 +69,15 @@ class OptimizationPipeline():
 
                 objective = self.Objective(
                     seed, pretraining_space, readout_space, 
-                    self.output_dir, phase, self.debug, self.host, self.postgres_port, self.dbname,
+                    self.output_dir, phase, self.debug, self.host, self.postgres_port, self.postgres_dbname,
                     )
 
                 exp_key = get_exp_key(objective.model_name, seed, pretraining_space['name'], readout_name, phase)
                 print("Experiment: {0}".format(exp_key))
-                if self.dbname == 'local' or self.debug: # don't use MongoTrials when debugging
+                if self.mongo_dbname == 'local' or self.debug: # don't use MongoTrials when debugging
                     trials = Trials()
                 else:
-                    mongo_path = get_mongo_path(self.host, self.mongo_port, self.dbname)
+                    mongo_path = get_mongo_path(self.host, self.mongo_port, self.mongo_dbname)
                     trials = MongoTrials(mongo_path, exp_key)
 
                 try:
