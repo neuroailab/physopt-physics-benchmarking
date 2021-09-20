@@ -13,5 +13,6 @@ setup(
         'boto3',
         'sklearn',
         'joblib',
+        'pymongo',
     ]
 )
