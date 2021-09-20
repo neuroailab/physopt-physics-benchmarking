@@ -16,7 +16,7 @@ NO_PARAM_SPACE = hp.choice('dummy', [0])
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
 
-    parser.add_argument('-O', '--output', default='/home/{}/physopt/',
+    parser.add_argument('--output', default='/home/{}/physopt/',
             help='output directory', type=str)
     parser.add_argument('--data_module', required=True, type=str)
     parser.add_argument('--data_func', default='get_data_spaces', type=str)
