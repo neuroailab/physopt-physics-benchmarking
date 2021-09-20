@@ -12,5 +12,6 @@ setup(
         'psycopg2-binary',
         'boto3',
         'sklearn',
+        'joblib',
     ]
 )

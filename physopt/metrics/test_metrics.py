@@ -5,6 +5,8 @@ import pickle
 import logging
 import csv
 import mlflow
+import joblib
+import dill
 
 from physopt.metrics.feature_extractor import FeatureExtractor
 from physopt.metrics.readout_model import IdentityModel
@@ -152,14 +154,14 @@ def run_metrics(
     metric_model = BatchMetricModel(feature_extractor, readout_model, accuracy, label_fn, grid_search_params)
 
     # TODO: clean up this part
-    readout_model_file = os.path.join(os.path.dirname(train_feature_file), protocol+'_readout_model.pkl')
+    readout_model_file = os.path.join(os.path.dirname(train_feature_file), protocol+'_readout_model.joblib')
     if os.path.exists(readout_model_file):
         logging.info('Loading readout model from: {}'.format(readout_model_file))
         metric_model = pickle.load(readout_model_file)
     else:
         logging.info('Training readout model and saving to: {}'.format(readout_model_file))
         metric_model.fit(iter(train_data_balanced))
-        pickle.dump(metric_model, open(readout_model_file, 'wb'))
+        joblib.dump(metric_model, readout_model_file)
     mlflow.log_artifact(readout_model_file, artifact_path='readout_models')
 
     train_acc = metric_model.score(iter(train_data_balanced))
