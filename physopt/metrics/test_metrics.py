@@ -46,25 +46,27 @@ def subselect(data, time_steps):
     assert time_steps.start < len(data), (time_steps.start, len(data))
     return data[time_steps]
 
+def observed_model_fn(data):
+    states = np.concatenate([data['input_states'], data['observed_states']], axis=0)
+    states = np.reshape(states, [states.shape[0], -1])
+    return states
+
+def simulated_model_fn(data):
+    states = np.concatenate([data['input_states'], data['simulated_states']], axis=0)
+    states = np.reshape(states, [states.shape[0], -1])
+    return states
+
+def input_model_fn(data):
+    states = data['input_states']
+    states = np.reshape(states, [states.shape[0], -1])
+    return states
 
 def build_model(protocol):
     if protocol == 'observed':
-        def observed_model_fn(data):
-            states = np.concatenate([data['input_states'], data['observed_states']], axis=0)
-            states = np.reshape(states, [states.shape[0], -1])
-            return states
         return observed_model_fn
     elif protocol == 'simulated':
-        def simulated_model_fn(data):
-            states = np.concatenate([data['input_states'], data['simulated_states']], axis=0)
-            states = np.reshape(states, [states.shape[0], -1])
-            return states
         return simulated_model_fn
     elif protocol == 'input':
-        def input_model_fn(data):
-            states = data['input_states']
-            states = np.reshape(states, [states.shape[0], -1])
-            return states
         return input_model_fn
     else:
         raise NotImplementedError('Unknown model function!')

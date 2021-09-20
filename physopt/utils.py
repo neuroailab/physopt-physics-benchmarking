@@ -41,15 +41,24 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.test_feature_file = get_feature_file(self.model_dir, self.readout_name, 'test')
         self.metrics_file = get_metrics_file(self.model_dir, self.readout_name)
 
+        self.host = host
+        self.dbname = dbname
+        self.port = port
         self.experiment_name = self.get_experiment_name()
         self.run_name = self.get_run_name()
-        if dbname  == 'local':
+        self.cfg = self.get_config()
+        self.model = self.get_model()
+        self.model = self.load_model()
+        self.setup_logger()
+
+    def setup_mlflow(self):
+        if self.dbname  == 'local':
             artifact_location = None
         else:
             # create postgres db, and use for backend store
             connection = None
             try:
-                connection = psycopg2.connect("user='physopt' password='physopt' host='{}' port='{}' dbname='postgres'".format(host, port)) # use postgres db just for connection
+                connection = psycopg2.connect("user='physopt' password='physopt' host='{}' port='{}' dbname='postgres'".format(self.host, self.port)) # use postgres db just for connection
                 print('Database connected.')
 
             except:
@@ -64,28 +73,18 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
                 list_database = cur.fetchall()
 
-                if (dbname,) in list_database:
-                    print("'{}' Database already exist".format(dbname))
+                if (self.dbname,) in list_database:
+                    print("'{}' Database already exist".format(self.dbname))
                 else:
-                    print("'{}' Database not exist.".format(dbname))
-                    sql_create_database = 'create database "{}";'.format(dbname)
+                    print("'{}' Database not exist.".format(self.dbname))
+                    sql_create_database = 'create database "{}";'.format(self.dbname)
                     cur.execute(sql_create_database)
                 connection.close()
-            mlflow.set_tracking_uri('postgresql://physopt:physopt@{}:{}/{}'.format(host, port, dbname)) # need to make sure backend store is setup before we look up experiment name 
+            mlflow.set_tracking_uri('postgresql://physopt:physopt@{}:{}/{}'.format(self.host, self.port, self.dbname)) # need to make sure backend store is setup before we look up experiment name 
             # create s3 bucket, and use for artifact store
             s3 = boto3.resource('s3')
-            s3.create_bucket(Bucket=dbname)
-            artifact_location =  's3://{}'.format(dbname) # TODO: add run name to make it more human-readable?
-        if mlflow.get_experiment_by_name(self.experiment_name) is None: # create experiment if doesn't exist
-            self.experiment_id = mlflow.create_experiment(self.experiment_name, artifact_location=artifact_location)
-        else: # uses old experiment settings (e.g. artifact store location)
-            self.experiment_id = mlflow.get_experiment_by_name(self.experiment_name).experiment_id
-
-        self.cfg = self.get_config()
-        self.model = self.get_model()
-        self.model = self.load_model()
-        self.setup_logger()
-
+            s3.create_bucket(Bucket=self.dbname)
+            artifact_location =  's3://{}'.format(self.dbname) # TODO: add run name to make it more human-readable?
 
     def setup_logger(self):
         timestr = time.strftime("%Y%m%d-%H%M%S")
@@ -148,6 +147,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         return '{' + '}_{'.join(to_join) + '}'
 
     def __call__(self, *args, **kwargs):
+        self.setup_mlflow()
         mlflow.set_experiment(self.experiment_name)
         mlflow.start_run(run_name=self.run_name)
         logging.info(mlflow.get_tracking_uri())
@@ -189,7 +189,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         step = 0
         for epoch in range(self.cfg.EPOCHS): 
             logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.EPOCHS))
-            for i, data in enumerate(trainloader):
+            for _, data in enumerate(trainloader):
                 loss = self.train_step(data)
                 logging.info('Step: {0:>10} Loss: {1:>10.4f}'.format(step, loss))
 
@@ -202,6 +202,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                         val_res = self.val_step(data)
                         assert isinstance(val_res, dict)
                         val_results.append(val_res)
+                        logging.info('Val Step: {0:>10}'.format(i))
                     # convert list of dicts into single dict by aggregating over values for a given key
                     val_results = {k: np.mean([res[k] for res in val_results]) for k in val_results[0]} # assumes all keys are the same across list
                     mlflow.log_metrics(val_results, step=step)
