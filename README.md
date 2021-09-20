@@ -6,22 +6,27 @@
 
 The goal of this repository is to train and evaluate different physics prediction models on one or many different physics scenarios. The inputs are model specific, however all currently implemented models predict from images. The output metrics are dataset specific, however all currently used datasets are evaluated on some form of binary prediction task. The procedure consists of two phases, as follows:
 
-1. **Dynamics**: Train the physics prediction model on its specific prediction task on the specific train dataset.
-    - Output: Model-specific trained checkpoint file saved to ``[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/model.pt``
+1. **Pretraining**: Train the physics prediction model on its specific prediction task on the specific train dataset.
+    - Output: Model-specific trained checkpoint file saved to ``[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/model.pt``
 2. **Readout**: Evaulate the trained models under different readout protocols.
     - __Feature Extraction__: Extract latent model features on the readout training and testing datasets.
-        - Output: List of dicts, each dict corresponding to results from a batch, saved to `[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/{train/test}_feat.pkl`
+        - Output: List of dicts, each dict corresponding to results from a batch, saved to `[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/{train/test}_feat.pkl`
         - Each dict has the following keys: `input_states`, `observed_states`, `simulated_states`, `labels`, `stimulus_name`
     - __Metrics Computation__: Train a classifier / regressor to predict the task using extracted latent train features and ground truth train labels, and test the trained classifier on the extracted latent test features to predict the test labels and evaluate them against the ground truth test labels using the the dataset specific test metric.
-        - Output: Metric results and other data used for model-human comparisons saved to `[OUTPUT_DIR]/[DYNAMICS_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/metric_results.csv`
+        - Output: Metric results and other data used for model-human comparisons saved to `[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/metric_results.csv`
         - Used for analysis in [physics-benchmarking-neurips2021](https://github.com/cogtoolslab/physics-benchmarking-neurips2021)
-     
+
+Runs and artifacts from running the pipeline are recorded with [MLflow](https://mlflow.org/).
 
 ## How to Install
 **Recommended**: Create a virtualenv with `virtualenv -p python3 .venv` and activate it using `source .venv/bin/activate`. 
 
-Run `pip install -e .`
+Run `pip install -e .` in the root `physopt` directory to install the `physopt` package. You will also need to install the correct version of PyTorch for your system, see [this link](https://pytorch.org/get-started/locally/) for instructions.
 
+In order to distribute jobs across machines, you'll need to have MongoDB installed. In order to use PostgreSQL as the MLflow backend store, you'll need to install postgresql with `sudo apt-get install postgresql`, if it's not installed already -- you can check with `psql --version`.
+
+## Setup
+### MongoDB
 To use MongoDB for `hyperopt`, create a `mongodb.conf` file with the following:
 
 ```
@@ -42,58 +47,72 @@ systemLog:
 
 Then run `sudo service mongodb start` and `sudo mongod -f /[PATH_TO_CONF]/mongodb.conf&` to start the MongoDB server.
 
-
-In order to use S3 as the MLflow artifact store, you'll need to add your AWS credentials to `~/.aws/credentials`. See [this link](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) for more information about the AWS credential file.
-
-In order to use PostgreSQL as the MLflow backend store, you'll need to install postgresql with `sudo apt-get install postgresql`, if it's not installed already -- you can check with `psql --version`. After it's installed, connect to the database server using `sudo -u postgres psql`. You should see the prompt start with `postgres=#`. Next, create a user with username and password "physopt" using `CREATE USER physopt WITH PASSWORD 'physopt' CREATEDB;`. Verify that the user was created successfully with `\du`. 
+### PostgreSQL
+Connect to the PostgreSQL server using `sudo -u postgres psql`. You should see the prompt start with `postgres=#`. Next, create a user with username and password "physopt" using `CREATE USER physopt WITH PASSWORD 'physopt' CREATEDB;`. Verify that the user was created successfully with `\du`. 
 
 You can change the port by changing the setting in the `postgresql.conf` file, whose location can be shown using `SHOW config_file;`. After you change `postgresql.conf` make sure to restart the server using `sudo service postgresql restart`. You can check what port is being used with `\conninfo` after connecting to the server.
 
+### Amazon S3
+In order to use S3 as the MLflow artifact store, you'll need to add your AWS credentials to `~/.aws/credentials`. See [this link](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) for more information about the AWS credential file.
 
-To view the MLflow tracking UI run `mlflow ui`. If you're using the postgres backend add `--backend-store-uri postgresql://<username>:<password>@<host>:<port>/<database>`.
 
-If the machine running the MongoDB and PostgreSQL servers is not publically visible, you'll need to setup the necessary ssh tunnels.
+### MLflow Tracking UI
+To view the MLflow tracking UI run `mlflow ui`. If you are using local storage add `--backend-store-uri file:///[OUTPUT_DIR]/mlruns`. Otherwise, if you're using the PostgreSQL backend add `--backend-store-uri postgresql://<username>:<password>@<host>:<port>/<database>`. Finally, navigate to `http://localhost:5000`.
+
+#### Notes
+If the machine running the MongoDB, PostgreSQL, and MLflow tracking servers is not publically visible, you'll need to setup the necessary ssh tunnels.
 
 ## How To Run
 
-Physopt uses [Hyperopt](https://github.com/neuroailab/hyperopt) to train and evaluate physics prediction models on one or many different datasets. In order to evaluate a model, you first need to launch a MongoDB database, then a optimization server that distributes jobs across workers, and finally as many workers as you want that execute the server jobs.
+Physopt uses [Hyperopt](https://github.com/neuroailab/hyperopt) to train and evaluate physics prediction models on one or many different datasets. 
 
-For example, to run C-SWM, use:
+### Local
+The main script to run the pipeline is `opt.py`. To run locally you only need to set the `--data_module` and `--objective_module` commandline arguments. See the [Data Spaces Specification](#data-spaces-specification) and [Model Specification](#model-specification) sections, respectively, for more details. Optionally, you may also choose to specifiy the output directory where the results are saved (with `--output`) and the number of parallel threads (with `--num_threads`). The mlflow backend store is set to `[OUTPUT_DIR]/mlruns`.
 
-`python opt.py --data physion --model CSWM --host localhost --port 25555 --database physion --output [OUTPUT_DIR]`
+Therefore, the command would look like,
 
-and then start up as many workers as you want with
+`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
 
-`hyperopt/scripts/hyperopt-mongo-worker --mongo=localhost:25555/physion --logfile=logfile.txt`
+### Remote MLflow Tracking Server
+MLflow allows for using a remote Tracking Server. Specifically, we use a Postgres database for backend entity storage and an S3 bucket for artifact storage. This requires setting up PostgreSQL and Amazon S3 as detailed in the [Setup](#setup) section above. The relevant commandline arguments are the port (`--postgres_port`) and database name (`--postgres_dbname`). Note that the name "local" is reserved for using local storage. Also if the Postgres server is not running on `localhost` you'll need to specify the host (`--postgres_host`). 
+
+Therefore, the command would look like, 
+
+`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --postgres_port [PORT] --postgres_dbname [DBNAME] (--postgres_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
+
+### Distributed Workers
+Using the functionality from [Hyperopt](https://github.com/neuroailab/hyperopt), it is also possible to use an optimization server that distributes jobs across as many workers as you want. This requires setting up MongoDB as detailed in the [Setup](#setup) section above. Additionally, you must set the MongoDB port (`--mongo_port`), database name (`--mongo_dbname`), and host (`--mongo_host`).
+
+Therefore, the command to create the jobs in the MongoDB would look like, 
+
+`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --mongo_port [PORT] --mongo_dbname [DBNAME] (--mongo_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`
+
+and then start up as many workers as you want with,
+
+`hyperopt-mongo-worker --mongo=[HOST]:[PORT]/[DBNAME] (--poll-interval=[POLL_INTERVAL]) (--reserve-timeout=[RESERVE_TIMEOUT]) (--logfile=l[LOGFILE])`.
 
 This approach has the advantage that you only need one set of workers pointing all to the same database `database`. Although currently not a problem, potential library conflicts between models might make approach c) infeasible in the future without separate python environments. In that case each model would have to be run in model-specific python environment which is beyond the scope of this documentation.
+
+### Notes
+
+The Postgres/S3 remote tracking server can be used independently of MongoDB, although it is likely that if the workers are distrbuted across multiple machines, a central store for the experimental runs would be preferred. 
 
 To see all available argument options use
 
 `python opt.py --help`
 
-## Dataset Specification
-
-An overview of the required data settings and defaults can be found in `physopt/data/config.py`. 
-- `DYNAMICS_TRAIN_DIR`, `DYNAMICS_TEST_DIR`, `READOUT_TRAIN_DIR`, and `READOUT_TEST_DIR` correspond to the base paths to the {dynamics/readout} {train/test} datasets.
-- `SCENARIOS` is a list of the subdirs in each of the base dirs, which correspond to different datasets.
-- `FILE_PATTERN` is used to allow for specifying what to match for to get each data file. 
-- The fully constructed path provided to the dataloader will be `[BASE_DIR]/[SCENARIO]/[FILE_PATTERN]` (e.g. `../dynamics_train_data/Dominoes/*.hdf5`), which can be used by `glob` or similar to get the list of data files.
-
-The default settings can be overwritten by using a `.yaml` file located in `physopt/data` and passing the filename (without the `.yaml` extension) as the `--data` commandline arg when running `opt.py`. See `physopt/data/physion.yaml` for an exmaple. 
-
-`get_data_space`, defined in `physopt/data/data_space.py`, returns a list of dicts with the following structure:
+## Data Spaces Specification
+The `data_func` (defaults to `get_data_spaces`) from the specified `data_module` must return a list of dicts with the following structure:
 -  `seed`: random seed to used initialize random generators
-- `dynamics`: dict with `name`, `train`, and `test` that specify the dataset/scenario name, train datapaths, and test datapaths, respectively
-- `readout`: same as for `dynamics` but for the readout phase instead
+- `pretraining`: dict with `name`, `train`, and `test` that specify the dataset/scenario name, train datapaths, and test datapaths, respectively
+- `readout`: a list of dicts, with each dict having the same format as in `pretraining` but specifying data for readout phase instead
+
+Optionally, you can also specify a configuration file (using `--data_cfg`) that is passed to the `data_func` as an argument.
+
+An example of how the data spaces can be constructed can be found in the [Physion](https://github.com/neuroailab/physion/tree/master/physion/data) repo.
 
 ## Model Specification
-
-An overview over all available models can be found in `physopt/models/__init__.py`.
-
-To add a new model simply create a new `Objective` and update `physopt/models/__init__.py`. `Objective` inherits from `PhysOptObjective` as implemented in `physopt/utils.py` which primarily takes care of running the different phases and managing where intermediate results are stored. 
-
-For a new `Objective` you will need to implement:
+Running a model in `physopt` requires completing the abstract methods in `PhysOptObjective`:
 - `get_model`: Returns the model object
 - `load_model`: Implements loading of model if model checkpoint file exists
 - `save_model`: Implements saving of the model
@@ -102,3 +121,32 @@ For a new `Objective` you will need to implement:
 - `val_step`: Takes as input a batch of data, performs validation on that batch, and returns the scalar metric used for validation
 - `extract_feat_step`: Takes as input a batch of data, and outputs a dict with `input_states`, `observed_states`, `simulated_states`, `labels`, and `stimulus_name`.
 - Optionally, `get_config`: Loads a configuration object. Must contain at least the settings in `physopt/models/config.py` and be accessible with dot notation. 
+
+An example can be found [here](https://github.com/neuroailab/physion/blob/master/physion/FROZEN.py#L23).
+
+## Citing Physion
+
+If you find this codebase useful in your research, please consider citing:
+
+    @inproceedings{bear2021physion,
+        Title={Physion: Evaluating Physical Prediction from Vision in Humans and Machines},
+        author= {Daniel M. Bear and
+               Elias Wang and
+               Damian Mrowca and
+               Felix J. Binder and
+               Hsiao{-}Yu Fish Tung and
+               R. T. Pramod and
+               Cameron Holdaway and
+               Sirui Tao and
+               Kevin A. Smith and
+               Fan{-}Yun Sun and
+               Li Fei{-}Fei and
+               Nancy Kanwisher and
+               Joshua B. Tenenbaum and
+               Daniel L. K. Yamins and
+               Judith E. Fan},
+        url = {https://arxiv.org/abs/2106.08261},
+        archivePrefix = {arXiv},
+        eprint = {2106.08261},
+        Year = {2021}
+    }
