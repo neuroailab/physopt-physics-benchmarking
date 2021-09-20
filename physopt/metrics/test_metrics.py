@@ -157,7 +157,7 @@ def run_metrics(
     readout_model_file = os.path.join(os.path.dirname(train_feature_file), protocol+'_readout_model.joblib')
     if os.path.exists(readout_model_file):
         logging.info('Loading readout model from: {}'.format(readout_model_file))
-        metric_model = pickle.load(readout_model_file)
+        metric_model = joblib.load(readout_model_file)
     else:
         logging.info('Training readout model and saving to: {}'.format(readout_model_file))
         metric_model.fit(iter(train_data_balanced))
