@@ -112,7 +112,7 @@ Optionally, you can also specify a configuration file (using `--data_cfg`) that 
 An example of how the data spaces can be constructed can be found in the [Physion](https://github.com/neuroailab/physion/tree/master/physion/data) repo.
 
 ## Model Specification
-Running a model in `physopt` requires completing the abstract methods in `PhysOptObjective`:
+Running a model in `physopt` requires completing the abstract methods in [`PhysOptObjective`](https://github.com/neuroailab/physopt/blob/main/physopt/utils.py#L17):
 - `get_model`: Returns the model object
 - `load_model`: Implements loading of model if model checkpoint file exists
 - `save_model`: Implements saving of the model
