@@ -202,21 +202,28 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 if (step % self.cfg.LOG_FREQ) == 0:
                     mlflow.log_metric(key='train_loss', value=loss, step=step)
                 if (step % self.cfg.VAL_FREQ) == 0:
-                    valloader = self.get_dataloader(self.pretraining_space['test'], phase='pretraining', train=False, shuffle=False)
-                    val_results = []
-                    for i, data in enumerate(valloader):
-                        val_res = self.val_step(data)
-                        assert isinstance(val_res, dict)
-                        val_results.append(val_res)
-                        logging.info('Val Step: {0:>10}'.format(i))
-                    # convert list of dicts into single dict by aggregating over values for a given key
-                    val_results = {k: np.mean([res[k] for res in val_results]) for k in val_results[0]} # assumes all keys are the same across list
+                    val_results = self.validation()
                     mlflow.log_metrics(val_results, step=step)
                 if (step % self.cfg.CKPT_FREQ) == 0:
                     logging.info('Saving model at step {}'.format(step))
                     self.save_model(step)
-
                 step += 1
+
+        # do final validation at end
+        val_results = self.validation()
+        mlflow.log_metrics(val_results, step=step)
+
+    def validation(self):
+        valloader = self.get_dataloader(self.pretraining_space['test'], phase='pretraining', train=False, shuffle=False)
+        val_results = []
+        for i, data in enumerate(valloader):
+            val_res = self.val_step(data)
+            assert isinstance(val_res, dict)
+            val_results.append(val_res)
+            logging.info('Val Step: {0:>10}'.format(i))
+        # convert list of dicts into single dict by aggregating over values for a given key
+        val_results = {k: np.mean([res[k] for res in val_results]) for k in val_results[0]} # assumes all keys are the same across list
+        return val_results
 
     def readout(self):
         assert os.path.isfile(self.model_file), 'No model ckpt found, cannot extract features'
