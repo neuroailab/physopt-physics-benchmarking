@@ -209,9 +209,10 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                     self.save_model(step)
                 step += 1
 
-        # do final validation at end
+        # do final validation at end, and save model
         val_results = self.validation()
         mlflow.log_metrics(val_results, step=step)
+        self.save_model(step)
 
     def validation(self):
         valloader = self.get_dataloader(self.pretraining_space['test'], phase='pretraining', train=False, shuffle=False)
