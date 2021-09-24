@@ -144,7 +144,10 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         return cfg
 
     def get_experiment_name(self):
-        return self.model_name
+        if self.debug:
+            return self.model_name + '_debug'
+        else:
+            return self.model_name
 
     def get_run_name(self):
         to_join = [self.phase, str(self.seed), self.pretraining_name]
