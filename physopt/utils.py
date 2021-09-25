@@ -139,7 +139,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     def get_config(self):
-        cfg = get_cfg()
+        cfg = get_cfg(self.debug)
         cfg.freeze()
         return cfg
 
@@ -165,6 +165,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         mlflow.set_tag('phase', self.phase)
         mlflow.log_params({
             'seed': self.seed,
+            'train_steps': self.cfg.TRAIN_STEPS,
+            'batch_size': self.cfg.BATCH_SIZE,
             })
         mlflow.log_params({f'pretraining_{k}':v for k,v in self.pretraining_space.items()})
         if self.readout_space is not None:
@@ -194,10 +196,18 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def pretraining(self):
         trainloader = self.get_dataloader(self.pretraining_space['train'], phase='pretraining', train=True, shuffle=True)
-        best_loss = 1e9
-        step = 0
-        for epoch in range(self.cfg.EPOCHS): 
-            logging.info('Starting epoch {}/{}'.format(epoch+1, self.cfg.EPOCHS))
+        try:
+            mlflow.log_param('trainloader_size', len(trainloader))
+        except:
+            pass
+        step = 1
+
+        # save initial model and val results
+        self.save_model(step)
+        val_results = self.validation()
+        mlflow.log_metrics(val_results, step=step)
+
+        while step <= self.cfg.TRAIN_STEPS:
             for _, data in enumerate(trainloader):
                 loss = self.train_step(data)
                 logging.info('Step: {0:>10} Loss: {1:>10.4f}'.format(step, loss))
@@ -225,8 +235,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             val_res = self.val_step(data)
             assert isinstance(val_res, dict)
             val_results.append(val_res)
-            logging.info('Val Step: {0:>10}'.format(i))
-        # convert list of dicts into single dict by aggregating over values for a given key
+            logging.info('Val Step: {0:>5}'.format(i+1))
+        # convert list of dicts into single dict by aggregating with mean over values for a given key
         val_results = {k: np.mean([res[k] for res in val_results]) for k in val_results[0]} # assumes all keys are the same across list
         return val_results
 
