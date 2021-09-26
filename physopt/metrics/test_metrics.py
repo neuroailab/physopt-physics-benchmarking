@@ -127,8 +127,7 @@ def rebalance(data, label_fn, balancing = oversample):
 
 def run_metrics(
         seed,
-        train_feature_file,
-        test_feature_file,
+        readout_dir,
         protocol,
         grid_search_params = {'C': np.logspace(-8, 8, 17)},
         ):
@@ -137,7 +136,9 @@ def run_metrics(
     feature_extractor = FeatureExtractor(feature_model)
 
     # Construct data providers
+    train_feature_file = os.path.join(readout_dir, 'train_feat.pkl')
     train_data = build_data(train_feature_file)
+    test_feature_file = os.path.join(readout_dir, 'test_feat.pkl')
     test_data = build_data(test_feature_file)
 
     # Get stimulus names and labels for test data
@@ -156,7 +157,7 @@ def run_metrics(
     metric_model = BatchMetricModel(feature_extractor, readout_model, accuracy, label_fn, grid_search_params)
 
     # TODO: clean up this part
-    readout_model_file = os.path.join(os.path.dirname(train_feature_file), protocol+'_readout_model.joblib')
+    readout_model_file = os.path.join(readout_dir, protocol+'_readout_model.joblib')
     if os.path.exists(readout_model_file):
         logging.info('Loading readout model from: {}'.format(readout_model_file))
         metric_model = joblib.load(readout_model_file)

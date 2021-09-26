@@ -36,20 +36,19 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.output_dir = output_dir
         self.phase = phase
         self.debug = debug
-        self.model_dir = get_model_dir(self.output_dir, self.model_name, self.pretraining_name, self.seed, self.debug)
-        self.model_file = os.path.join(self.model_dir, 'model.pt')
-        self.train_feature_file = get_feature_file(self.model_dir, self.readout_name, 'train') # TODO: consolidate into feature_dir?
-        self.test_feature_file = get_feature_file(self.model_dir, self.readout_name, 'test')
-        self.metrics_file = get_metrics_file(self.model_dir, self.readout_name)
-
+        self.experiment_name = experiment_name
         self.host = host
         self.dbname = dbname
         self.port = port
-        self.experiment_name = experiment_name
+
+        self.model_dir = get_model_dir(self.output_dir, self.experiment_name, self.model_name, self.pretraining_name, self.seed)
+        self.model_file = os.path.join(self.model_dir, 'model.pt')
+        self.readout_dir = get_readout_dir(self.model_dir, self.readout_name)
+
         self.run_name = self.get_run_name()
         self.cfg = self.get_config()
         self.model = self.get_model()
-        self.model = self.load_model()
+        self.model = self.load_model() # TODO: when to load model
         self.setup_logger()
 
     def setup_mlflow(self):
@@ -93,9 +92,10 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         else: # uses old experiment settings (e.g. artifact store location)
             logging.info('Experiment with name "{}" already exists'.format(self.experiment_name))
 
-    def setup_logger(self):
+    def setup_logger(self): # TODO: have logger log worker messages
         timestr = time.strftime("%Y%m%d-%H%M%S")
-        self.log_file = os.path.join(self.model_dir, 'output_{}.log'.format(timestr))
+        self.log_file = os.path.join(self.model_dir, 'logs', 'output_{}.log'.format(timestr))
+        _create_dir(self.log_file)
         logging.root.handlers = [] # necessary to get handler to work
         logging.basicConfig(
             handlers=[
@@ -241,32 +241,33 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
     def readout(self):
         assert os.path.isfile(self.model_file), 'No model ckpt found, cannot extract features'
 
-        trainloader = self.get_dataloader(self.readout_space['train'], phase='readout', train=False, shuffle=False)
-        self.extract_feats(trainloader, self.train_feature_file)
-        testloader = self.get_dataloader(self.readout_space['test'], phase='readout', train=False, shuffle=False)
-        self.extract_feats(testloader, self.test_feature_file)
+        for mode in ['train', 'test']:
+            self.extract_feats(mode)
 
         self.compute_metrics()
 
-    def extract_feats(self, dataloader, feature_file):
+    def extract_feats(self,  mode):
+        dataloader = self.get_dataloader(self.readout_space[mode], phase='readout', train=False, shuffle=False)
         extracted_feats = []
         for i, data in enumerate(dataloader):
             output = self.extract_feat_step(data)
             extracted_feats.append(output)
+        feature_file = os.path.join(self.readout_dir, mode+'_feat.pkl')
         pickle.dump(extracted_feats, open(feature_file, 'wb')) 
         logging.info('Saved features to {}'.format(feature_file))
+        mlflow.log_artifact(feature_file, artifact_path='features')
 
     def compute_metrics(self):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
-        if os.path.exists(self.metrics_file): # rename old results, just in case
-            dst = os.path.join(os.path.dirname(self.metrics_file), '.metric_results.csv')
-            os.rename(self.metrics_file, dst)
+        metrics_file = os.path.join(self.readout_dir, 'metrics_results.csv')
+        if os.path.exists(metrics_file): # rename old results, just in case
+            dst = os.path.join(self.readout_dir, '.metrics_results.csv')
+            os.rename(metrics_file, dst)
         protocols = ['observed', 'simulated', 'input']
         for protocol in protocols:
             results = run_metrics(
                 self.seed,
-                self.train_feature_file,
-                self.test_feature_file, 
+                self.readout_dir,
                 protocol, 
                 grid_search_params=None if self.debug else {'C': np.logspace(-8, 8, 17)},
                 )
@@ -279,13 +280,11 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 'train_acc_'+protocol: results['train_accuracy'], 
                 'test_acc_'+protocol: results['test_accuracy'],
                 })
-            mlflow.log_artifact(self.train_feature_file, artifact_path='features')
-            mlflow.log_artifact(self.test_feature_file, artifact_path='features')
 
             # Write every iteration to be safe
             processed_results = self.process_results(results)
-            write_metrics(processed_results, self.metrics_file)
-            mlflow.log_artifact(self.metrics_file)
+            write_metrics(processed_results, metrics_file)
+            mlflow.log_artifact(metrics_file)
 
     @staticmethod
     def process_results(results):
@@ -308,27 +307,18 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             output.append(data)
         return output
 
-def get_model_dir(output_dir, model_name, train_name, seed, debug=False):
-    assert train_name is not None
-    if debug:
-        model_dir = os.path.join(output_dir,'debug', model_name, train_name, str(seed), 'model/')
-    else:
-        model_dir = os.path.join(output_dir, model_name, train_name, str(seed), 'model/')
+def get_model_dir(output_dir, experiment_name, model_name, pretraining_name, seed):
+    assert pretraining_name is not None
+    model_dir = os.path.join(output_dir, experiment_name, model_name, pretraining_name, str(seed), '')
     assert model_dir[-1] == '/', '"{}" missing trailing "/"'.format(model_dir) # need trailing '/' to make dir explicit
     _create_dir(model_dir)
     return model_dir
 
-def get_feature_file(model_dir, test_name, mode):
-    if test_name is not None:
-        feature_file = os.path.join(model_dir, 'features', test_name, mode+'_feat.pkl')
-        _create_dir(feature_file)
-        return feature_file
-
-def get_metrics_file(model_dir, test_name):
-    if test_name is not None:
-        metrics_file = os.path.join(model_dir, 'features', test_name, 'metrics_results.csv')
-        _create_dir(metrics_file)
-        return metrics_file
+def get_readout_dir(model_dir, readout_name):
+    if readout_name is not None:
+        readout_dir = os.path.join(model_dir, readout_name, '')
+        _create_dir(readout_dir)
+        return readout_dir
 
 def _create_dir(path): # creates dir from path or filename, if doesn't exist
     dirname, basename = os.path.split(path)
