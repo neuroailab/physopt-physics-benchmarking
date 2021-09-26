@@ -44,12 +44,12 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.model_dir = get_model_dir(self.output_dir, self.experiment_name, self.model_name, self.pretraining_name, self.seed)
         self.model_file = os.path.join(self.model_dir, 'model.pt')
         self.readout_dir = get_readout_dir(self.model_dir, self.readout_name)
+        self.log_file = os.path.join(self.model_dir, 'logs', 'output_{}.log'.format(time.strftime("%Y%m%d-%H%M%S")))
 
         self.run_name = self.get_run_name()
         self.cfg = self.get_config()
         self.model = self.get_model()
         self.model = self.load_model() # TODO: when to load model
-        self.setup_logger()
 
     def setup_mlflow(self):
         if self.dbname  == 'local':
@@ -91,20 +91,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             mlflow.create_experiment(self.experiment_name, artifact_location=artifact_location)
         else: # uses old experiment settings (e.g. artifact store location)
             logging.info('Experiment with name "{}" already exists'.format(self.experiment_name))
-
-    def setup_logger(self): # TODO: have logger log worker messages
-        timestr = time.strftime("%Y%m%d-%H%M%S")
-        self.log_file = os.path.join(self.model_dir, 'logs', 'output_{}.log'.format(timestr))
-        _create_dir(self.log_file)
-        logging.root.handlers = [] # necessary to get handler to work
-        logging.basicConfig(
-            handlers=[
-                logging.FileHandler(self.log_file),
-                logging.StreamHandler(),
-                ],
-            format="%(asctime)s [%(levelname)s] %(message)s",
-            level=logging.DEBUG if self.debug else logging.INFO,
-            )
 
     @property
     @abc.abstractmethod
@@ -151,6 +137,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         return '{' + '}_{'.join(to_join) + '}'
 
     def __call__(self, *args, **kwargs):
+        setup_logger(self.log_file, self.debug)
         self.setup_mlflow() # needs to be done in __call__ since might be run by worker on different machine
         mlflow.set_experiment(self.experiment_name)
         mlflow.start_run(run_name=self.run_name)
@@ -306,6 +293,18 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 }
             output.append(data)
         return output
+
+def setup_logger(log_file, debug=False):
+    _create_dir(log_file)
+    logging.root.handlers = [] # necessary to get handler to work
+    logging.basicConfig(
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler(),
+            ],
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        level=logging.DEBUG if debug else logging.INFO,
+        )
 
 def get_model_dir(output_dir, experiment_name, model_name, pretraining_name, seed):
     assert pretraining_name is not None
