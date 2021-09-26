@@ -26,6 +26,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             host,
             port,
             dbname,
+            experiment_name,
             ):
         self.seed = seed
         self.pretraining_space = pretraining_space
@@ -44,7 +45,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.host = host
         self.dbname = dbname
         self.port = port
-        self.experiment_name = self.get_experiment_name()
+        self.experiment_name = experiment_name
         self.run_name = self.get_run_name()
         self.cfg = self.get_config()
         self.model = self.get_model()
@@ -143,26 +144,23 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         cfg.freeze()
         return cfg
 
-    def get_experiment_name(self):
-        if self.debug:
-            return self.model_name + '_debug'
-        else:
-            return self.model_name
-
     def get_run_name(self):
-        to_join = [self.phase, str(self.seed), self.pretraining_name]
+        to_join = [self.model_name, self.phase, str(self.seed), self.pretraining_name]
         if self.readout_name is not None:
             to_join.append(self.readout_name)
         return '{' + '}_{'.join(to_join) + '}'
 
     def __call__(self, *args, **kwargs):
-        self.setup_mlflow()
+        self.setup_mlflow() # needs to be done in __call__ since might be run by worker on different machine
         mlflow.set_experiment(self.experiment_name)
         mlflow.start_run(run_name=self.run_name)
         logging.info(mlflow.get_tracking_uri())
         logging.info(mlflow.get_artifact_uri())
         logging.info(mlflow.active_run())
-        mlflow.set_tag('phase', self.phase)
+        mlflow.set_tags({
+            'phase': self.phase,
+            'model': self.model_name,
+            })
         mlflow.log_params({
             'seed': self.seed,
             'train_steps': self.cfg.TRAIN_STEPS,

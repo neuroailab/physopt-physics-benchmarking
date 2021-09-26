@@ -4,6 +4,7 @@ import itertools
 import traceback
 from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
+import time
 from importlib import import_module
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
@@ -16,8 +17,7 @@ NO_PARAM_SPACE = hp.choice('dummy', [0])
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
 
-    parser.add_argument('--output', default='/home/{}/physopt/',
-            help='output directory', type=str)
+    parser.add_argument('--output', default='/home/{}/physopt/', help='output directory', type=str)
     parser.add_argument('--data_module', required=True, type=str)
     parser.add_argument('--data_func', default='get_data_spaces', type=str)
     parser.add_argument('--data_cfg', type=str)
@@ -30,7 +30,9 @@ def arg_parse():
     parser.add_argument('--postgres_port', default='5432', help='postgres port', type=str)
     parser.add_argument('--postgres_dbname', default='local', help='postgres database and s3 bucket name, if not "local"', type=str)
     parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
-    parser.add_argument('--debug', action='store_true', help='debug mode')
+    parser.add_argument('-D', '--debug', action='store_true', help='debug mode')
+    parser.add_argument('-E', '--experiment_name', default='Default', type=str, help='Name for mlflow experiment')
+    parser.add_argument('-T', '--add_timestamp', action='store_true', help='whether to add timestamp to experiment name')
     return parser.parse_args()
 
 def get_output_directory(output_dir):
@@ -45,6 +47,15 @@ def get_mongo_path(host, port, database):
 def get_exp_key(model, seed, pretraining_name, readout_name, suffix=''):
     return '{0}_{1}_{2}_{3}_{4}'.format(model, seed, pretraining_name, readout_name, suffix)
 
+def get_exp_name(name, add_ts=False, debug=False):
+        if debug:
+            experiment_name = 'DEBUG'
+        elif add_ts:
+            experiment_name = name + '_' + time.strftime("%Y%m%d-%H%M%S")
+        else:
+            experiment_name = name
+        return experiment_name
+
 class OptimizationPipeline():
     def __init__(self, args):
         self.pool = Pool(args.num_threads) if args.num_threads > 1 else None
@@ -58,6 +69,7 @@ class OptimizationPipeline():
         self.output_dir = get_output_directory(args.output)
         self.debug = args.debug
         self.Objective = getattr(import_module(args.objective_module), args.objective_name)
+        self.experiment_name = get_exp_name(args.experiment_name, args.add_timestamp, args.debug)
 
     def __del__(self):
         self.close()
@@ -70,8 +82,8 @@ class OptimizationPipeline():
                 readout_name = 'none' if readout_space is None else readout_space['name']
 
                 objective = self.Objective(
-                    seed, pretraining_space, readout_space, 
-                    self.output_dir, phase, self.debug, self.postgres_host, self.postgres_port, self.postgres_dbname,
+                    seed, pretraining_space, readout_space, self.output_dir, phase, self.debug, 
+                    self.postgres_host, self.postgres_port, self.postgres_dbname, self.experiment_name,
                     )
 
                 exp_key = get_exp_key(objective.model_name, seed, pretraining_space['name'], readout_name, phase)
