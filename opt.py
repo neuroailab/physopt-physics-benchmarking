@@ -27,7 +27,7 @@ def arg_parse():
     parser.add_argument('--mongo_port', default='25555', help='mongo port', type=str)
     parser.add_argument('--mongo_dbname', default='local', help='mongodb database name, if not "local"', type=str)
     parser.add_argument('--postgres_host', default='localhost', help='postgres host', type=str)
-    parser.add_argument('--postgres_port', default='5432', help='postgres port', type=str)
+    parser.add_argument('--postgres_port', default='5444', help='postgres port', type=str)
     parser.add_argument('--postgres_dbname', default='local', help='postgres database and s3 bucket name, if not "local"', type=str)
     parser.add_argument('--num_threads', default=1, help='number of parallel threads', type=int)
     parser.add_argument('-D', '--debug', action='store_true', help='debug mode')

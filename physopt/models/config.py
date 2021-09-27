@@ -18,8 +18,8 @@ _C.DATA = CN(new_allowed=True)
 def get_cfg(debug=False):
     C =  _C.clone()
     if debug:
-        C.TRAIN_STEPS = 10
+        C.TRAIN_STEPS = 5
         C.LOG_FREQ = 1
         C.VAL_FREQ = 5
-        C.CKPT_FREQ = 10
+        C.CKPT_FREQ = 5
     return C
