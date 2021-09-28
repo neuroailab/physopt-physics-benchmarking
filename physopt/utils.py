@@ -57,20 +57,23 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             assert pretraining_run_name == self.run_name, 'Names should match'
             runs = self.search_runs(pretraining_run_name)
             assert len(runs) <= 1, f'Should be at most 1 run with name "{pretraining_run_name}", but found {len(runs)}'
+            self.restore_run_id = None
+            self.restore_step = None
+            self.initial_step = 1
             if len(runs) == 0: # no run with matching name found
                 logging.info(f'Creating run with name:"{pretraining_run_name}"')
-                run = self.client.create_run(self.experiment.experiment_id, tags={'mlflow.runName': pretraining_run_name})
+                run = self.client.create_run(self.experiment.experiment_id, tags={'mlflow.runName': pretraining_run_name}) # TODO: mflow.start_run to have system tags set
                 self.run_id = run.info.run_id
-                self.restore_run_id = None
-                self.restore_step = None
-                self.initial_step = 1
             else: # found existing run with matching name
                 assert len(runs) == 1
                 logging.info(f'Found run with name:"{pretraining_run_name}"')
                 self.run_id = runs[0].info.run_id
-                self.restore_step = int(runs[0].data.metrics['step']) # TODO: implement better error handling when experiment exists but didn't save ckpt yet (e.g. if crashed)
-                self.restore_run_id = self.run_id # restoring from same run
-                self.initial_step = self.restore_step + 1 # start with next step
+                if 'step' in runs[0].data.metrics:
+                    self.restore_run_id = self.run_id # restoring from same run
+                    self.restore_step = int(runs[0].data.metrics['step'])
+                    self.initial_step = self.restore_step + 1 # start with next step
+                else:
+                    logging.info('Run found, but no ckpts')
             logging.info(f'Set initial step to {self.initial_step}')
         elif self.phase == 'readout': 
             runs = self.search_runs(pretraining_run_name)
@@ -181,8 +184,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         logging.info('Saving model at step {}'.format(step))
         model_file = os.path.join(self.model_dir, f'model_{step:06d}.pt') # create model file with step 
         self.save_model(model_file)
-        mlflow.log_metric('step', step, step=step) # used to know most recent step with model ckpt TODO: is this necessary?
         mlflow.log_artifact(model_file, artifact_path='model_ckpts')
+        mlflow.log_metric('step', step, step=step) # used to know most recent step with model ckpt
 
     def validation_with_logging(self, step):
         val_results = self.validation()
