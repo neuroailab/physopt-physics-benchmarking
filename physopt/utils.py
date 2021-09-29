@@ -142,6 +142,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             'train_steps': self.cfg.TRAIN_STEPS,
             'batch_size': self.cfg.BATCH_SIZE,
             })
+        # TODO: log params in self.cfg?
         mlflow.log_params({f'pretraining_{k}':v for k,v in self.pretraining_space.items()})
         if self.readout_space is not None:
             mlflow.log_params({f'readout_{k}':v for k,v in self.readout_space.items()})

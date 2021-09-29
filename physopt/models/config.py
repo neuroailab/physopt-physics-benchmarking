@@ -4,7 +4,7 @@ from yacs.config import CfgNode as CN
 _C = CN()
 
 # required params
-_C.TRAIN_STEPS = 100
+_C.TRAIN_STEPS = 1000
 _C.BATCH_SIZE = 32
 _C.LOG_FREQ = 10 # how often to log training loss
 _C.VAL_FREQ = 25 # how often to perform validation
