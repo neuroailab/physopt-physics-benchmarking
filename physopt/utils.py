@@ -204,7 +204,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             self.validation_with_logging(self.initial_step-1) # -1 for "zeroth" step
             self.save_model_with_logging(self.initial_step-1) # -1 for "zeroth" step
 
-        for step in range(self.initial_step, self.cfg.TRAIN_STEPS+1):
+        step = self.initial_step
+        while step <= self.cfg.TRAIN_STEPS:
             for _, data in enumerate(trainloader):
                 loss = self.train_step(data)
                 logging.info('Step: {0:>10} Loss: {1:>10.4f}'.format(step, loss))
@@ -215,6 +216,9 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                     self.validation_with_logging(step)
                 if (step % self.cfg.CKPT_FREQ) == 0:
                     self.save_model_with_logging(step)
+                step += 1
+                if step > self.cfg.TRAIN_STEPS:
+                    break
 
         # do final validation at end, save model, and log final ckpt -- if it wasn't done at last step
         if not (self.cfg.TRAIN_STEPS % self.cfg.VAL_FREQ) == 0:
