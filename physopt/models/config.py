@@ -20,6 +20,6 @@ def get_cfg(debug=False):
     if debug:
         C.TRAIN_STEPS = 5
         C.LOG_FREQ = 1
-        C.VAL_FREQ = 5
+        C.VAL_FREQ = 2
         C.CKPT_FREQ = 5
     return C

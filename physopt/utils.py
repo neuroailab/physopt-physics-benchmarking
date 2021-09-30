@@ -199,7 +199,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         except:
             logging.info("Couldn't get trainloader size")
 
-        if self.initial_step <= self.cfg.TRAIN_STEPS: # only do it if pretraining isn't complete
+        if (not self.debug) and (self.initial_step <= self.cfg.TRAIN_STEPS): # only do it if pretraining isn't complete and not debug
             logging.info('Doing initial validation') 
             self.validation_with_logging(self.initial_step-1) # -1 for "zeroth" step
             self.save_model_with_logging(self.initial_step-1) # -1 for "zeroth" step
