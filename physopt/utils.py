@@ -293,11 +293,11 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def load_model(self, run_id):
+    def load_model(self, model_file):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def save_model(self, step):
+    def save_model(self, model_file):
         raise NotImplementedError
 
     @abc.abstractmethod
