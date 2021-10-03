@@ -1,19 +1,17 @@
 import os
 import getpass
-import itertools
 import traceback
 from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
-import time
 from importlib import import_module
+
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
 
 from physopt.utils import PRETRAINING_PHASE_NAME, READOUT_PHASE_NAME
-from physopt.data import build_data_spaces
+from physopt.data_space import build_data_spaces
 from physopt.search.grid_search import suggest
-
-from config import get_cfg_defaults, get_cfg_debug
+from physopt.config import get_cfg_defaults, get_cfg_debug
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])
 ENV_VAR_NAME = 'PHYSOPT_CONFIG_DIR'
@@ -50,6 +48,7 @@ class OptimizationPipeline():
 
         def run_once(data_space): # data_space: list of space tuples, first corresponds to dynamics pretraining and the rest are readout
             seed, pretraining_space, readout_spaces = (data_space['seed'], data_space['pretraining'], data_space['readout'])
+
             def run_inner(readout_space=None):
                 phase  = PRETRAINING_PHASE_NAME if readout_space is None else READOUT_PHASE_NAME
                 objective = Objective(
@@ -84,15 +83,9 @@ class OptimizationPipeline():
             # Pretraining Phase
             run_inner(None)
 
-            # Readout Phase
+            # Readout Phase # TODO: Implement parallel readout evaluation
             for readout_space in readout_spaces:
                 run_inner(readout_space)
-            # TODO: Evaluate readout in parallel, doesn't work yet
-            # pool = Pool(len(readout_spaces)) # setup pool to do readouts across scenarios in parallel
-            # pool.map(run_inner, itertools.product([seed], [pretraining_space], readout_spaces))
-            # pool.close()
-            # pool.join()
-
             return
 
         # Parallel processing
