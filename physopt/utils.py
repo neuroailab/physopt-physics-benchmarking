@@ -12,7 +12,9 @@ import boto3
 
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.metrics.test_metrics import run_metrics, write_metrics
-from physopt.models.config import get_cfg
+
+PRETRAINING_PHASE_NAME = 'pretraining'
+READOUT_PHASE_NAME = 'readout'
 
 class PhysOptObjective(metaclass=abc.ABCMeta):
     def __init__(
@@ -21,48 +23,38 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             pretraining_space,
             readout_space,
             output_dir,
-            phase,
-            debug,
-            host,
-            port,
-            dbname,
-            experiment_name,
+            cfg,
             ):
         self.seed = seed
         self.pretraining_space = pretraining_space
         self.pretraining_name = pretraining_space['name']
         self.readout_space = readout_space
         self.readout_name = None if readout_space is None else readout_space['name']
-        self.output_dir = output_dir
-        self.phase = phase
-        self.debug = debug
-        self.experiment_name = experiment_name
-        self.host = host
-        self.dbname = dbname
-        self.port = port
+        self.cfg = cfg
+        self.phase = PRETRAINING_PHASE_NAME if readout_space is None else READOUT_PHASE_NAME
 
-        self.model_dir = get_model_dir(self.output_dir, self.experiment_name, self.model_name, self.pretraining_name, self.seed)
-        self.readout_dir = get_readout_dir(self.model_dir, self.readout_name)
+        experiment_name = get_exp_name(cfg.EXPERIMENT_NAME, cfg.ADD_TIMESTAMP, cfg.DEBUG)
+        self.model_dir = get_model_dir(output_dir, experiment_name, self.model_name, self.pretraining_name, self.seed)
+        self.readout_dir = get_readout_dir(self.model_dir, self.readout_name) # TODO: combine readout and model dir
         self.log_file = os.path.join(self.model_dir, 'logs', 'output_{}.log'.format(time.strftime("%Y%m%d-%H%M%S")))
-        setup_logger(self.log_file, self.debug)
-        self.cfg = self.get_config()
+        setup_logger(self.log_file, self.cfg.DEBUG)
         self.model = self.get_model()
 
-        self.tracking_uri, self.artifact_location = self.get_mlflow_backend()
-        self.client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
-        self.experiment = self.create_experiment(self.experiment_name)
-        self.run_name = get_run_name(self.model_name, self.pretraining_name, self.seed, self.phase, self.readout_name)
-        pretraining_run_name = get_run_name(self.model_name, self.pretraining_name, self.seed, 'pretraining')
-        if self.phase == 'pretraining':
-            assert pretraining_run_name == self.run_name, 'Names should match'
-            runs = self.search_runs(pretraining_run_name)
+        self.tracking_uri, artifact_location = get_mlflow_backend(output_dir, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
+        client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
+        experiment = create_experiment(self.tracking_uri, experiment_name, artifact_location)
+        run_name = get_run_name(self.model_name, self.pretraining_name, self.seed, self.readout_name)
+        pretraining_run_name = get_run_name(self.model_name, self.pretraining_name, self.seed)
+        runs = search_runs(self.tracking_uri, experiment.experiment_id, pretraining_run_name)
+        if readout_space is None:
+            assert pretraining_run_name == run_name, 'Names should match: {} and {}'.format(pretraining_run_name, run_name)
             assert len(runs) <= 1, f'Should be at most 1 run with name "{pretraining_run_name}", but found {len(runs)}'
             self.restore_run_id = None
             self.restore_step = None
             self.initial_step = 1
             if len(runs) == 0: # no run with matching name found
                 logging.info(f'Creating run with name:"{pretraining_run_name}"')
-                run = self.client.create_run(self.experiment.experiment_id, tags={'mlflow.runName': pretraining_run_name}) # TODO: mflow.start_run to have system tags set
+                run = client.create_run(experiment.experiment_id, tags={'mlflow.runName': pretraining_run_name}) # TODO: mflow.start_run to have system tags set
                 self.run_id = run.info.run_id
             else: # found existing run with matching name
                 assert len(runs) == 1
@@ -75,59 +67,19 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 else:
                     logging.info('Run found, but no ckpts')
             logging.info(f'Set initial step to {self.initial_step}')
-        elif self.phase == 'readout': 
-            runs = self.search_runs(pretraining_run_name)
+        else:
             assert len(runs) == 1, f'Should be exactly 1 run with name "{pretraining_run_name}", but found {len(runs)}'
             self.restore_step = int(runs[0].data.metrics['step'])
-            assert self.restore_step == self.cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {step} steps, but expected {self.cfg.TRAIN_STEPS} steps'
+            assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {step} steps, but expected {cfg.TRAIN_STEPS} steps'
             self.restore_run_id = runs[0].info.run_id
 
-            logging.info(f'Creating run with name:"{self.run_name}"')
-            run = self.client.create_run(self.experiment.experiment_id, tags={'mlflow.runName': self.run_name})
+            logging.info(f'Creating run with name:"{run_name}"')
+            run = client.create_run(experiment.experiment_id, tags={'mlflow.runName': run_name})
             self.run_id = run.info.run_id
             # TODO: implement continuing readout if extracted feats found
-        else:
-            raise NotImplementedError
-
-    def get_ckpt_from_artifact_store(self, run_id, step): # returns path to downloaded ckpt
-        artifact_path = f'model_ckpts/model_{step:06d}.pt'
-        self.client.download_artifacts(run_id, artifact_path, self.model_dir)
-        logging.info(f'Downloaded {artifact_path} to {self.model_dir}')
-        model_file = os.path.join(self.model_dir, artifact_path)
-        return model_file
-
-    def search_runs(self, run_name):
-        filter_string = 'tags.mlflow.runName="{}"'.format(run_name)
-        runs = self.client.search_runs([self.experiment.experiment_id], filter_string=filter_string)
-        return runs
-
-    def get_mlflow_backend(self): # TODO: split this?
-        if self.dbname  == 'local':
-            tracking_uri = os.path.join(self.output_dir, 'mlruns')
-            artifact_location = None
-        else:
-            # create postgres db, and use for backend store
-            create_postgres_db(self.host, self.port, self.dbname)
-            tracking_uri = 'postgresql://physopt:physopt@{}:{}/{}'.format(self.host, self.port, self.dbname) 
-
-            # create s3 bucket, and use for artifact store
-            s3 = boto3.resource('s3')
-            s3.create_bucket(Bucket=self.dbname)
-            artifact_location =  's3://{}'.format(self.dbname) # TODO: add run name to make it more human-readable?
-        return tracking_uri, artifact_location
-
-    def create_experiment(self, experiment_name):
-        experiment = self.client.get_experiment_by_name(experiment_name)
-        if experiment is None: # create experiment if doesn't exist
-            experiment_id = self.client.create_experiment(experiment_name, artifact_location=self.artifact_location)
-            experiment = self.client.get_experiment(experiment_id)
-        else: # uses old experiment settings (e.g. artifact store location)
-            logging.info('Experiment with name "{}" already exists'.format(experiment_name))
-            # TODO: check that experiment settings match?
-        return experiment
 
     def __call__(self, *args, **kwargs):
-        setup_logger(self.log_file, self.debug)
+        setup_logger(self.log_file, self.cfg.DEBUG)
         mlflow.set_tracking_uri(self.tracking_uri) # needs to be done (again) in __call__ since might be run by worker on different machine
         mlflow.start_run(run_id=self.run_id)
         logging.info(mlflow.get_tracking_uri())
@@ -149,7 +101,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
         # download ckpt from artifact store and load model, if not doing pretraining from scratch
         if (self.restore_step is not None) and (self.restore_run_id is not None):
-            model_file = self.get_ckpt_from_artifact_store(self.restore_run_id, self.restore_step)
+            model_file = get_ckpt_from_artifact_store(self.tracking_uri, self.model_dir, self.restore_run_id, self.restore_step)
             self.model = self.load_model(model_file)
             mlflow.set_tags({
                 'restore_step': self.restore_step,
@@ -172,11 +124,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         ret = {
                 'loss': 0.0,
                 'status': STATUS_OK,
-                'model': self.model_name,
-                'seed': self.seed,
-                'output_dir': self.output_dir,
-                'phase': self.phase,
-                'model_dir': self.model_dir,
                 }
 
         return ret
@@ -199,7 +146,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         except:
             logging.info("Couldn't get trainloader size")
 
-        if (not self.debug) and (self.initial_step <= self.cfg.TRAIN_STEPS): # only do it if pretraining isn't complete and not debug
+        if (not self.cfg.DEBUG) and (self.initial_step <= self.cfg.TRAIN_STEPS): # only do it if pretraining isn't complete and not debug
             logging.info('Doing initial validation') 
             self.validation_with_logging(self.initial_step-1) # -1 for "zeroth" step
             self.save_model_with_logging(self.initial_step-1) # -1 for "zeroth" step
@@ -266,7 +213,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 self.seed,
                 self.readout_dir,
                 protocol, 
-                grid_search_params=None if self.debug else {'C': np.logspace(-8, 8, 17)},
+                grid_search_params=None if self.cfg.DEBUG else {'C': np.logspace(-8, 8, 17)},
                 )
             results.update({
                 'model_name': self.model_name,
@@ -284,8 +231,9 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             mlflow.log_artifact(metrics_file)
 
     @property
+    @classmethod
     @abc.abstractmethod
-    def model_name(self):
+    def model_name(cls):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -315,11 +263,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_dataloader(self, datapaths, phase, train, shuffle): # returns object that can be iterated over for batches of data
         raise NotImplementedError
-
-    def get_config(self):
-        cfg = get_cfg(self.debug)
-        cfg.freeze()
-        return cfg
 
     @staticmethod
     def process_results(results):
@@ -400,9 +343,61 @@ def create_postgres_db(host, port, dbname):
             cur.execute(sql_create_database)
         connection.close()
 
-def get_run_name(model_name, pretraining_name, seed, phase, readout_name=None):
-    to_join = [model_name, pretraining_name, str(seed), phase]
+def get_run_name(model_name, pretraining_name, seed, readout_name=None):
+    to_join = [model_name, pretraining_name, str(seed)]
     if readout_name is not None:
-        to_join.append(readout_name)
+        to_join.extend([READOUT_PHASE_NAME, readout_name])
+    else:
+        to_join.append(PRETRAINING_PHASE_NAME)
     return '{' + '}_{'.join(to_join) + '}'
+
+def get_exp_name(name, add_ts=False, debug=False):
+        if debug:
+            experiment_name = 'DEBUG'
+        elif add_ts:
+            experiment_name = name + '_' + time.strftime("%Y%m%d-%H%M%S")
+        else:
+            experiment_name = name
+        return experiment_name
+
+def get_mlflow_backend(output_dir, host, port, dbname): # TODO: split this?
+    if dbname  == 'local':
+        tracking_uri = os.path.join(output_dir, 'mlruns')
+        artifact_location = None
+    else:
+        # create postgres db, and use for backend store
+        create_postgres_db(host, port, dbname)
+        tracking_uri = 'postgresql://physopt:physopt@{}:{}/{}'.format(host, port, dbname) 
+
+        # create s3 bucket, and use for artifact store
+        s3 = boto3.resource('s3')
+        s3.create_bucket(Bucket=dbname)
+        artifact_location =  's3://{}'.format(dbname) # TODO: add run name to make it more human-readable?
+    return tracking_uri, artifact_location
+
+def get_ckpt_from_artifact_store(tracking_uri, model_dir, run_id, step): # returns path to downloaded ckpt
+    artifact_path = f'model_ckpts/model_{step:06d}.pt'
+    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
+    client.download_artifacts(run_id, artifact_path, model_dir)
+    logging.info(f'Downloaded {artifact_path} to {model_dir}')
+    model_file = os.path.join(model_dir, artifact_path)
+    return model_file
+
+def search_runs(tracking_uri, experiment_id, run_name):
+    filter_string = 'tags.mlflow.runName="{}"'.format(run_name)
+    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
+    runs = client.search_runs([experiment_id], filter_string=filter_string)
+    return runs
+
+def create_experiment(tracking_uri, experiment_name, artifact_location):
+    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
+    experiment = client.get_experiment_by_name(experiment_name)
+    if experiment is None: # create experiment if doesn't exist
+        logging.info('Creating new experiment with name "{}"'.format(experiment_name))
+        experiment_id = client.create_experiment(experiment_name, artifact_location=artifact_location)
+        experiment = client.get_experiment(experiment_id)
+    else: # uses old experiment settings (e.g. artifact store location)
+        logging.info('Experiment with name "{}" already exists'.format(experiment_name))
+        # TODO: check that experiment settings match?
+    return experiment
 
