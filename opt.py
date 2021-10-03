@@ -29,9 +29,6 @@ def get_output_directory(output_dir):
 def get_mongo_path(host, port, database):
     return 'mongo://{0}:{1}/{2}/jobs'.format(host, port, database)
 
-def get_exp_key(model, seed, pretraining_name, readout_name, suffix=''):
-    return '{0}_{1}_{2}_{3}_{4}'.format(model, seed, pretraining_name, readout_name, suffix)
-
 class OptimizationPipeline():
     def __init__(self, cfg):
         self.cfg = cfg
@@ -47,10 +44,9 @@ class OptimizationPipeline():
         Objective = getattr(import_module(cfg.OBJECTIVE.MODULE), cfg.OBJECTIVE.NAME)
 
         def run_once(data_space): # data_space: list of space tuples, first corresponds to dynamics pretraining and the rest are readout
-            seed, pretraining_space, readout_spaces = (data_space['seed'], data_space['pretraining'], data_space['readout'])
+            seed, pretraining_space, readout_spaces = (data_space['seed'], data_space[PRETRAINING_PHASE_NAME], data_space[READOUT_PHASE_NAME])
 
             def run_inner(readout_space=None):
-                phase  = PRETRAINING_PHASE_NAME if readout_space is None else READOUT_PHASE_NAME
                 objective = Objective(
                     seed, 
                     pretraining_space, 
@@ -59,15 +55,11 @@ class OptimizationPipeline():
                     cfg.CONFIG,
                     )
 
-                readout_name = 'none' if readout_space is None else readout_space['name']
-                pretraining_name = pretraining_space['name']
-                exp_key = get_exp_key(objective.model_name, seed, pretraining_name, readout_name, suffix=phase)
-                print("Experiment: {0}".format(exp_key))
                 if cfg.MONGO.DBNAME == 'local' or cfg.CONFIG.DEBUG: # don't use MongoTrials when debugging
                     trials = Trials()
                 else:
                     mongo_path = get_mongo_path(cfg.MONGO.HOST, cfg.MONGO.PORT, cfg.MONGO.DBNAME)
-                    trials = MongoTrials(mongo_path, exp_key)
+                    trials = MongoTrials(mongo_path, exp_key=objective.run_name)
 
                 try:
                     fmin(
@@ -76,7 +68,7 @@ class OptimizationPipeline():
                         algo=suggest, max_evals=1e5,
                         )
                 except ValueError as e:
-                    print("Job died: {0}".format(exp_key))
+                    print("Job died: {0}".format(objective.run_name))
                     traceback.print_exc()
                 return 
 
@@ -111,12 +103,12 @@ def resolve_config_path(config_file):
     if not os.path.isabs(config_file):
         try:
             config_dir = os.environ[ENV_VAR_NAME]
-            assert os.path.isdir(config_dir), f'Directory at {config_dir} does not exist'
+            assert os.path.isdir(config_dir), f'Directory not found: {config_dir}'
             print(f'Searching for config in {config_dir}')
             config_file = os.path.join(config_dir, config_file)
         except KeyError:
             raise MissingEnvironmentVariable(f'Must set environment variable "{ENV_VAR_NAME}" if using relative path for config file')
-    assert os.path.isfile(config_file)
+    assert os.path.isfile(config_file), f'File not found: {config_file}'
     return config_file
 
 if __name__ == '__main__':

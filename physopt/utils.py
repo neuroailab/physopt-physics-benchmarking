@@ -43,11 +43,11 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.tracking_uri, artifact_location = get_mlflow_backend(output_dir, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
         client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
         experiment = create_experiment(self.tracking_uri, experiment_name, artifact_location)
-        run_name = get_run_name(self.model_name, self.pretraining_name, self.seed, self.readout_name)
+        self.run_name = get_run_name(self.model_name, self.pretraining_name, self.seed, self.readout_name)
         pretraining_run_name = get_run_name(self.model_name, self.pretraining_name, self.seed)
         runs = search_runs(self.tracking_uri, experiment.experiment_id, pretraining_run_name)
-        if readout_space is None:
-            assert pretraining_run_name == run_name, 'Names should match: {} and {}'.format(pretraining_run_name, run_name)
+        if self.phase == PRETRAINING_PHASE_NAME:
+            assert pretraining_run_name == self.run_name, 'Names should match: {} and {}'.format(pretraining_run_name, self.run_name)
             assert len(runs) <= 1, f'Should be at most 1 run with name "{pretraining_run_name}", but found {len(runs)}'
             self.restore_run_id = None
             self.restore_step = None
@@ -73,8 +73,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {step} steps, but expected {cfg.TRAIN_STEPS} steps'
             self.restore_run_id = runs[0].info.run_id
 
-            logging.info(f'Creating run with name:"{run_name}"')
-            run = client.create_run(experiment.experiment_id, tags={'mlflow.runName': run_name})
+            logging.info(f'Creating run with name:"{self.run_name}"')
+            run = client.create_run(experiment.experiment_id, tags={'mlflow.runName': self.run_name})
             self.run_id = run.info.run_id
             # TODO: implement continuing readout if extracted feats found
 
@@ -109,11 +109,11 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 'restore_model_file': model_file,
                 })
         else:
-            assert (self.phase == 'pretraining') and (self.initial_step == 1), 'Should be doing pretraining from scratch if not loading model'
+            assert (self.phase == PRETRAINING_PHASE_NAME) and (self.initial_step == 1), 'Should be doing pretraining from scratch if not loading model'
 
-        if self.phase == 'pretraining':  # run model training
+        if self.phase == PRETRAINING_PHASE_NAME:  # run model training
             self.pretraining()
-        elif self.phase == 'readout':# extract features, then train and test readout
+        elif self.phase == READOUT_PHASE_NAME:# extract features, then train and test readout
             self.readout() 
         else:
             raise NotImplementedError
@@ -140,7 +140,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         mlflow.log_metrics(val_results, step=step)
 
     def pretraining(self):
-        trainloader = self.get_dataloader(self.pretraining_space['train'], phase='pretraining', train=True, shuffle=True)
+        trainloader = self.get_dataloader(self.pretraining_space['train'], phase=PRETRAINING_PHASE_NAME, train=True, shuffle=True)
         try:
             mlflow.log_param('trainloader_size', len(trainloader))
         except:
@@ -174,7 +174,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             self.save_model_with_logging(step)
 
     def validation(self):
-        valloader = self.get_dataloader(self.pretraining_space['test'], phase='pretraining', train=False, shuffle=False)
+        valloader = self.get_dataloader(self.pretraining_space['test'], phase=PRETRAINING_PHASE_NAME, train=False, shuffle=False)
         val_results = []
         for i, data in enumerate(valloader):
             val_res = self.val_step(data)
@@ -191,7 +191,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.compute_metrics()
 
     def extract_feats(self,  mode):
-        dataloader = self.get_dataloader(self.readout_space[mode], phase='readout', train=False, shuffle=False)
+        dataloader = self.get_dataloader(self.readout_space[mode], phase=READOUT_PHASE_NAME, train=False, shuffle=False)
         extracted_feats = []
         for i, data in enumerate(dataloader):
             output = self.extract_feat_step(data)
@@ -343,13 +343,13 @@ def create_postgres_db(host, port, dbname):
             cur.execute(sql_create_database)
         connection.close()
 
-def get_run_name(model_name, pretraining_name, seed, readout_name=None):
+def get_run_name(model_name, pretraining_name, seed, readout_name=None, separator='-'):
     to_join = [model_name, pretraining_name, str(seed)]
     if readout_name is not None:
         to_join.extend([READOUT_PHASE_NAME, readout_name])
     else:
         to_join.append(PRETRAINING_PHASE_NAME)
-    return '{' + '}_{'.join(to_join) + '}'
+    return separator.join(to_join)
 
 def get_exp_name(name, add_ts=False, debug=False):
         if debug:
