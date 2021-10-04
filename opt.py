@@ -39,7 +39,7 @@ class OptimizationPipeline():
 
     def run(self):
         cfg = self.cfg
-        data_spaces = build_data_spaces(cfg.DATA_SPACE.MODULE, cfg.DATA_SPACE.FUNC, cfg.DATA_SPACE.KWARGS)
+        data_spaces = build_data_spaces(cfg.DATA_SPACE.MODULE, cfg.DATA_SPACE.FUNC, cfg.DATA_SPACE.SEEDS, cfg.DATA_SPACE.KWARGS)
         output_dir = get_output_directory(cfg.OUTPUT_DIR)
         Objective = getattr(import_module(cfg.OBJECTIVE.MODULE), cfg.OBJECTIVE.NAME)
 

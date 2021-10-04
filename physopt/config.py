@@ -7,8 +7,9 @@ _C.OUTPUT_DIR = '/home/{}/physopt/'
 _C.NUM_THREADS = 1
 
 _C.DATA_SPACE = CN()
-_C.DATA_SPACE.MODULE = None
+_C.DATA_SPACE.MODULE = None # required
 _C.DATA_SPACE.FUNC = 'get_data_spaces'
+_C.DATA_SPACE.SEEDS = (0, ) # if int, uses range(seeds) otherwise pass list of seeds
 _C.DATA_SPACE.KWARGS = CN(new_allowed=True)
 
 _C.MONGO = CN()
@@ -17,7 +18,7 @@ _C.MONGO.PORT = 25555
 _C.MONGO.DBNAME = 'local'
 
 _C.OBJECTIVE = CN()
-_C.OBJECTIVE.MODULE = None
+_C.OBJECTIVE.MODULE = None # required
 _C.OBJECTIVE.NAME = 'Objective'
 
 # for physopt objective
