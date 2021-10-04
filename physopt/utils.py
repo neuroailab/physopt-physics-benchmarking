@@ -140,7 +140,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         mlflow.log_metrics(val_results, step=step)
 
     def pretraining(self):
-        trainloader = self.get_dataloader(self.pretraining_space['train'], phase=PRETRAINING_PHASE_NAME, train=True, shuffle=True)
+        trainloader = self.get_pretraining_dataloader(self.pretraining_space['train'], train=True)
         try:
             mlflow.log_param('trainloader_size', len(trainloader))
         except:
@@ -174,7 +174,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             self.save_model_with_logging(step)
 
     def validation(self):
-        valloader = self.get_dataloader(self.pretraining_space['test'], phase=PRETRAINING_PHASE_NAME, train=False, shuffle=False)
+        valloader = self.get_pretraining_dataloader(self.pretraining_space['test'], train=False)
         val_results = []
         for i, data in enumerate(valloader):
             val_res = self.val_step(data)
@@ -191,7 +191,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.compute_metrics()
 
     def extract_feats(self,  mode):
-        dataloader = self.get_dataloader(self.readout_space[mode], phase=READOUT_PHASE_NAME, train=False, shuffle=False)
+        dataloader = self.get_readout_dataloader(self.readout_space[mode])
         extracted_feats = []
         for i, data in enumerate(dataloader):
             output = self.extract_feat_step(data)
@@ -261,7 +261,11 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_dataloader(self, datapaths, phase, train, shuffle): # returns object that can be iterated over for batches of data
+    def get_pretraining_dataloader(self, datapaths, train): # returns object that can be iterated over for batches of data
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_readout_dataloader(self, datapaths): # returns object that can be iterated over for batches of data
         raise NotImplementedError
 
     @staticmethod
