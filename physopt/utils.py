@@ -41,42 +41,43 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.model = self.get_model()
 
         self.tracking_uri, artifact_location = get_mlflow_backend(output_dir, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
-        client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
         experiment = create_experiment(self.tracking_uri, experiment_name, artifact_location)
         self.run_name = get_run_name(self.model_name, self.pretraining_name, self.seed, self.readout_name)
         pretraining_run_name = get_run_name(self.model_name, self.pretraining_name, self.seed)
         runs = search_runs(self.tracking_uri, experiment.experiment_id, pretraining_run_name)
-        if self.phase == PRETRAINING_PHASE_NAME:
+        if self.phase == PRETRAINING_PHASE_NAME: # pretraining
             assert pretraining_run_name == self.run_name, 'Names should match: {} and {}'.format(pretraining_run_name, self.run_name)
-            assert len(runs) <= 1, f'Should be at most 1 run with name "{pretraining_run_name}", but found {len(runs)}'
             self.restore_run_id = None
             self.restore_step = None
             self.initial_step = 1
-            if len(runs) == 0: # no run with matching name found
-                logging.info(f'Creating run with name:"{pretraining_run_name}"')
-                run = client.create_run(experiment.experiment_id, tags={'mlflow.runName': pretraining_run_name}) # TODO: mflow.start_run to have system tags set
-                self.run_id = run.info.run_id
-            else: # found existing run with matching name
-                assert len(runs) == 1
-                logging.info(f'Found run with name:"{pretraining_run_name}"')
-                self.run_id = runs[0].info.run_id
-                if 'step' in runs[0].data.metrics:
-                    self.restore_run_id = self.run_id # restoring from same run
-                    self.restore_step = int(runs[0].data.metrics['step'])
-                    self.initial_step = self.restore_step + 1 # start with next step
-                else:
-                    logging.info('Run found, but no ckpts')
+            run = self.get_run(experiment, pretraining_run_name)
+            self.run_id = run.info.run_id
+            if 'step' in run.data.metrics:
+                self.restore_run_id = self.run_id # restoring from same run
+                self.restore_step = int(runs[0].data.metrics['step'])
+                self.initial_step = self.restore_step + 1 # start with next step
             logging.info(f'Set initial step to {self.initial_step}')
-        else:
+        else: # readout
             assert len(runs) == 1, f'Should be exactly 1 run with name "{pretraining_run_name}", but found {len(runs)}'
             self.restore_step = int(runs[0].data.metrics['step'])
             assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {step} steps, but expected {cfg.TRAIN_STEPS} steps'
             self.restore_run_id = runs[0].info.run_id
 
-            logging.info(f'Creating run with name:"{self.run_name}"')
-            run = client.create_run(experiment.experiment_id, tags={'mlflow.runName': self.run_name})
-            self.run_id = run.info.run_id
             # TODO: implement continuing readout if extracted feats found
+            run = self.get_run(experiment, self.run_name)
+            self.run_id = run.info.run_id
+
+    def get_run(self, experiment, run_name):
+        runs = search_runs(self.tracking_uri, experiment.experiment_id, run_name)
+        assert len(runs) <= 1, f'Should be at most one (1) run with name "{run_name}", but found {len(runs)}'
+        if len(runs) == 0:
+            logging.info(f'Creating run with name:"{run_name}"')
+            client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
+            run = client.create_run(experiment.experiment_id, tags={'mlflow.runName': run_name})
+        else: # found existing run with matching name
+            logging.info(f'Found run with name:"{run_name}"')
+            run = runs[0]
+        return run
 
     def __call__(self, *args, **kwargs):
         setup_logger(self.log_file, self.cfg.DEBUG)
@@ -187,7 +188,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def readout(self):
         for mode in ['train', 'test']:
-            self.extract_feats(mode)
+            self.extract_feats(mode) # TODO: try to see if feats found in artifact store
         self.compute_metrics()
 
     def extract_feats(self,  mode):
