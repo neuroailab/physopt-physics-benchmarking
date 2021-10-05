@@ -111,16 +111,23 @@ def resolve_config_path(config_file):
     assert os.path.isfile(config_file), f'File not found: {config_file}'
     return config_file
 
-if __name__ == '__main__':
-    args = arg_parse()
+def check_cfg(cfg):
+    assert cfg.DATA_SPACE.MODULE is not None, 'DATA_SPACE.MODULE must be set in the config'
+    assert cfg.OBJECTIVE.MODULE is not None, 'OBJECTIVE.MODULE must be set in the config' 
+    return True
 
+def get_cfg_from_args(args):
     cfg = get_cfg_defaults()
     config_file  = resolve_config_path(args.config)
     cfg.merge_from_file(config_file)
     if args.debug: # merge debug at end so takes priority
         cfg.merge_from_other_cfg(get_cfg_debug())
     cfg.freeze()
-    print(cfg)
+    check_cfg(cfg)
+    return cfg
 
+if __name__ == '__main__':
+    args = arg_parse()
+    cfg = get_cfg_from_args(args)
     pipeline = OptimizationPipeline(cfg)
     pipeline.run()

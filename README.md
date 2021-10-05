@@ -101,28 +101,33 @@ To see all available argument options use
 
 `python opt.py --help`
 
-## Data Spaces Specification
-The `data_func` (defaults to `get_data_spaces`) from the specified `data_module` must return a list of dicts with the following structure:
--  `seed`: random seed to used initialize random generators
+## Configuration 
+The default configuration can be found in `physopt/config.py`, which is updated by specifying a YAML configuration file using the `--config` (or `-C`) commandline argument. This configuration must specify at least the `DATA_SPACE.MODULE` (see [data spaces specification](#data-spaces-specification)) and `OBJECTIVE.MODULE` (see [model specification](#model-specification)).
+
+### Data Spaces Specification
+The `DATA_SPACE.FUNC` (defaults to `get_data_spaces`) from the specified `DATA_SPACE.MODULE` must return a list of dicts with the following structure:
 - `pretraining`: dict with `name`, `train`, and `test` that specify the dataset/scenario name, train datapaths, and test datapaths, respectively
 - `readout`: a list of dicts, with each dict having the same format as in `pretraining` but specifying data for readout phase instead
 
-Optionally, you can also specify a configuration file (using `--data_cfg`) that is passed to the `data_func` as an argument.
+Any `kwargs` for `DATA_SPACE.FUNC` can be specified using `DATA_SPACE.KWARGS`.
 
-An example of how the data spaces can be constructed can be found in the [Physion](https://github.com/neuroailab/physion/tree/master/physion/data) repo.
+The seeds, specified by `DATA_SPACE.SEEDS`, can either be a list/tuple of seeds to use or an int that specifies the number of seeds, starting from 0. Each set of pretraining and readout datasets (i.e. each element of the list of dicts returned by `DATA_SPACE.FUNC`) will be run with each seed.
 
-## Model Specification
-Running a model in `physopt` requires completing the abstract methods in `PhysOptObjective`:
+An example of how the data spaces can be constructed can be found in the [Physion](https://github.com/neuroailab/physion/tree/master/physion/data_space) repo.
+
+###  Model Specification
+Running a model in `physopt` requires creating an Objective class, specified by `OBJECTIVE.MODULEi` and `OBJECTIVE.NAME`, that implements the following abstract methods in `PhysOptObjective`:
+- `model_name`: Class attribute that specifies the name of the model for this class
 - `get_model`: Returns the model object
-- `load_model`: Implements loading of model if model checkpoint file exists
-- `save_model`: Implements saving of the model
-- `get_dataloader`: Takes as input params `datapaths`, `phase`, `train`, and `shuffle`. Returns the dataloader object that can be iterated over for batches of data
+- `load_model`: Implements loading of the model given a model checkpoint file
+- `save_model`: Implements saving of the model given a model checkpoint file
+- `get_pretraining_dataloader`: Takes as input params a list of `datapaths` and a bool `train` flag. Returns the dataloader object that can be iterated over for batches of data
+- `get_readout_dataloader`: Takes as input params a list of `datapaths`. Returns the dataloader object that can be iterated over for batches of data
 - `train_step`: Takes as input a batch of data, performs the train optimization step, and returns the scalar loss value for that step
 - `val_step`: Takes as input a batch of data, performs validation on that batch, and returns the scalar metric used for validation
-- `extract_feat_step`: Takes as input a batch of data, and outputs a dict with `input_states`, `observed_states`, `simulated_states`, `labels`, and `stimulus_name`.
-- Optionally, `get_config`: Loads a configuration object. Must contain at least the settings in `physopt/models/config.py` and be accessible with dot notation. 
+- `extract_feat_step`: Takes as input a batch of data, and outputs a dict with `input_states`, `observed_states`, `simulated_states`, `labels`, and `stimulus_name`
 
-An example can be found [here](https://github.com/neuroailab/physion/blob/master/physion/FROZEN.py#L23).
+An example can be found [here](https://github.com/neuroailab/physion/blob/master/physion/FROZEN.py#L11).
 
 ## Citing Physion
 
