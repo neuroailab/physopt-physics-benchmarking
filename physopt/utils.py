@@ -63,7 +63,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {step} steps, but expected {cfg.TRAIN_STEPS} steps'
             self.restore_run_id = runs[0].info.run_id
 
-            # TODO: implement continuing readout if extracted feats found
             run = self.get_run(experiment, self.run_name)
             self.run_id = run.info.run_id
 
@@ -187,22 +186,30 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         return val_results
 
     def readout(self):
+        kwargs = {}
         for mode in ['train', 'test']:
-            self.extract_feats(mode) # TODO: try to see if feats found in artifact store
-        self.compute_metrics()
+            feature_file = self.extract_feats(mode) 
+            kwargs[mode+'_feature_file'] = feature_file
+        self.compute_metrics(**kwargs)
 
     def extract_feats(self,  mode):
-        dataloader = self.get_readout_dataloader(self.readout_space[mode])
-        extracted_feats = []
-        for i, data in enumerate(dataloader):
-            output = self.extract_feat_step(data)
-            extracted_feats.append(output)
-        feature_file = os.path.join(self.readout_dir, mode+'_feat.pkl')
-        pickle.dump(extracted_feats, open(feature_file, 'wb')) 
-        logging.info('Saved features to {}'.format(feature_file))
-        mlflow.log_artifact(feature_file, artifact_path='features')
+        try:
+            feature_file = get_feats_from_artifact_store(self.tracking_uri, self.readout_dir, self.run_id, mode)
+        except FileNotFoundError:
+            logging.info(f"Couldn't find feature file for {self.run_name} {mode}")
+            logging.info(traceback.format_exc())
+            dataloader = self.get_readout_dataloader(self.readout_space[mode])
+            extracted_feats = []
+            for i, data in enumerate(dataloader):
+                output = self.extract_feat_step(data)
+                extracted_feats.append(output)
+            feature_file = os.path.join(self.readout_dir, mode+'_feat.pkl')
+            pickle.dump(extracted_feats, open(feature_file, 'wb')) 
+            logging.info('Saved features to {}'.format(feature_file))
+            mlflow.log_artifact(feature_file, artifact_path='features')
+        return feature_file
 
-    def compute_metrics(self):
+    def compute_metrics(self, train_feature_file, test_feature_file):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
         metrics_file = os.path.join(self.readout_dir, 'metrics_results.csv')
         if os.path.exists(metrics_file): # rename old results, just in case
@@ -213,6 +220,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             results = run_metrics(
                 self.seed,
                 self.readout_dir,
+                train_feature_file,
+                test_feature_file,
                 protocol, 
                 grid_search_params=None if self.cfg.DEBUG else {'C': np.logspace(-8, 8, 17)},
                 )
@@ -392,6 +401,14 @@ def get_ckpt_from_artifact_store(tracking_uri, model_dir, run_id, step): # retur
     logging.info(f'Downloaded {artifact_path} to {model_dir}')
     model_file = os.path.join(model_dir, artifact_path)
     return model_file
+
+def get_feats_from_artifact_store(tracking_uri, readout_dir, run_id, mode): # returns path to downloaded feats
+    artifact_path = f'features/{mode}_feat.pkl'
+    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
+    client.download_artifacts(run_id, artifact_path, readout_dir)
+    logging.info(f'Downloaded {artifact_path} to {readout_dir}')
+    feat_file = os.path.join(readout_dir, artifact_path)
+    return feat_file
 
 def search_runs(tracking_uri, experiment_id, run_name):
     filter_string = 'tags.mlflow.runName="{}"'.format(run_name)

@@ -128,6 +128,8 @@ def rebalance(data, label_fn, balancing = oversample):
 def run_metrics(
         seed,
         readout_dir,
+        train_feature_file,
+        test_feature_file,
         protocol,
         grid_search_params = {'C': np.logspace(-8, 8, 17)},
         ):
@@ -136,9 +138,9 @@ def run_metrics(
     feature_extractor = FeatureExtractor(feature_model)
 
     # Construct data providers
-    train_feature_file = os.path.join(readout_dir, 'train_feat.pkl')
+    logging.info(f'Train feature file: {train_feature_file}')
+    logging.info(f'Test feature file: {test_feature_file}')
     train_data = build_data(train_feature_file)
-    test_feature_file = os.path.join(readout_dir, 'test_feat.pkl')
     test_data = build_data(test_feature_file)
 
     # Get stimulus names and labels for test data
