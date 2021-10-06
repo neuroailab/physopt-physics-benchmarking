@@ -40,12 +40,6 @@ def build_data(path, max_sequences = 1e9):
             pass
     return data
 
-
-def subselect(data, time_steps):
-    assert time_steps.stop <= len(data), (time_steps.stop, len(data))
-    assert time_steps.start < len(data), (time_steps.start, len(data))
-    return data[time_steps]
-
 def observed_model_fn(data):
     states = np.concatenate([data['input_states'], data['observed_states']], axis=0)
     states = np.reshape(states, [states.shape[0], -1])
@@ -86,7 +80,6 @@ def get_num_samples(data, label_fn):
             neg.append(i)
     return pos, neg
 
-
 def oversample(data, pos, neg):
     balanced_data = []
     if len(pos) < len(neg):
@@ -99,7 +92,6 @@ def oversample(data, pos, neg):
         balanced_data = data
     return balanced_data
 
-
 def undersample(data, pos, neg):
     balanced_data = []
     if len(pos) < len(neg):
@@ -111,7 +103,6 @@ def undersample(data, pos, neg):
     else:
         balanced_data = data
     return balanced_data
-
 
 def rebalance(data, label_fn, balancing = oversample):
     # Get number of positive and negative samples
