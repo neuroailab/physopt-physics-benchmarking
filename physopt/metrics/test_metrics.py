@@ -127,20 +127,17 @@ def rebalance(data, label_fn, balancing = oversample):
 
 def run_metrics(
         seed,
+        readout_model_file,
         readout_dir,
         train_feature_file,
         test_feature_file,
         protocol,
         grid_search_params = {'C': np.logspace(-8, 8, 17)},
         ):
-    # Build physics model
-    feature_model = build_model(protocol)
-    feature_extractor = FeatureExtractor(feature_model)
-
     # Construct data providers
     logging.info(f'Train feature file: {train_feature_file}')
-    logging.info(f'Test feature file: {test_feature_file}')
     train_data = build_data(train_feature_file)
+    logging.info(f'Test feature file: {test_feature_file}')
     test_data = build_data(test_feature_file)
 
     # Get stimulus names and labels for test data
@@ -154,20 +151,23 @@ def run_metrics(
     logging.info("Rebalancing testing data")
     test_data_balanced = rebalance(test_data, label_fn)
 
-    # Build logistic regression model
-    readout_model = LogisticRegressionReadoutModel(max_iter=100, C=1.0, verbose=1)
-    metric_model = BatchMetricModel(feature_extractor, readout_model, accuracy, label_fn, grid_search_params)
-
-    # TODO: clean up this part
-    readout_model_file = os.path.join(readout_dir, protocol+'_readout_model.joblib')
-    if os.path.exists(readout_model_file):
+    if readout_model_file is not None:
         logging.info('Loading readout model from: {}'.format(readout_model_file))
         metric_model = joblib.load(readout_model_file)
     else:
+        logging.info('Creating new readout model')
+        # Build physics model
+        feature_model = build_model(protocol)
+        feature_extractor = FeatureExtractor(feature_model)
+        # Build logistic regression model
+        readout_model = LogisticRegressionReadoutModel(max_iter=100, C=1.0, verbose=1)
+        metric_model = BatchMetricModel(feature_extractor, readout_model, accuracy, label_fn, grid_search_params)
+
+        readout_model_file = os.path.join(readout_dir, protocol+'_readout_model.joblib')
         logging.info('Training readout model and saving to: {}'.format(readout_model_file))
         metric_model.fit(iter(train_data_balanced))
         joblib.dump(metric_model, readout_model_file)
-    mlflow.log_artifact(readout_model_file, artifact_path='readout_models')
+        mlflow.log_artifact(readout_model_file, artifact_path='readout_models')
 
     train_acc = metric_model.score(iter(train_data_balanced))
     test_acc = metric_model.score(iter(test_data_balanced))

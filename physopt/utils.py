@@ -101,7 +101,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
         # download ckpt from artifact store and load model, if not doing pretraining from scratch
         if (self.restore_step is not None) and (self.restore_run_id is not None):
-            model_file = get_ckpt_from_artifact_store(self.tracking_uri, self.model_dir, self.restore_run_id, self.restore_step)
+            model_file = get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.model_dir)
             self.model = self.load_model(model_file)
             mlflow.set_tags({
                 'restore_step': self.restore_step,
@@ -193,11 +193,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.compute_metrics(**kwargs)
 
     def extract_feats(self,  mode):
-        try:
-            feature_file = get_feats_from_artifact_store(self.tracking_uri, self.readout_dir, self.run_id, mode)
-        except FileNotFoundError:
-            logging.info(f"Couldn't find feature file for {self.run_name} {mode}")
-            logging.info(traceback.format_exc())
+        feature_file = get_feats_from_artifact_store(mode, self.tracking_uri, self.run_id, self.readout_dir)
+        if feature_file is None: # features weren't found in artifact store
             dataloader = self.get_readout_dataloader(self.readout_space[mode])
             extracted_feats = []
             for i, data in enumerate(dataloader):
@@ -217,8 +214,10 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             os.rename(metrics_file, dst)
         protocols = ['observed', 'simulated', 'input']
         for protocol in protocols:
+            readout_model_file = get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.readout_dir)
             results = run_metrics(
                 self.seed,
+                readout_model_file,
                 self.readout_dir,
                 train_feature_file,
                 test_feature_file,
@@ -394,21 +393,32 @@ def get_mlflow_backend(output_dir, host, port, dbname): # TODO: split this?
         artifact_location =  's3://{}'.format(dbname) # TODO: add run name to make it more human-readable?
     return tracking_uri, artifact_location
 
-def get_ckpt_from_artifact_store(tracking_uri, model_dir, run_id, step): # returns path to downloaded ckpt
+def download_from_artifact_store(artifact_path, tracking_uri, run_id, output_dir): # Tries to download artifact, returns None if not found
+    try:
+        client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
+        client.download_artifacts(run_id, artifact_path, output_dir)
+        logging.info(f'Downloaded {artifact_path} to {output_dir}')
+        output_file = os.path.join(output_dir, artifact_path)
+    except FileNotFoundError:
+        logging.info(f"Couldn't find artifact at {artifact_path} in artifact store")
+        logging.debug(traceback.format_exc())
+        output_file = None
+    return output_file
+
+def get_ckpt_from_artifact_store(step, tracking_uri, run_id, model_dir): # returns path to downloaded ckpt, if found
     artifact_path = f'model_ckpts/model_{step:06d}.pt'
-    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
-    client.download_artifacts(run_id, artifact_path, model_dir)
-    logging.info(f'Downloaded {artifact_path} to {model_dir}')
-    model_file = os.path.join(model_dir, artifact_path)
+    model_file = download_from_artifact_store(artifact_path, tracking_uri, run_id, model_dir)
     return model_file
 
-def get_feats_from_artifact_store(tracking_uri, readout_dir, run_id, mode): # returns path to downloaded feats
+def get_feats_from_artifact_store(mode, tracking_uri, run_id, readout_dir): # returns path to downloaded feats, if found
     artifact_path = f'features/{mode}_feat.pkl'
-    client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
-    client.download_artifacts(run_id, artifact_path, readout_dir)
-    logging.info(f'Downloaded {artifact_path} to {readout_dir}')
-    feat_file = os.path.join(readout_dir, artifact_path)
+    feat_file = download_from_artifact_store(artifact_path, tracking_uri, run_id, readout_dir)
     return feat_file
+
+def get_readout_model_from_artifact_store(protocol, tracking_uri, run_id, readout_dir): # returns path to downloaded readout model, if found
+    artifact_path = f'readout_models/{protocol}_readout_model.joblib'
+    readout_model_file = download_from_artifact_store(artifact_path, tracking_uri, run_id, readout_dir)
+    return readout_model_file
 
 def search_runs(tracking_uri, experiment_id, run_name):
     filter_string = 'tags.mlflow.runName="{}"'.format(run_name)
