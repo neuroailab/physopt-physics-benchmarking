@@ -1,4 +1,5 @@
 import os
+import shutil
 import abc
 import logging
 import errno
@@ -120,6 +121,13 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
         mlflow.log_artifact(self.log_file)
         mlflow.end_run()
+
+        if self.cfg.DELETE_LOCAL: # delete locally saved files, since they're already logged as mlflow artifacts -- saves disk storage space
+            try:
+                logging.info(f'Removing all local files in {self.model_dir}')
+                shutil.rmtree(self.model_dir)
+            except OSError as e:
+                print(f'Error: {e.filename} - {e.strerror}.')
 
         ret = {
                 'loss': 0.0,

@@ -24,6 +24,7 @@ _C.OBJECTIVE.NAME = 'Objective'
 # for physopt objective
 _C.CONFIG = CN()
 _C.CONFIG.DEBUG = False
+_C.CONFIG.DELETE_LOCAL = True # delete local files (not artifact store)
 _C.CONFIG.EXPERIMENT_NAME = 'Default'
 _C.CONFIG.ADD_TIMESTAMP = False
 _C.CONFIG.TRAIN_STEPS = 1000
