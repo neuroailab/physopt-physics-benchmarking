@@ -11,7 +11,7 @@ import dill
 from physopt.metrics.feature_extractor import FeatureExtractor
 from physopt.metrics.readout_model import IdentityModel
 from physopt.metrics.metric_model import BatchMetricModel
-from physopt.metrics.linear_readout_model import LogisticRegressionReadoutModel
+from physopt.metrics.readout_model import LogisticRegressionReadoutModel
 from physopt.metrics.metric_fns import accuracy 
 
 def build_data(path, max_sequences = 1e9):
