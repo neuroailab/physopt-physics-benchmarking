@@ -225,12 +225,12 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             os.rename(metrics_file, dst)
         protocols = ['observed', 'simulated', 'input']
         for protocol in protocols:
-            readout_model = self.get_readout_model()
-            readout_model_file = get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.readout_dir)
+            readout_model_or_file = get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.readout_dir)
+            if readout_model_or_file is None:
+                readout_model_or_file = self.get_readout_model()
             results = run_metrics(
                 self.seed,
-                readout_model,
-                readout_model_file,
+                readout_model_or_file,
                 self.readout_dir,
                 train_feature_file,
                 test_feature_file,

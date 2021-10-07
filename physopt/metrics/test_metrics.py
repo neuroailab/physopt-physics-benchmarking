@@ -115,8 +115,7 @@ def rebalance(data, label_fn, balancing = oversample):
 
 def run_metrics(
         seed,
-        readout_model,
-        readout_model_file,
+        readout_model_or_file,
         readout_dir,
         train_feature_file,
         test_feature_file,
@@ -139,13 +138,13 @@ def run_metrics(
     logging.info("Rebalancing testing data")
     test_data_balanced = rebalance(test_data, label_fn)
 
-    if readout_model_file is not None:
-        logging.info('Loading readout model from: {}'.format(readout_model_file))
-        metric_model = joblib.load(readout_model_file)
+    if isinstance(readout_model_or_file, str) and os.path.isfile(readout_model_or_file): # using readout model downloaded from artifact store
+        logging.info('Loading readout model from: {}'.format(readout_model_or_file))
+        metric_model = joblib.load(readout_model_or_file)
     else:
         logging.info('Creating new readout model')
         feature_fn = get_feature_fn(protocol)
-        metric_model = MetricModel(readout_model, feature_fn, label_fn, accuracy)
+        metric_model = MetricModel(readout_model_or_file, feature_fn, label_fn, accuracy)
 
         readout_model_file = os.path.join(readout_dir, protocol+'_readout_model.joblib')
         logging.info('Training readout model and saving to: {}'.format(readout_model_file))
