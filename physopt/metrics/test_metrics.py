@@ -9,8 +9,7 @@ import joblib
 import dill
 
 from physopt.metrics.feature_extractor import FeatureExtractor
-from physopt.metrics.readout_model import IdentityModel
-from physopt.metrics.metric_model import BatchMetricModel
+from physopt.metrics.metric_model import MetricModel
 from physopt.metrics.readout_model import LogisticRegressionReadoutModel
 from physopt.metrics.metric_fns import accuracy 
 
@@ -19,7 +18,7 @@ def build_data(path, max_sequences = 1e9):
         batched_data = pickle.load(f)
 
     # Unpack batched data into sequencs
-    data = []
+    data = [] # each element in list is one example
     for bd in batched_data:
         for bidx in range(len(bd[list(bd.keys())[0]])):
             sequence = {}
@@ -152,17 +151,17 @@ def run_metrics(
         feature_extractor = FeatureExtractor(feature_model)
         # Build logistic regression model
         readout_model = LogisticRegressionReadoutModel(max_iter=100, C=1.0, verbose=1)
-        metric_model = BatchMetricModel(feature_extractor, readout_model, accuracy, label_fn, grid_search_params)
+        metric_model = MetricModel(feature_extractor, readout_model, accuracy, label_fn, grid_search_params)
 
         readout_model_file = os.path.join(readout_dir, protocol+'_readout_model.joblib')
         logging.info('Training readout model and saving to: {}'.format(readout_model_file))
-        metric_model.fit(iter(train_data_balanced))
+        metric_model.fit(train_data_balanced)
         joblib.dump(metric_model, readout_model_file)
         mlflow.log_artifact(readout_model_file, artifact_path='readout_models')
 
-    train_acc = metric_model.score(iter(train_data_balanced))
-    test_acc = metric_model.score(iter(test_data_balanced))
-    test_proba = metric_model.predict_proba(iter(test_data))
+    train_acc = metric_model.score(train_data_balanced)
+    test_acc = metric_model.score(test_data_balanced)
+    test_proba = metric_model.predict_proba(test_data)
 
     result = {
         'train_accuracy': train_acc, 
