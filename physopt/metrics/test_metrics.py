@@ -7,11 +7,8 @@ import csv
 import mlflow
 import joblib
 import dill
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV
 
 from physopt.metrics.metric_model import MetricModel
-from physopt.metrics.readout_model import ReadoutModel
 from physopt.metrics.metric_fns import accuracy 
 
 def build_data(path, max_sequences = 1e9):
@@ -118,12 +115,12 @@ def rebalance(data, label_fn, balancing = oversample):
 
 def run_metrics(
         seed,
+        readout_model,
         readout_model_file,
         readout_dir,
         train_feature_file,
         test_feature_file,
         protocol,
-        grid_search_params = {'C': np.logspace(-8, 8, 17)},
         ):
     # Construct data providers
     logging.info(f'Train feature file: {train_feature_file}')
@@ -148,10 +145,6 @@ def run_metrics(
     else:
         logging.info('Creating new readout model')
         feature_fn = get_feature_fn(protocol)
-        estimator = LogisticRegression(max_iter=100) 
-        if grid_search_params:
-            estimator = GridSearchCV(estimator, grid_search_params)
-        readout_model = ReadoutModel(estimator)
         metric_model = MetricModel(readout_model, feature_fn, label_fn, accuracy)
 
         readout_model_file = os.path.join(readout_dir, protocol+'_readout_model.joblib')
@@ -173,7 +166,7 @@ def run_metrics(
         'protocol': protocol,
         'seed': seed,
         }
-    if grid_search_params is not None:
+    if hasattr(metric_model._readout_model, 'best_params_'):
         result['best_params'] = metric_model._readout_model.best_params_
 
     return result

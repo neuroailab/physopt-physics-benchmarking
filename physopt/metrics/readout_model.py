@@ -2,7 +2,7 @@ class ReadoutModel(object):
     """
     Fits model on data to predict labels
     """
-    def __init__(self, model=None, scaler=None):
+    def __init__(self, model, scaler=None):
         self._model = model
         self._scaler = scaler
 

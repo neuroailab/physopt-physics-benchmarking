@@ -11,7 +11,10 @@ import pickle
 import psycopg2
 import boto3
 
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV
 from hyperopt import STATUS_OK, STATUS_FAIL
+from physopt.metrics.readout_model import ReadoutModel
 from physopt.metrics.test_metrics import run_metrics, write_metrics
 
 PRETRAINING_PHASE_NAME = 'pretraining'
@@ -222,15 +225,16 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             os.rename(metrics_file, dst)
         protocols = ['observed', 'simulated', 'input']
         for protocol in protocols:
+            readout_model = self.get_readout_model()
             readout_model_file = get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.readout_dir)
             results = run_metrics(
                 self.seed,
+                readout_model,
                 readout_model_file,
                 self.readout_dir,
                 train_feature_file,
                 test_feature_file,
                 protocol, 
-                grid_search_params=None if self.cfg.DEBUG else {'C': np.logspace(-8, 8, 17)},
                 )
             results.update({
                 'model_name': self.model_name,
@@ -251,6 +255,12 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             processed_results = self.process_results(results)
             write_metrics(processed_results, metrics_file)
             mlflow.log_artifact(metrics_file)
+
+    def get_readout_model(self):
+        grid_search_params = {'C': np.logspace(-(self.cfg.READOUT.NUM_C//2), self.cfg.READOUT.NUM_C//2, self.cfg.READOUT.NUM_C)}
+        model = GridSearchCV(LogisticRegression(max_iter=100), grid_search_params)
+        readout_model = ReadoutModel(model)
+        return readout_model
 
     @property
     @classmethod

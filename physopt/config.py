@@ -36,6 +36,8 @@ _C.CONFIG.CKPT_FREQ = 100
 _C.CONFIG.TRAIN = CN(new_allowed=True)
 _C.CONFIG.MODEL = CN(new_allowed=True)
 _C.CONFIG.DATA = CN(new_allowed=True)
+_C.CONFIG.READOUT = CN(new_allowed=True)
+_C.CONFIG.READOUT.NUM_C = 17 # how many C's to do grid search over for logistic regression readout model
 
 _C.CONFIG.POSTGRES = CN()
 _C.CONFIG.POSTGRES.HOST = 'localhost'
@@ -54,4 +56,6 @@ def get_cfg_debug():
     C.CONFIG.LOG_FREQ = 1
     C.CONFIG.VAL_FREQ = 2
     C.CONFIG.CKPT_FREQ = 5
+    C.CONFIG.READOUT = CN()
+    C.CONFIG.READOUT.NUM_C = 1 # just use one regularization value
     return C.clone()
