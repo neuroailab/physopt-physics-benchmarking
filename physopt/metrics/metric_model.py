@@ -7,6 +7,7 @@ class MetricModel(object):
             label_fn,
             metric_fn,
             ):
+        check_readout_model(readout_model)
         self._readout_model = readout_model
         self._feature_fn = feature_fn
         self._label_fn = label_fn
@@ -46,3 +47,7 @@ class MetricModel(object):
         predictions = self._readout_model.predict(features)
         metric = self._metric_fn(predictions, labels)
         return metric
+
+def check_readout_model(readout_model):
+    for attr in ['fit', 'predict', 'predict_proba']:
+        assert hasattr(readout_model, attr) and callable(getattr(readout_model, attr)), f'Readout model must have {attr} method'
