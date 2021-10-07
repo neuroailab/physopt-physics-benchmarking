@@ -7,9 +7,11 @@ import csv
 import mlflow
 import joblib
 import dill
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import GridSearchCV
 
 from physopt.metrics.metric_model import MetricModel
-from physopt.metrics.readout_model import LogisticRegressionReadoutModel
+from physopt.metrics.readout_model import ReadoutModel
 from physopt.metrics.metric_fns import accuracy 
 
 def build_data(path, max_sequences = 1e9):
@@ -53,7 +55,7 @@ def input_model_fn(data):
     states = np.reshape(states, [states.shape[0], -1])
     return states
 
-def build_model(protocol):
+def get_feature_fn(protocol):
     if protocol == 'observed':
         return observed_model_fn
     elif protocol == 'simulated':
@@ -61,7 +63,7 @@ def build_model(protocol):
     elif protocol == 'input':
         return input_model_fn
     else:
-        raise NotImplementedError('Unknown model function!')
+        raise NotImplementedError('Unknown feature function!')
 
 def label_fn(data):
     labels = data['labels'] # use full sequence for labels
@@ -145,9 +147,12 @@ def run_metrics(
         metric_model = joblib.load(readout_model_file)
     else:
         logging.info('Creating new readout model')
-        feature_fn = build_model(protocol)
-        readout_model = LogisticRegressionReadoutModel(max_iter=100, C=1.0, verbose=1) # build logistic regression model
-        metric_model = MetricModel(readout_model, feature_fn, label_fn, accuracy, grid_search_params)
+        feature_fn = get_feature_fn(protocol)
+        estimator = LogisticRegression(max_iter=100) 
+        if grid_search_params:
+            estimator = GridSearchCV(estimator, grid_search_params)
+        readout_model = ReadoutModel(estimator)
+        metric_model = MetricModel(readout_model, feature_fn, label_fn, accuracy)
 
         readout_model_file = os.path.join(readout_dir, protocol+'_readout_model.joblib')
         logging.info('Training readout model and saving to: {}'.format(readout_model_file))
@@ -157,7 +162,7 @@ def run_metrics(
 
     train_acc = metric_model.score(train_data_balanced)
     test_acc = metric_model.score(test_data_balanced)
-    test_proba = metric_model.predict_proba(test_data)
+    test_proba = metric_model.predict(test_data, proba=True)
 
     result = {
         'train_accuracy': train_acc, 

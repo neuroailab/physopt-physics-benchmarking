@@ -1,5 +1,4 @@
 import numpy as np
-from sklearn.model_selection import GridSearchCV
 
 class MetricModel(object):
     def __init__(self,
@@ -7,10 +6,7 @@ class MetricModel(object):
             feature_fn,
             label_fn,
             metric_fn,
-            grid_search_params=None):
-        if grid_search_params:
-            readout_model.score = metric_fn
-            readout_model = GridSearchCV(readout_model, grid_search_params)
+            ):
         self._readout_model = readout_model
         self._feature_fn = feature_fn
         self._label_fn = label_fn
@@ -36,15 +32,14 @@ class MetricModel(object):
         features, labels = self.get_features_labels(data)
         self._readout_model.fit(features, labels)
 
-    def predict(self, data):
+    def predict(self, data, proba=False):
         features, _ = self.get_features_labels(data)
-        predictions = self._readout_model.predict(features)
-        return predictions
-
-    def predict_proba(self, data): # TODO: combine with predict?
-        features, _ = self.get_features_labels(data)
-        proba = self._readout_model.predict_proba(features)
-        return proba
+        if proba:
+            probabilities = self._readout_model.predict_proba(features)
+            return probabilities
+        else:
+            predictions = self._readout_model.predict(features)
+            return predictions
 
     def score(self, data):
         features, labels = self.get_features_labels(data)
