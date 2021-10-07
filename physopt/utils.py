@@ -48,39 +48,27 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         experiment = create_experiment(self.tracking_uri, experiment_name, artifact_location)
         self.run_name = get_run_name(self.model_name, self.pretraining_name, self.seed, self.readout_name)
         pretraining_run_name = get_run_name(self.model_name, self.pretraining_name, self.seed)
-        runs = search_runs(self.tracking_uri, experiment.experiment_id, pretraining_run_name)
+        pretraining_run = get_run(self.tracking_uri, experiment.experiment_id, pretraining_run_name)
         if self.phase == PRETRAINING_PHASE_NAME: # pretraining
             assert pretraining_run_name == self.run_name, 'Names should match: {} and {}'.format(pretraining_run_name, self.run_name)
             self.restore_run_id = None
             self.restore_step = None
             self.initial_step = 1
-            run = self.get_run(experiment, pretraining_run_name)
-            self.run_id = run.info.run_id
-            if 'step' in run.data.metrics:
+            self.run_id = pretraining_run.info.run_id
+            if 'step' in pretraining_run.data.metrics:
                 self.restore_run_id = self.run_id # restoring from same run
-                self.restore_step = int(runs[0].data.metrics['step'])
+                self.restore_step = int(pretraining_run.data.metrics['step'])
                 self.initial_step = self.restore_step + 1 # start with next step
             logging.info(f'Set initial step to {self.initial_step}')
         else: # readout
-            assert len(runs) == 1, f'Should be exactly 1 run with name "{pretraining_run_name}", but found {len(runs)}'
-            self.restore_step = int(runs[0].data.metrics['step'])
+            assert pretraining_run is not None, f'Should be exactly 1 run with name "{pretraining_run_name}", but found None'
+            assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for "{pretraining_run_name}"'
+            self.restore_step = int(pretraining_run.data.metrics['step'])
             assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {step} steps, but expected {cfg.TRAIN_STEPS} steps'
-            self.restore_run_id = runs[0].info.run_id
+            self.restore_run_id = pretraining_run.info.run_id
 
-            run = self.get_run(experiment, self.run_name)
-            self.run_id = run.info.run_id
-
-    def get_run(self, experiment, run_name):
-        runs = search_runs(self.tracking_uri, experiment.experiment_id, run_name)
-        assert len(runs) <= 1, f'Should be at most one (1) run with name "{run_name}", but found {len(runs)}'
-        if len(runs) == 0:
-            logging.info(f'Creating run with name:"{run_name}"')
-            client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
-            run = client.create_run(experiment.experiment_id, tags={'mlflow.runName': run_name})
-        else: # found existing run with matching name
-            logging.info(f'Found run with name:"{run_name}"')
-            run = runs[0]
-        return run
+            readout_run = get_run(self.tracking_uri, experiment.experiment_id, self.run_name)
+            self.run_id = readout_run.info.run_id
 
     def __call__(self, *args, **kwargs):
         setup_logger(self.log_file, self.cfg.DEBUG)
@@ -437,6 +425,18 @@ def get_readout_model_from_artifact_store(protocol, tracking_uri, run_id, readou
     artifact_path = f'readout_models/{protocol}_readout_model.joblib'
     readout_model_file = download_from_artifact_store(artifact_path, tracking_uri, run_id, readout_dir)
     return readout_model_file
+
+def get_run(tracking_uri, experiment_id, run_name):
+    runs = search_runs(tracking_uri, experiment_id, run_name)
+    assert len(runs) <= 1, f'Should be at most one (1) run with name "{run_name}", but found {len(runs)}'
+    if len(runs) == 0:
+        logging.info(f'Creating run with name:"{run_name}"')
+        client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
+        run = client.create_run(experiment_id, tags={'mlflow.runName': run_name})
+    else: # found existing run with matching name
+        logging.info(f'Found run with name:"{run_name}"')
+        run = runs[0]
+    return run
 
 def search_runs(tracking_uri, experiment_id, run_name):
     filter_string = 'tags.mlflow.runName="{}"'.format(run_name)
