@@ -8,7 +8,6 @@ import mlflow
 import joblib
 import dill
 
-from physopt.metrics.feature_extractor import FeatureExtractor
 from physopt.metrics.metric_model import MetricModel
 from physopt.metrics.readout_model import LogisticRegressionReadoutModel
 from physopt.metrics.metric_fns import accuracy 
@@ -146,12 +145,9 @@ def run_metrics(
         metric_model = joblib.load(readout_model_file)
     else:
         logging.info('Creating new readout model')
-        # Build physics model
-        feature_model = build_model(protocol)
-        feature_extractor = FeatureExtractor(feature_model)
-        # Build logistic regression model
-        readout_model = LogisticRegressionReadoutModel(max_iter=100, C=1.0, verbose=1)
-        metric_model = MetricModel(feature_extractor, readout_model, accuracy, label_fn, grid_search_params)
+        feature_fn = build_model(protocol)
+        readout_model = LogisticRegressionReadoutModel(max_iter=100, C=1.0, verbose=1) # build logistic regression model
+        metric_model = MetricModel(readout_model, feature_fn, label_fn, accuracy, grid_search_params)
 
         readout_model_file = os.path.join(readout_dir, protocol+'_readout_model.joblib')
         logging.info('Training readout model and saving to: {}'.format(readout_model_file))

@@ -1,36 +1,30 @@
 import numpy as np
 from sklearn.model_selection import GridSearchCV
-from physopt.metrics.feature_extractor import FeatureExtractor
 
 class MetricModel(object):
     def __init__(self,
-            feature_extractor,
             readout_model,
+            feature_fn,
+            label_fn,
             metric_fn,
-            label_fn = lambda x: x,
-            grid_search_params = None):
-
+            grid_search_params=None):
         if grid_search_params:
             readout_model.score = metric_fn
             readout_model = GridSearchCV(readout_model, grid_search_params)
-
-        assert isinstance(feature_extractor, FeatureExtractor)
-        self._feature_extractor = feature_extractor
         self._readout_model = readout_model
-        self._metric_fn = metric_fn
+        self._feature_fn = feature_fn
         self._label_fn = label_fn
+        self._metric_fn = metric_fn
 
     def _extract_features_labels(self, data): # data is list of dicts with the states/labels
-        features = np.array(list(map(self._feature_extractor, data)))
+        features = np.array(list(map(self._feature_fn, data)))
         labels = np.array(list(map(self._label_fn, data)))
-        print(f'extract features labels {features.shape} {labels.shape}')
         return features, labels
 
     def _flatten_features_labels(self, features, labels):
         assert labels.size == labels.flatten().size, 'Labels should be scalar'
         labels = labels.flatten()
         features = np.reshape(features, [labels.size, -1])
-        print(f'flatten features labels {features.shape} {labels.shape}')
         return features, labels
 
     def get_features_labels(self, data):
