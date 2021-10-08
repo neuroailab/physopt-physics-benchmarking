@@ -64,8 +64,14 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         else: # readout
             assert pretraining_run is not None, f'Should be exactly 1 run with name "{pretraining_run_name}", but found None'
             assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for "{pretraining_run_name}"'
-            self.restore_step = int(pretraining_run.data.metrics['step'])
-            assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {step} steps, but expected {cfg.TRAIN_STEPS} steps'
+            if cfg.LOAD_STEP is not None: # restore from specified checkpoint
+                client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
+                metric_history = client.get_metric_history(pretraining_run.info.run_id, 'step')
+                assert cfg.LOAD_STEP in [m.value for m in metric_history], f'Checkpoint for step {cfg.LOAD_STEP} not found'
+                self.restore_step = cfg.LOAD_STEP
+            else: # restore from last checkpoint
+                self.restore_step = int(pretraining_run.data.metrics['step'])
+                assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {step} steps, but expected {cfg.TRAIN_STEPS} steps'
             self.restore_run_id = pretraining_run.info.run_id
 
             readout_run = get_run(self.tracking_uri, experiment.experiment_id, self.run_name)
@@ -95,11 +101,15 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         if (self.restore_step is not None) and (self.restore_run_id is not None):
             model_file = get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.model_dir)
             self.model = self.load_model(model_file)
-            mlflow.set_tags({
+            restore_settings = {
                 'restore_step': self.restore_step,
                 'restore_run_id': self.restore_run_id,
                 'restore_model_file': model_file,
-                })
+                }
+            if self.phase == PRETRAINING_PHASE_NAME: # set as tags for pretraining since can resume run multiple times
+                mlflow.set_tags(restore_settings)
+            else: # log restore settings as params for readout since features and metric results depend on model ckpt
+                mlflow.log_params(restore_settings)
         else:
             assert (self.phase == PRETRAINING_PHASE_NAME) and (self.initial_step == 1), 'Should be doing pretraining from scratch if not loading model'
 

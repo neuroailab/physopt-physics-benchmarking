@@ -32,6 +32,7 @@ _C.CONFIG.BATCH_SIZE = 32
 _C.CONFIG.LOG_FREQ = 10
 _C.CONFIG.VAL_FREQ = 25
 _C.CONFIG.CKPT_FREQ = 100
+_C.CONFIG.LOAD_STEP = None
 
 _C.CONFIG.TRAIN = CN(new_allowed=True)
 _C.CONFIG.MODEL = CN(new_allowed=True)
@@ -52,9 +53,9 @@ def get_cfg_debug():
     C = CN()
     C.CONFIG = CN()
     C.CONFIG.DEBUG = True
-    C.CONFIG.TRAIN_STEPS = 5
+    C.CONFIG.TRAIN_STEPS = 10
     C.CONFIG.LOG_FREQ = 1
-    C.CONFIG.VAL_FREQ = 2
+    C.CONFIG.VAL_FREQ = 10
     C.CONFIG.CKPT_FREQ = 5
     C.CONFIG.READOUT = CN()
     C.CONFIG.READOUT.NUM_C = 1 # just use one regularization value
