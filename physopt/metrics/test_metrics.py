@@ -167,6 +167,7 @@ def run_metrics(
         }
     if hasattr(metric_model._readout_model, 'best_params_'):
         result['best_params'] = metric_model._readout_model.best_params_
+    logging.info(f'Protocol: {protocol} | Train acc: {train_acc} | Test acc: {test_acc}')
 
     return result
 

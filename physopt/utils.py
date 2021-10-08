@@ -14,6 +14,7 @@ import botocore
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
+from sklearn.preprocessing import StandardScaler
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.metrics.readout_model import ReadoutModel
 from physopt.metrics.test_metrics import run_metrics, write_metrics
@@ -256,8 +257,12 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def get_readout_model(self):
         grid_search_params = {'C': np.logspace(-(self.cfg.READOUT.NUM_C//2), self.cfg.READOUT.NUM_C//2, self.cfg.READOUT.NUM_C)}
-        model = GridSearchCV(LogisticRegression(max_iter=100), grid_search_params)
-        readout_model = ReadoutModel(model)
+        model = GridSearchCV(LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER), grid_search_params)
+        if self.cfg.READOUT.NORM_INPUT:
+            scaler = StandardScaler() # removes mean and scales to unit variance
+        else:
+            scaler = None
+        readout_model = ReadoutModel(model, scaler)
         return readout_model
 
     @property
