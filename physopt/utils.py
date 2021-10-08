@@ -10,6 +10,7 @@ import mlflow
 import pickle
 import psycopg2
 import boto3
+import botocore
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV
@@ -405,7 +406,7 @@ def download_from_artifact_store(artifact_path, tracking_uri, run_id, output_dir
         client.download_artifacts(run_id, artifact_path, output_dir)
         logging.info(f'Downloaded {artifact_path} to {output_dir}')
         output_file = os.path.join(output_dir, artifact_path)
-    except FileNotFoundError:
+    except (FileNotFoundError, botocore.exceptions.ClientError):
         logging.info(f"Couldn't find artifact at {artifact_path} in artifact store")
         logging.debug(traceback.format_exc())
         output_file = None
