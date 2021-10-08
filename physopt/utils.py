@@ -84,7 +84,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             })
         mlflow.log_params({
             'seed': self.seed,
-            'train_steps': self.cfg.TRAIN_STEPS,
             'batch_size': self.cfg.BATCH_SIZE,
             })
         # TODO: log params in self.cfg?
