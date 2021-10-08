@@ -64,11 +64,11 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         else: # readout
             assert pretraining_run is not None, f'Should be exactly 1 run with name "{pretraining_run_name}", but found None'
             assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for "{pretraining_run_name}"'
-            if cfg.LOAD_STEP is not None: # restore from specified checkpoint
+            if cfg.READOUT_LOAD_STEP is not None: # restore from specified checkpoint
                 client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
                 metric_history = client.get_metric_history(pretraining_run.info.run_id, 'step')
-                assert cfg.LOAD_STEP in [m.value for m in metric_history], f'Checkpoint for step {cfg.LOAD_STEP} not found'
-                self.restore_step = cfg.LOAD_STEP
+                assert cfg.READOUT_LOAD_STEP in [m.value for m in metric_history], f'Checkpoint for step {cfg.READOUT_LOAD_STEP} not found'
+                self.restore_step = cfg.READOUT_LOAD_STEP
             else: # restore from last checkpoint
                 self.restore_step = int(pretraining_run.data.metrics['step'])
                 assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {step} steps, but expected {cfg.TRAIN_STEPS} steps'

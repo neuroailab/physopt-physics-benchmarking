@@ -32,7 +32,7 @@ _C.CONFIG.BATCH_SIZE = 32
 _C.CONFIG.LOG_FREQ = 10
 _C.CONFIG.VAL_FREQ = 25
 _C.CONFIG.CKPT_FREQ = 100
-_C.CONFIG.LOAD_STEP = None
+_C.CONFIG.READOUT_LOAD_STEP = None # which pretraining ckpt to extract readout features from
 
 _C.CONFIG.TRAIN = CN(new_allowed=True)
 _C.CONFIG.MODEL = CN(new_allowed=True)
