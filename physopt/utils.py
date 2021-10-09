@@ -243,12 +243,12 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             mlflow.log_metrics({
                 'train_acc_'+protocol: results['train_accuracy'], 
                 'test_acc_'+protocol: results['test_accuracy'],
-                })
+                }, step=self.restore_step)
             if 'best_params' in results:
                 assert isinstance(results['best_params'], dict)
                 prefix = f'best_params_{protocol}_'
                 best_params = {prefix+str(k): v for k, v in results['best_params'].items()}
-                mlflow.log_metrics(best_params)
+                mlflow.log_metrics(best_params, step=self.restore_step)
 
             # Write every iteration to be safe
             processed_results = self.process_results(results)
