@@ -39,7 +39,7 @@ _C.CONFIG.MODEL = CN(new_allowed=True)
 _C.CONFIG.DATA = CN(new_allowed=True)
 _C.CONFIG.READOUT = CN(new_allowed=True)
 _C.CONFIG.READOUT.NUM_C = 17 # how many C's to do grid search over for logistic regression readout model
-_C.CONFIG.READOUT.MAX_ITER = 300
+_C.CONFIG.READOUT.MAX_ITER = 200
 _C.CONFIG.READOUT.NORM_INPUT = True # whether to standardize input features 
 
 _C.CONFIG.POSTGRES = CN()
