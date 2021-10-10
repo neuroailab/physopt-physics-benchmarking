@@ -79,9 +79,9 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
         mlflow.set_tracking_uri(self.tracking_uri) # needs to be done (again) in __call__ since might be run by worker on different machine
         mlflow.start_run(run_id=self.run_id)
-        logging.info(mlflow.get_tracking_uri())
-        logging.info(mlflow.get_artifact_uri())
-        logging.info(mlflow.active_run())
+        logging.info(f'Starting run id: {mlflow.active_run().info.run_id}')
+        logging.info(f'Tracking URI: {mlflow.get_tracking_uri()}')
+        logging.info(f'Artifact URI: {mlflow.get_artifact_uri()}')
         mlflow.set_tags({
             'phase': self.phase,
             'model': self.model_name,
