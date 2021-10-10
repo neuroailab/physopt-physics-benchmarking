@@ -1,4 +1,5 @@
 import os
+import glob
 import getpass
 import traceback
 from pathos.multiprocessing import ProcessingPool as Pool
@@ -100,15 +101,20 @@ class MissingEnvironmentVariable(Exception):
     pass
 
 def resolve_config_path(config_file):
-    if not os.path.isabs(config_file):
+    if not os.path.isabs(config_file): # skip search if abs path provided
         try:
             config_dir = os.environ[ENV_VAR_NAME]
-            assert os.path.isdir(config_dir), f'Directory not found: {config_dir}'
-            print(f'Searching for config in {config_dir}')
-            config_file = os.path.join(config_dir, config_file)
         except KeyError:
             raise MissingEnvironmentVariable(f'Must set environment variable "{ENV_VAR_NAME}" if using relative path for config file')
+        assert os.path.isdir(config_dir), f'Directory not found: {config_dir}'
+        print(f'Searching for config in {config_dir}')
+        pathname = os.path.join(config_dir, '**', config_file)
+        files = glob.glob(pathname, recursive=True)
+        assert len(files) > 0, f'No config file found matching {pathname}.'
+        assert len(files) == 1, f'Found multiple ({len(files)}) files that match {pathname}'
+        config_file = files[0]
     assert os.path.isfile(config_file), f'File not found: {config_file}'
+    print(f'Found config file: {config_file}')
     return config_file
 
 def check_cfg(cfg):
