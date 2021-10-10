@@ -75,7 +75,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             readout_run = utils.get_run(self.tracking_uri, experiment.experiment_id, self.run_name)
             self.run_id = readout_run.info.run_id
 
-    def __call__(self, *args, **kwargs):
+    def __call__(self, args): # TODO: hyperparam settings from hyperopt are passed in as a dict/tuple
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
         mlflow.set_tracking_uri(self.tracking_uri) # needs to be done (again) in __call__ since might be run by worker on different machine
         mlflow.start_run(run_id=self.run_id)
@@ -129,7 +129,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 print(f'Error: {e.filename} - {e.strerror}.')
 
         ret = {
-                'loss': 0.0,
+                'loss': 0.0, # TODO: set as val metric from pretraining
                 'status': STATUS_OK,
                 }
 

@@ -62,10 +62,10 @@ class OptimizationPipeline():
                     trials = MongoTrials(mongo_path, exp_key=objective.run_name)
 
                 try:
-                    fmin(
+                    best = fmin(
                         objective,
                         space=NO_PARAM_SPACE, trials=trials,
-                        algo=suggest, max_evals=1e5,
+                        algo=suggest, max_evals=1,
                         )
                 except ValueError as e:
                     print("Job died: {0}".format(objective.run_name))
