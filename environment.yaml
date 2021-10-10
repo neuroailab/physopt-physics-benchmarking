@@ -1,0 +1,7 @@
+node16-ccncluster:
+    PHYSOPT_CONFIG_DIR: '/home/eliwang/physion/physion/configs'
+    PHYSOPT_OUTPUT_DIR: '/data/eliwang/physopt'
+
+node19-ccncluster:
+    PHYSOPT_CONFIG_DIR: '/home/eliwang/physion/physion/configs'
+    PHYSOPT_OUTPUT_DIR: '/data1/eliwang/physopt'

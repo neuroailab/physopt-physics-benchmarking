@@ -1,7 +1,9 @@
 import os
 import glob
+import socket
 import getpass
 import traceback
+import yaml
 from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
 from importlib import import_module
@@ -17,6 +19,7 @@ from physopt.config import get_cfg_defaults, get_cfg_debug
 NO_PARAM_SPACE = hp.choice('dummy', [0])
 CONFIG_ENV_VAR = 'PHYSOPT_CONFIG_DIR'
 OUTPUT_ENV_VAR = 'PHYSOPT_OUTPUT_DIR'
+ENV_FILE = 'environment.yaml'
 
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
@@ -97,7 +100,7 @@ class OptimizationPipeline():
 class MissingEnvironmentVariable(Exception):
     pass
 
-def resolve_config_path(config_file):
+def resolve_config_file(config_file):
     if not os.path.isabs(config_file): # skip search if abs path provided
         try:
             config_dir = os.environ[CONFIG_ENV_VAR]
@@ -114,13 +117,13 @@ def resolve_config_path(config_file):
     print(f'Found config file: {config_file}')
     return config_file
 
-def resolve_output_dir(output_dir, args): # updates output dir with the following priority: cmdline, environ, config (if not debug)
-    if args.output is not None:
-        output_dir = args.output
+def resolve_output_dir(cfg_output, args_output): # updates output dir with the following priority: cmdline, environ, config (if not debug)
+    if args_output is not None:
+        output_dir = args_output
     elif OUTPUT_ENV_VAR in os.environ:
         output_dir = os.environ[OUTPUT_ENV_VAR]
     else:
-        output_dir = output_dir.format(getpass.getuser()) # fill in current username into path
+        output_dir = cfg_output.format(getpass.getuser()) # fill in current username into path
     print(f'Output dir: {output_dir}')
     return output_dir
 
@@ -131,16 +134,27 @@ def check_cfg(cfg):
 
 def get_cfg_from_args(args):
     cfg = get_cfg_defaults()
-    config_file  = resolve_config_path(args.config)
+    config_file  = resolve_config_file(args.config)
     cfg.merge_from_file(config_file)
-    cfg.OUTPUT_DIR = resolve_output_dir(cfg.OUTPUT_DIR, args)
+    cfg.OUTPUT_DIR = resolve_output_dir(cfg.OUTPUT_DIR, args.output)
     if args.debug: # merge debug at end so takes priority
         cfg.merge_from_other_cfg(get_cfg_debug())
     cfg.freeze()
     check_cfg(cfg)
     return cfg
 
+def setup_environment_vars():
+    if os.path.isfile(ENV_FILE):
+        environment = yaml.safe_load(open(ENV_FILE, 'rb'))
+        hostname = socket.gethostname()
+        if hostname in environment:
+            assert isinstance(environment[hostname], dict)
+            for k,v in environment[hostname].items():
+                print(f'Setting environment variable {k} to {v}')
+                os.environ[k] = str(v)
+
 if __name__ == '__main__':
+    setup_environment_vars()
     args = arg_parse()
     cfg = get_cfg_from_args(args)
     pipeline = OptimizationPipeline(cfg)
