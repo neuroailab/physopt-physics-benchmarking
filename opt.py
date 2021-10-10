@@ -15,17 +15,15 @@ from physopt.search.grid_search import suggest
 from physopt.config import get_cfg_defaults, get_cfg_debug
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])
-ENV_VAR_NAME = 'PHYSOPT_CONFIG_DIR'
+CONFIG_ENV_VAR = 'PHYSOPT_CONFIG_DIR'
+OUTPUT_ENV_VAR = 'PHYSOPT_OUTPUT_DIR'
 
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
     parser.add_argument('-C', '--config', required=True, type=str, help='path to physopt configuration file')
     parser.add_argument('-D', '--debug', action='store_true', help='debug mode')
+    parser.add_argument('-O', '--output', type=str, help='Output directory for physopt artifacts')
     return parser.parse_args()
-
-def get_output_directory(output_dir):
-    output_dir = output_dir.format(getpass.getuser()) # fill in current username into path
-    return output_dir
 
 def get_mongo_path(host, port, database):
     return 'mongo://{0}:{1}/{2}/jobs'.format(host, port, database)
@@ -41,7 +39,6 @@ class OptimizationPipeline():
     def run(self):
         cfg = self.cfg
         data_spaces = build_data_spaces(cfg.DATA_SPACE.MODULE, cfg.DATA_SPACE.FUNC, cfg.DATA_SPACE.SEEDS, cfg.DATA_SPACE.KWARGS)
-        output_dir = get_output_directory(cfg.OUTPUT_DIR)
         Objective = getattr(import_module(cfg.OBJECTIVE.MODULE), cfg.OBJECTIVE.NAME)
 
         def run_once(data_space): # data_space: list of space tuples, first corresponds to dynamics pretraining and the rest are readout
@@ -52,7 +49,7 @@ class OptimizationPipeline():
                     seed, 
                     pretraining_space, 
                     readout_space, 
-                    output_dir,
+                    cfg.OUTPUT_DIR,
                     cfg.CONFIG,
                     )
 
@@ -103,9 +100,9 @@ class MissingEnvironmentVariable(Exception):
 def resolve_config_path(config_file):
     if not os.path.isabs(config_file): # skip search if abs path provided
         try:
-            config_dir = os.environ[ENV_VAR_NAME]
+            config_dir = os.environ[CONFIG_ENV_VAR]
         except KeyError:
-            raise MissingEnvironmentVariable(f'Must set environment variable "{ENV_VAR_NAME}" if using relative path for config file')
+            raise MissingEnvironmentVariable(f'Must set environment variable "{CONFIG_ENV_VAR}" if using relative path for config file')
         assert os.path.isdir(config_dir), f'Directory not found: {config_dir}'
         print(f'Searching for config in {config_dir}')
         pathname = os.path.join(config_dir, '**', config_file)
@@ -117,6 +114,16 @@ def resolve_config_path(config_file):
     print(f'Found config file: {config_file}')
     return config_file
 
+def resolve_output_dir(output_dir, args): # updates output dir with the following priority: cmdline, environ, config (if not debug)
+    if args.output is not None:
+        output_dir = args.output
+    elif OUTPUT_ENV_VAR in os.environ:
+        output_dir = os.environ[OUTPUT_ENV_VAR]
+    else:
+        output_dir = output_dir.format(getpass.getuser()) # fill in current username into path
+    print(f'Output dir: {output_dir}')
+    return output_dir
+
 def check_cfg(cfg):
     assert cfg.DATA_SPACE.MODULE is not None, 'DATA_SPACE.MODULE must be set in the config'
     assert cfg.OBJECTIVE.MODULE is not None, 'OBJECTIVE.MODULE must be set in the config' 
@@ -126,6 +133,7 @@ def get_cfg_from_args(args):
     cfg = get_cfg_defaults()
     config_file  = resolve_config_path(args.config)
     cfg.merge_from_file(config_file)
+    cfg.OUTPUT_DIR = resolve_output_dir(cfg.OUTPUT_DIR, args)
     if args.debug: # merge debug at end so takes priority
         cfg.merge_from_other_cfg(get_cfg_debug())
     cfg.freeze()
