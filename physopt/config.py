@@ -39,8 +39,10 @@ _C.CONFIG.MODEL = CN(new_allowed=True)
 _C.CONFIG.DATA = CN(new_allowed=True)
 _C.CONFIG.READOUT = CN(new_allowed=True)
 _C.CONFIG.READOUT.NUM_C = 17 # how many C's to do grid search over for logistic regression readout model
+_C.CONFIG.READOUT.CV = 5 # number of folds
 _C.CONFIG.READOUT.MAX_ITER = 100
 _C.CONFIG.READOUT.NORM_INPUT = False # whether to standardize input features 
+_C.CONFIG.READOUT.DO_RESTORE = True # whether to restore readout model, hacky
 
 _C.CONFIG.POSTGRES = CN()
 _C.CONFIG.POSTGRES.HOST = 'localhost'

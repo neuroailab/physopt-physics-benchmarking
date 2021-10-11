@@ -222,7 +222,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         protocols = ['observed', 'simulated', 'input']
         for protocol in protocols:
             readout_model_or_file = utils.get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.readout_dir)
-            if readout_model_or_file is None:
+            if not self.cfg.READOUT.DO_RESTORE or (readout_model_or_file is None):
                 readout_model_or_file = self.get_readout_model()
             results = run_metrics(
                 self.seed,
@@ -254,7 +254,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def get_readout_model(self):
         grid_search_params = {'C': np.logspace(-(self.cfg.READOUT.NUM_C//2), self.cfg.READOUT.NUM_C//2, self.cfg.READOUT.NUM_C)}
-        model = GridSearchCV(LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER), grid_search_params)
+        model = GridSearchCV(LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER), param_grid=grid_search_params, cv=cfg.READOUT.CV)
         if self.cfg.READOUT.NORM_INPUT:
             scaler = StandardScaler() # removes mean and scales to unit variance
         else:

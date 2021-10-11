@@ -71,7 +71,7 @@ class OptimizationPipeline():
                 except ValueError as e:
                     print("Job died: {0}".format(objective.run_name))
                     traceback.print_exc()
-                return 
+                return best
 
             # Pretraining Phase
             run_inner(None)
