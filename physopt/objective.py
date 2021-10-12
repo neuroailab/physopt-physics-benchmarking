@@ -69,7 +69,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 self.restore_step = cfg.READOUT_LOAD_STEP
             else: # restore from last checkpoint
                 self.restore_step = int(pretraining_run.data.metrics['step'])
-                assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {step} steps, but expected {cfg.TRAIN_STEPS} steps'
+                assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {self.restore_step} steps, but expected {cfg.TRAIN_STEPS} steps'
             self.restore_run_id = pretraining_run.info.run_id
 
             readout_run = utils.get_run(self.tracking_uri, experiment.experiment_id, self.run_name)
@@ -173,6 +173,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 step += 1
                 if step > self.cfg.TRAIN_STEPS:
                     break
+        step -= 1 # reset final step increment, so aligns with actual number of steps run
 
         # do final validation at end, save model, and log final ckpt -- if it wasn't done at last step
         if not (self.cfg.TRAIN_STEPS % self.cfg.VAL_FREQ) == 0:
@@ -254,7 +255,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def get_readout_model(self):
         grid_search_params = {'C': np.logspace(-(self.cfg.READOUT.NUM_C//2), self.cfg.READOUT.NUM_C//2, self.cfg.READOUT.NUM_C)}
-        model = GridSearchCV(LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER), param_grid=grid_search_params, cv=cfg.READOUT.CV)
+        model = GridSearchCV(LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER), param_grid=grid_search_params, cv=self.cfg.READOUT.CV)
         if self.cfg.READOUT.NORM_INPUT:
             scaler = StandardScaler() # removes mean and scales to unit variance
         else:
