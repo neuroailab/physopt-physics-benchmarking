@@ -259,7 +259,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         grid_search_params = {'C': np.logspace(*self.cfg.READOUT.LOGSPACE)} 
         skf = StratifiedKFold(n_splits=self.cfg.READOUT.CV, shuffle=True, random_state=self.seed)
         logging.info(skf)
-        model = GridSearchCV(LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER), param_grid=grid_search_params, cv=skf)
+        model = GridSearchCV(LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER), param_grid=grid_search_params, cv=skf, verbose=3)
         if self.cfg.READOUT.NORM_INPUT:
             scaler = StandardScaler() # removes mean and scales to unit variance
         else:
