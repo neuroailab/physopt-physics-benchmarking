@@ -165,11 +165,11 @@ def run_metrics(
         'protocol': protocol,
         'seed': seed,
         }
-    if hasattr(metric_model._readout_model._model, 'best_params_'): # kinda verbose to get the "real" readout model
-        result['best_params'] = metric_model._readout_model._model.best_params_
+    if hasattr(metric_model._readout_model, 'best_params_'): # kinda verbose to get the "real" readout model
+        result['best_params'] = metric_model._readout_model.best_params_
     logging.info(f'Protocol: {protocol} | Train acc: {train_acc} | Test acc: {test_acc}')
-    if hasattr(metric_model._readout_model._model, 'cv_results_'):
-        logging.info(metric_model._readout_model._model.cv_results_)
+    if hasattr(metric_model._readout_model, 'cv_results_'):
+        logging.info(metric_model._readout_model.cv_results_)
 
     return result
 

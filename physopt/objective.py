@@ -13,8 +13,9 @@ import botocore
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+
 from hyperopt import STATUS_OK, STATUS_FAIL
-from physopt.metrics.readout_model import ReadoutModel
 from physopt.metrics.test_metrics import run_metrics, write_metrics
 from physopt import utils
 from physopt.utils import PRETRAINING_PHASE_NAME, READOUT_PHASE_NAME
@@ -255,16 +256,19 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             mlflow.log_artifact(metrics_file)
 
     def get_readout_model(self):
-        assert len(self.cfg.READOUT.LOGSPACE) == 3, 'logspace must contain start, stop, and num'
-        grid_search_params = {'C': np.logspace(*self.cfg.READOUT.LOGSPACE)} 
-        skf = StratifiedKFold(n_splits=self.cfg.READOUT.CV, shuffle=True, random_state=self.seed)
-        logging.info(skf)
-        model = GridSearchCV(LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER), param_grid=grid_search_params, cv=skf, verbose=3)
+        steps = [('clf', LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER))]
         if self.cfg.READOUT.NORM_INPUT:
-            scaler = StandardScaler() # removes mean and scales to unit variance
-        else:
-            scaler = None
-        readout_model = ReadoutModel(model, scaler)
+            steps.insert(0, ('scale', StandardScaler()))
+        logging.info(f'Readout model steps: {steps}')
+        pipe = Pipeline(steps)
+
+        assert len(self.cfg.READOUT.LOGSPACE) == 3, 'logspace must contain start, stop, and num'
+        grid_search_params = {
+            'clf__C': np.logspace(*self.cfg.READOUT.LOGSPACE),
+            }
+        skf = StratifiedKFold(n_splits=self.cfg.READOUT.CV, shuffle=True, random_state=self.seed)
+        logging.info(f'CV folds: {skf}')
+        readout_model = GridSearchCV(pipe, param_grid=grid_search_params, cv=skf, verbose=3)
         return readout_model
 
     @property
