@@ -38,7 +38,7 @@ _C.CONFIG.TRAIN = CN(new_allowed=True)
 _C.CONFIG.MODEL = CN(new_allowed=True)
 _C.CONFIG.DATA = CN(new_allowed=True)
 _C.CONFIG.READOUT = CN(new_allowed=True)
-_C.CONFIG.READOUT.LOGSPACE: (-4, 4, 9)
+_C.CONFIG.READOUT.LOGSPACE = (-4, 4, 9)
 _C.CONFIG.READOUT.CV = 5 # number of folds
 _C.CONFIG.READOUT.MAX_ITER = 1000
 _C.CONFIG.READOUT.NORM_INPUT = True # whether to standardize input features 
@@ -62,5 +62,5 @@ def get_cfg_debug():
     C.CONFIG.VAL_FREQ = 10
     C.CONFIG.CKPT_FREQ = 5
     C.CONFIG.READOUT = CN()
-    C.CONFIG.READOUT.NUM_C = 1 # just use one regularization value
+    C.CONFIG.READOUT.LOGSPACE = (0, 0, 1) # just use one regularization value
     return C.clone()
