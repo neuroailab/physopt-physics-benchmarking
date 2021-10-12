@@ -11,7 +11,7 @@ import boto3
 import botocore
 
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.metrics.readout_model import ReadoutModel
@@ -118,7 +118,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         else:
             raise NotImplementedError
 
-        mlflow.log_artifact(self.log_file)
+        mlflow.log_artifact(self.log_file) # TODO: log to artifact store more frequently?
         mlflow.end_run()
 
         if self.cfg.DELETE_LOCAL: # delete locally saved files, since they're already logged as mlflow artifacts -- saves disk storage space
@@ -216,6 +216,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def compute_metrics(self, train_feature_file, test_feature_file):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
+        logging.info(self.cfg.READOUT)
         metrics_file = os.path.join(self.readout_dir, 'metrics_results.csv')
         if os.path.exists(metrics_file): # rename old results, just in case
             dst = os.path.join(self.readout_dir, '.metrics_results.csv')
@@ -254,8 +255,11 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             mlflow.log_artifact(metrics_file)
 
     def get_readout_model(self):
-        grid_search_params = {'C': np.logspace(-(self.cfg.READOUT.NUM_C//2), self.cfg.READOUT.NUM_C//2, self.cfg.READOUT.NUM_C)}
-        model = GridSearchCV(LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER), param_grid=grid_search_params, cv=self.cfg.READOUT.CV)
+        assert len(self.cfg.READOUT.LOGSPACE) == 3, 'logspace must contain start, stop, and num'
+        grid_search_params = {'C': np.logspace(*self.cfg.READOUT.LOGSPACE)} 
+        skf = StratifiedKFold(n_splits=self.cfg.READOUT.CV, shuffle=True, random_state=self.seed)
+        logging.info(skf)
+        model = GridSearchCV(LogisticRegression(max_iter=self.cfg.READOUT.MAX_ITER), param_grid=grid_search_params, cv=skf)
         if self.cfg.READOUT.NORM_INPUT:
             scaler = StandardScaler() # removes mean and scales to unit variance
         else:

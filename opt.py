@@ -62,6 +62,7 @@ class OptimizationPipeline():
                     mongo_path = get_mongo_path(cfg.MONGO.HOST, cfg.MONGO.PORT, cfg.MONGO.DBNAME)
                     trials = MongoTrials(mongo_path, exp_key=objective.run_id) # use run_id to ensure it's unique
 
+                best = None
                 try:
                     best = fmin(
                         objective,
