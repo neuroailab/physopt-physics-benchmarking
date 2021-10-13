@@ -9,6 +9,7 @@ import boto3
 import botocore
 
 PRETRAINING_PHASE_NAME = 'pretraining'
+EXTRACTION_PHASE_NAME = 'extraction'
 READOUT_PHASE_NAME = 'readout'
 
 def setup_logger(log_file, debug=False):
@@ -69,12 +70,10 @@ def create_postgres_db(host, port, dbname):
             cur.execute(sql_create_database)
         connection.close()
 
-def get_run_name(model_name, pretraining_name, seed, readout_name=None, separator='-'):
-    to_join = [model_name, pretraining_name, str(seed)]
+def get_run_name(model_name, pretraining_name, seed, phase, readout_name=None, separator='-'):
+    to_join = [model_name, pretraining_name, str(seed), phase]
     if readout_name is not None:
-        to_join.extend([READOUT_PHASE_NAME, readout_name])
-    else:
-        to_join.append(PRETRAINING_PHASE_NAME)
+        to_join.append(readout_name)
     return separator.join(to_join)
 
 def get_exp_name(name, add_ts=False, debug=False):

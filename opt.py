@@ -11,7 +11,7 @@ from importlib import import_module
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
 
-from physopt.utils import PRETRAINING_PHASE_NAME, READOUT_PHASE_NAME
+from physopt.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
 from physopt.data_space import build_data_spaces
 from physopt.search.grid_search import suggest
 from physopt.config import get_cfg_defaults, get_cfg_debug
@@ -47,13 +47,14 @@ class OptimizationPipeline():
         def run_once(data_space): # data_space: list of space tuples, first corresponds to dynamics pretraining and the rest are readout
             seed, pretraining_space, readout_spaces = (data_space['seed'], data_space[PRETRAINING_PHASE_NAME], data_space[READOUT_PHASE_NAME])
 
-            def run_inner(readout_space=None):
+            def run_inner(phase, readout_space=None):
                 objective = Objective(
                     seed, 
                     pretraining_space, 
                     readout_space, 
                     cfg.OUTPUT_DIR,
                     cfg.CONFIG,
+                    phase,
                     )
 
                 if cfg.MONGO.DBNAME == 'local' or cfg.CONFIG.DEBUG: # don't use MongoTrials when debugging
@@ -75,11 +76,12 @@ class OptimizationPipeline():
                 return best
 
             # Pretraining Phase
-            run_inner(None)
+            run_inner(PRETRAINING_PHASE_NAME, None)
 
-            # Readout Phase # TODO: Implement parallel readout evaluation
+            # Extraction+Readout Phase # TODO: Implement parallel readout evaluation
             for readout_space in readout_spaces:
-                run_inner(readout_space)
+                run_inner(EXTRACTION_PHASE_NAME, readout_space)
+                run_inner(READOUT_PHASE_NAME, readout_space)
             return
 
         # Parallel processing

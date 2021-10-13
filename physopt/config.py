@@ -9,7 +9,7 @@ _C.NUM_THREADS = 1
 _C.DATA_SPACE = CN()
 _C.DATA_SPACE.MODULE = None # required
 _C.DATA_SPACE.FUNC = 'get_data_spaces'
-_C.DATA_SPACE.SEEDS = (0, ) # if int, uses range(seeds) otherwise pass list of seeds
+_C.DATA_SPACE.SEEDS = (0, ) # list of seeds
 _C.DATA_SPACE.KWARGS = CN(new_allowed=True)
 
 _C.MONGO = CN()
@@ -55,12 +55,15 @@ def get_cfg_defaults():
 
 def get_cfg_debug():
     C = CN()
+    C.DATA_SPACE = CN()
+    C.DATA_SPACE.SEEDS = (0,) # just use one seed
     C.CONFIG = CN()
     C.CONFIG.DEBUG = True
-    C.CONFIG.TRAIN_STEPS = 10
+    C.CONFIG.TRAIN_STEPS = 3
     C.CONFIG.LOG_FREQ = 1
-    C.CONFIG.VAL_FREQ = 10
-    C.CONFIG.CKPT_FREQ = 5
+    C.CONFIG.VAL_FREQ = 3
+    C.CONFIG.CKPT_FREQ = 2
     C.CONFIG.READOUT = CN()
     C.CONFIG.READOUT.LOGSPACE = (0, 0, 1) # just use one regularization value
+    C.CONFIG.READOUT.CV = 2 
     return C.clone()

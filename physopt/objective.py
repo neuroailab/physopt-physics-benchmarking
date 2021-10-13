@@ -18,7 +18,7 @@ from sklearn.pipeline import Pipeline
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.metrics.test_metrics import run_metrics, write_metrics
 from physopt import utils
-from physopt.utils import PRETRAINING_PHASE_NAME, READOUT_PHASE_NAME
+from physopt.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
 
 class PhysOptObjective(metaclass=abc.ABCMeta):
     def __init__(
@@ -28,6 +28,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             readout_space,
             output_dir,
             cfg,
+            phase,
             ):
         self.seed = seed
         self.pretraining_space = pretraining_space
@@ -35,7 +36,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.readout_space = readout_space
         self.readout_name = None if readout_space is None else readout_space['name']
         self.cfg = cfg
-        self.phase = PRETRAINING_PHASE_NAME if readout_space is None else READOUT_PHASE_NAME
+        self.phase = phase
 
         experiment_name = utils.get_exp_name(cfg.EXPERIMENT_NAME, cfg.ADD_TIMESTAMP, cfg.DEBUG)
         self.model_dir = utils.get_model_dir(output_dir, experiment_name, self.model_name, self.pretraining_name, self.seed)
@@ -46,23 +47,31 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
         self.tracking_uri, artifact_location = utils.get_mlflow_backend(output_dir, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
         experiment = utils.create_experiment(self.tracking_uri, experiment_name, artifact_location)
-        self.run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, self.readout_name)
-        pretraining_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed)
-        pretraining_run = utils.get_run(self.tracking_uri, experiment.experiment_id, pretraining_run_name)
+        pretraining_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, PRETRAINING_PHASE_NAME)
+        extraction_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, EXTRACTION_PHASE_NAME, self.readout_name)
+        readout_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, READOUT_PHASE_NAME, self.readout_name)
+        self.run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, self.phase, self.readout_name)
         if self.phase == PRETRAINING_PHASE_NAME: # pretraining
             assert pretraining_run_name == self.run_name, 'Names should match: {} and {}'.format(pretraining_run_name, self.run_name)
+            pretraining_run = utils.get_run(self.tracking_uri, experiment.experiment_id, pretraining_run_name)
+            self.run_id = pretraining_run.info.run_id
+
             self.restore_run_id = None
             self.restore_step = None
             self.initial_step = 1
-            self.run_id = pretraining_run.info.run_id
             if 'step' in pretraining_run.data.metrics:
                 self.restore_run_id = self.run_id # restoring from same run
                 self.restore_step = int(pretraining_run.data.metrics['step'])
                 self.initial_step = self.restore_step + 1 # start with next step
             logging.info(f'Set initial step to {self.initial_step}')
-        else: # readout
+        elif self.phase == EXTRACTION_PHASE_NAME:
+            pretraining_run = utils.get_run(self.tracking_uri, experiment.experiment_id, pretraining_run_name)
             assert pretraining_run is not None, f'Should be exactly 1 run with name "{pretraining_run_name}", but found None'
             assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for "{pretraining_run_name}"'
+            assert extraction_run_name == self.run_name, f'Names should match: {extraction_run_name} and {self.run_name}'
+            extraction_run = utils.get_run(self.tracking_uri, experiment.experiment_id, extraction_run_name)
+            self.run_id = extraction_run.info.run_id
+
             if cfg.READOUT_LOAD_STEP is not None: # restore from specified checkpoint
                 client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
                 metric_history = client.get_metric_history(pretraining_run.info.run_id, 'step')
@@ -72,9 +81,21 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 self.restore_step = int(pretraining_run.data.metrics['step'])
                 assert self.restore_step == cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {self.restore_step} steps, but expected {cfg.TRAIN_STEPS} steps'
             self.restore_run_id = pretraining_run.info.run_id
+        elif self.phase == READOUT_PHASE_NAME: # readout
+            extraction_run = utils.get_run(self.tracking_uri, experiment.experiment_id, extraction_run_name)
+            assert extraction_run is not None, f'Should be exactly 1 run with name "{extraction_run_name}", but found None'
+            self.train_feature_file = utils.get_feats_from_artifact_store('train', self.tracking_uri, extraction_run.info.run_id, self.readout_dir)
+            self.test_feature_file = utils.get_feats_from_artifact_store('test', self.tracking_uri, extraction_run.info.run_id, self.readout_dir)
+            assert self.train_feature_file is not None, 'Train features not found'
+            assert self.test_feature_file is not None, 'Test features not found'
 
-            readout_run = utils.get_run(self.tracking_uri, experiment.experiment_id, self.run_name)
+            assert readout_run_name == self.run_name, f'Names should match: {readout_run_name} and {self.run_name}'
+            readout_run = utils.get_run(self.tracking_uri, experiment.experiment_id, readout_run_name)
             self.run_id = readout_run.info.run_id
+            self.restore_run_id = None # TODO: just used to skip model restoring
+            self.restore_step = None
+        else:
+            raise NotImplementedError(f'Unknown phase {self.phase}')
 
     def __call__(self, args): # TODO: hyperparam settings from hyperopt are passed in as a dict/tuple
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
@@ -96,7 +117,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         if self.readout_space is not None:
             mlflow.log_params({f'readout_{k}':v for k,v in self.readout_space.items()})
 
-        # download ckpt from artifact store and load model, if not doing pretraining from scratch
+        # download ckpt from artifact store and load model, if not doing readout or pretraining from scratch
         if (self.restore_step is not None) and (self.restore_run_id is not None):
             model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.model_dir)
             self.model = self.load_model(model_file)
@@ -110,14 +131,17 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             else: # log restore settings as params for readout since features and metric results depend on model ckpt
                 mlflow.log_params(restore_settings)
         else:
-            assert (self.phase == PRETRAINING_PHASE_NAME) and (self.initial_step == 1), 'Should be doing pretraining from scratch if not loading model'
+            assert (self.phase == READOUT_PHASE_NAME) or ((self.phase == PRETRAINING_PHASE_NAME) and (self.initial_step == 1)), 'Should be doing readout or pretraining from scratch if not loading model'
 
         if self.phase == PRETRAINING_PHASE_NAME:  # run model training
             self.pretraining()
+        elif self.phase == EXTRACTION_PHASE_NAME:
+            for mode in ['train', 'test']:
+                self.extract_feats(mode) 
         elif self.phase == READOUT_PHASE_NAME:# extract features, then train and test readout
-            self.readout() 
+            self.compute_metrics(self.train_feature_file, self.test_feature_file)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f'Unknown phase {self.phase}')
 
         mlflow.log_artifact(self.log_file) # TODO: log to artifact store more frequently?
         mlflow.end_run()
@@ -194,13 +218,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         val_results = {k: np.mean([res[k] for res in val_results]) for k in val_results[0]} # assumes all keys are the same across list
         return val_results
 
-    def readout(self):
-        kwargs = {}
-        for mode in ['train', 'test']:
-            feature_file = self.extract_feats(mode) 
-            kwargs[mode+'_feature_file'] = feature_file
-        self.compute_metrics(**kwargs)
-
     def extract_feats(self,  mode):
         feature_file = utils.get_feats_from_artifact_store(mode, self.tracking_uri, self.run_id, self.readout_dir)
         if feature_file is None: # features weren't found in artifact store
@@ -213,7 +230,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             pickle.dump(extracted_feats, open(feature_file, 'wb')) 
             logging.info('Saved features to {}'.format(feature_file))
             mlflow.log_artifact(feature_file, artifact_path='features')
-        return feature_file
 
     def compute_metrics(self, train_feature_file, test_feature_file):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
