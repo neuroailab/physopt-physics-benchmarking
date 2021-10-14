@@ -7,6 +7,7 @@ import yaml
 from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
 from importlib import import_module
+from operator import attrgetter
 
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
@@ -141,9 +142,15 @@ def resolve_output_dir(cfg_output, args_output): # updates output dir with the f
     return output_dir
 
 def check_cfg(cfg):
-    assert cfg.DATA_SPACE.MODULE is not None, 'DATA_SPACE.MODULE must be set in the config'
-    assert cfg.PRETRAINING_OBJECTIVE.MODULE is not None, 'PRETRAINING_OBJECTIVE.MODULE must be set in the config' 
-    assert cfg.EXTRACTION_OBJECTIVE.MODULE is not None, 'EXTRACTION_OBJECTIVE.MODULE must be set in the config' 
+    attrs = [
+        'DATA_SPACE.MODULE',
+        'PRETRAINING_OBJECTIVE.MODULE',
+        'EXTRACTION_OBJECTIVE.MODULE',
+        'CONFIG.MODEL_NAME',
+        ]
+    for attr in attrs:
+        retriever = attrgetter(attr)
+        assert retriever(cfg) is not None, f'{attr} must be set in the config'
     return True
 
 def get_cfg_from_args(args):

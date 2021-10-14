@@ -77,14 +77,12 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             ret = {'loss': 0.0, 'status': STATUS_OK}
         return ret
 
+    @property
+    def model_name(self):
+        return self.cfg.MODEL_NAME
+
     @abc.abstractmethod
     def call(self, args):
-        raise NotImplementedError
-
-    @property
-    @classmethod
-    @abc.abstractmethod
-    def model_name(cls):
         raise NotImplementedError
 
     @property
