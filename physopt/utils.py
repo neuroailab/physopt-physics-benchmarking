@@ -24,18 +24,15 @@ def setup_logger(log_file, debug=False):
         level=logging.INFO,
         )
 
-def get_model_dir(output_dir, experiment_name, model_name, pretraining_name, seed):
+def get_output_dir(output_dir, experiment_name, model_name, pretraining_name, seed, phase, readout_name):
     assert pretraining_name is not None
-    model_dir = os.path.join(output_dir, experiment_name, model_name, pretraining_name, str(seed), '')
+    if readout_name is None:
+        model_dir = os.path.join(output_dir, experiment_name, model_name, pretraining_name, str(seed), phase, '')
+    else:
+        model_dir = os.path.join(output_dir, experiment_name, model_name, pretraining_name, str(seed), phase, readout_name, '')
     assert model_dir[-1] == '/', '"{}" missing trailing "/"'.format(model_dir) # need trailing '/' to make dir explicit
     _create_dir(model_dir)
     return model_dir
-
-def get_readout_dir(model_dir, readout_name):
-    if readout_name is not None:
-        readout_dir = os.path.join(model_dir, readout_name, '')
-        _create_dir(readout_dir)
-        return readout_dir
 
 def _create_dir(path): # creates dir from path or filename, if doesn't exist
     dirname, basename = os.path.split(path)

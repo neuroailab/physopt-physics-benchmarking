@@ -31,9 +31,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.cfg = cfg
 
         experiment_name = utils.get_exp_name(cfg.EXPERIMENT_NAME, cfg.ADD_TIMESTAMP, cfg.DEBUG)
-        self.model_dir = utils.get_model_dir(output_dir, experiment_name, self.model_name, self.pretraining_name, self.seed)
-        self.readout_dir = utils.get_readout_dir(self.model_dir, self.readout_name) # TODO: combine readout and model dir
-        self.log_file = os.path.join(self.model_dir, 'logs', 'output_{}.log'.format(time.strftime("%Y%m%d-%H%M%S")))
+        self.output_dir = utils.get_output_dir(output_dir, experiment_name, self.model_name, self.pretraining_name, self.seed, self.phase, self.readout_name)
+        self.log_file = os.path.join(self.output_dir, 'logs', 'output_{}.log'.format(time.strftime("%Y%m%d-%H%M%S")))
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
         self.tracking_uri, artifact_location = utils.get_mlflow_backend(output_dir, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
         self.experiment = utils.create_experiment(self.tracking_uri, experiment_name, artifact_location)
@@ -64,8 +63,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
         if self.cfg.DELETE_LOCAL: # delete locally saved files, since they're already logged as mlflow artifacts -- saves disk storage space
             try:
-                logging.info(f'Removing all local files in {self.model_dir}')
-                shutil.rmtree(self.model_dir)
+                logging.info(f'Removing all local files in {self.output_dir}')
+                shutil.rmtree(self.output_dir)
             except OSError as e:
                 print(f'Error: {e.filename} - {e.strerror}.')
 
@@ -141,7 +140,7 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
 
         # download ckpt from artifact store and load model, if not doing pretraining from scratch
         if (self.restore_step is not None) and (self.restore_run_id is not None):
-            model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.model_dir)
+            model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.output_dir)
             self.model = self.load_model(model_file)
             mlflow.set_tags({ # set as tags for pretraining since can resume run multiple times
                 'restore_step': self.restore_step,
@@ -190,7 +189,7 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
 
     def save_model_with_logging(self, step):
         logging.info('Saving model at step {}'.format(step))
-        model_file = os.path.join(self.model_dir, f'model_{step:06d}.pt') # create model file with step 
+        model_file = os.path.join(self.output_dir, f'model_{step:06d}.pt') # create model file with step 
         self.save_model(model_file)
         mlflow.log_artifact(model_file, artifact_path='model_ckpts')
         mlflow.log_metric('step', step, step=step) # used to know most recent step with model ckpt
@@ -251,7 +250,7 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
             assert self.restore_step == self.cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {self.restore_step} steps, but expected {self.cfg.TRAIN_STEPS} steps'
         self.restore_run_id = pretraining_run.info.run_id
         # download ckpt from artifact store and load model
-        model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.model_dir)
+        model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.output_dir)
         self.model = self.load_model(model_file)
         mlflow.log_params({ # log restore settings as params for readout since features and metric results depend on model ckpt
             'restore_step': self.restore_step,
@@ -264,14 +263,14 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
             self.extract_feats(mode) 
 
     def extract_feats(self,  mode):
-        feature_file = utils.get_feats_from_artifact_store(mode, self.tracking_uri, self.run_id, self.readout_dir)
+        feature_file = utils.get_feats_from_artifact_store(mode, self.tracking_uri, self.run_id, self.output_dir)
         if feature_file is None: # features weren't found in artifact store
             dataloader = self.get_readout_dataloader(self.readout_space[mode])
             extracted_feats = []
             for i, data in enumerate(dataloader):
                 output = self.extract_feat_step(data)
                 extracted_feats.append(output)
-            feature_file = os.path.join(self.readout_dir, mode+'_feat.pkl')
+            feature_file = os.path.join(self.output_dir, mode+'_feat.pkl')
             pickle.dump(extracted_feats, open(feature_file, 'wb')) 
             logging.info('Saved features to {}'.format(feature_file))
             mlflow.log_artifact(feature_file, artifact_path='features')
@@ -309,27 +308,27 @@ class ReadoutObjectiveBase(PhysOptObjective):
         extraction_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, EXTRACTION_PHASE_NAME, self.readout_name)
         extraction_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, extraction_run_name)
         assert extraction_run is not None, f'Should be exactly 1 run with name "{extraction_run_name}", but found None'
-        self.train_feature_file = utils.get_feats_from_artifact_store('train', self.tracking_uri, extraction_run.info.run_id, self.readout_dir)
-        self.test_feature_file = utils.get_feats_from_artifact_store('test', self.tracking_uri, extraction_run.info.run_id, self.readout_dir)
+        self.train_feature_file = utils.get_feats_from_artifact_store('train', self.tracking_uri, extraction_run.info.run_id, self.output_dir)
+        self.test_feature_file = utils.get_feats_from_artifact_store('test', self.tracking_uri, extraction_run.info.run_id, self.output_dir)
         assert self.train_feature_file is not None, 'Train features not found'
         assert self.test_feature_file is not None, 'Test features not found'
 
     def call(self, args):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
         logging.info(self.cfg.READOUT)
-        metrics_file = os.path.join(self.readout_dir, 'metrics_results.csv')
+        metrics_file = os.path.join(self.output_dir, 'metrics_results.csv')
         if os.path.exists(metrics_file): # rename old results, just in case
-            dst = os.path.join(self.readout_dir, '.metrics_results.csv')
+            dst = os.path.join(self.output_dir, '.metrics_results.csv')
             os.rename(metrics_file, dst)
         protocols = ['observed', 'simulated', 'input']
         for protocol in protocols:
-            readout_model_or_file = utils.get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.readout_dir)
+            readout_model_or_file = utils.get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.output_dir)
             if not self.cfg.READOUT.DO_RESTORE or (readout_model_or_file is None):
                 readout_model_or_file = self.get_readout_model()
             results = run_metrics(
                 self.seed,
                 readout_model_or_file,
-                self.readout_dir,
+                self.output_dir,
                 self.train_feature_file,
                 self.test_feature_file,
                 protocol, 
