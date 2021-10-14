@@ -37,6 +37,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
         self.tracking_uri, artifact_location = utils.get_mlflow_backend(output_dir, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
         self.experiment = utils.create_experiment(self.tracking_uri, experiment_name, artifact_location)
+        super().__init__() # runs init for PhysOptModel
 
     def setup(self):
         mlflow.set_tracking_uri(self.tracking_uri) # needs to be done (again) in __call__ since might be run by worker on different machine
@@ -97,11 +98,23 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
     def phase(self):
         raise NotImplementedError
 
-class PretrainingObjective(PhysOptObjective):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.model = self.get_model() # get initial model
+class PhysOptModel(metaclass=abc.ABCMeta):
+    def __init__(self):
+        self.model = self.get_model()
 
+    @abc.abstractmethod
+    def get_model(self):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def load_model(self, model_file):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def save_model(self, model_file): # not used in Extraction
+        raise NotImplementedError
+
+class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
     @property
     def phase(self):
         return PRETRAINING_PHASE_NAME
@@ -199,18 +212,6 @@ class PretrainingObjective(PhysOptObjective):
         return val_results
 
     @abc.abstractmethod
-    def get_model(self):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def load_model(self, model_file):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def save_model(self, model_file):
-        raise NotImplementedError
-
-    @abc.abstractmethod
     def train_step(self, data):
         raise NotImplementedError
 
@@ -222,11 +223,7 @@ class PretrainingObjective(PhysOptObjective):
     def get_pretraining_dataloader(self, datapaths, train): # returns object that can be iterated over for batches of data
         raise NotImplementedError
 
-class ExtractionObjective(PhysOptObjective):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.model = self.get_model() # get initial model
-
+class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
     @property
     def phase(self):
         return EXTRACTION_PHASE_NAME
@@ -280,14 +277,6 @@ class ExtractionObjective(PhysOptObjective):
             mlflow.log_artifact(feature_file, artifact_path='features')
 
     @abc.abstractmethod
-    def get_model(self):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def load_model(self, model_file):
-        raise NotImplementedError
-
-    @abc.abstractmethod
     def extract_feat_step(self, data):
         raise NotImplementedError
 
@@ -295,7 +284,7 @@ class ExtractionObjective(PhysOptObjective):
     def get_readout_dataloader(self, datapaths): # returns object that can be iterated over for batches of data
         raise NotImplementedError
 
-class ReadoutObjective(PhysOptObjective):
+class ReadoutObjectiveBase(PhysOptObjective):
     def __init__(self,
         seed,
         pretraining_space,
