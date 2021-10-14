@@ -31,6 +31,24 @@ def arg_parse():
 def get_mongo_path(host, port, database):
     return 'mongo://{0}:{1}/{2}/jobs'.format(host, port, database)
 
+def get_objective(phase, seed, pretraining_space, readout_space, cfg):
+    if phase == PRETRAINING_PHASE_NAME:
+            Objective = getattr(import_module(cfg.PRETRAINING_OBJECTIVE.MODULE), cfg.PRETRAINING_OBJECTIVE.NAME)
+    elif phase == EXTRACTION_PHASE_NAME:
+            Objective = getattr(import_module(cfg.EXTRACTION_OBJECTIVE.MODULE), cfg.EXTRACTION_OBJECTIVE.NAME)
+    elif phase == READOUT_PHASE_NAME:
+            Objective = getattr(import_module(cfg.READOUT_OBJECTIVE.MODULE), cfg.READOUT_OBJECTIVE.NAME)
+    else:
+        raise NotImplementedError(f'Unknown phase {phase}')
+    objective = Objective(
+        seed, 
+        pretraining_space, 
+        readout_space, 
+        cfg.OUTPUT_DIR,
+        cfg.CONFIG,
+        )
+    return objective
+
 class OptimizationPipeline():
     def __init__(self, cfg):
         self.cfg = cfg
@@ -42,20 +60,12 @@ class OptimizationPipeline():
     def run(self):
         cfg = self.cfg
         data_spaces = build_data_spaces(cfg.DATA_SPACE.MODULE, cfg.DATA_SPACE.FUNC, cfg.DATA_SPACE.SEEDS, cfg.DATA_SPACE.KWARGS)
-        Objective = getattr(import_module(cfg.OBJECTIVE.MODULE), cfg.OBJECTIVE.NAME)
 
         def run_once(data_space): # data_space: list of space tuples, first corresponds to dynamics pretraining and the rest are readout
             seed, pretraining_space, readout_spaces = (data_space['seed'], data_space[PRETRAINING_PHASE_NAME], data_space[READOUT_PHASE_NAME])
 
             def run_inner(phase, readout_space=None):
-                objective = Objective(
-                    seed, 
-                    pretraining_space, 
-                    readout_space, 
-                    cfg.OUTPUT_DIR,
-                    cfg.CONFIG,
-                    phase,
-                    )
+                objective = get_objective(phase, seed, pretraining_space, readout_space, cfg)
 
                 if cfg.MONGO.DBNAME == 'local' or cfg.CONFIG.DEBUG: # don't use MongoTrials when debugging
                     trials = Trials()
@@ -132,7 +142,8 @@ def resolve_output_dir(cfg_output, args_output): # updates output dir with the f
 
 def check_cfg(cfg):
     assert cfg.DATA_SPACE.MODULE is not None, 'DATA_SPACE.MODULE must be set in the config'
-    assert cfg.OBJECTIVE.MODULE is not None, 'OBJECTIVE.MODULE must be set in the config' 
+    assert cfg.PRETRAINING_OBJECTIVE.MODULE is not None, 'PRETRAINING_OBJECTIVE.MODULE must be set in the config' 
+    assert cfg.EXTRACTION_OBJECTIVE.MODULE is not None, 'EXTRACTION_OBJECTIVE.MODULE must be set in the config' 
     return True
 
 def get_cfg_from_args(args):

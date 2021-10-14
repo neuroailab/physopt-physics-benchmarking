@@ -17,9 +17,17 @@ _C.MONGO.HOST = 'localhost'
 _C.MONGO.PORT = 25555
 _C.MONGO.DBNAME = 'local'
 
-_C.OBJECTIVE = CN()
-_C.OBJECTIVE.MODULE = None # required
-_C.OBJECTIVE.NAME = 'Objective'
+_C.PRETRAINING_OBJECTIVE = CN()
+_C.PRETRAINING_OBJECTIVE.MODULE = None # required
+_C.PRETRAINING_OBJECTIVE.NAME = 'PretrainingObjective'
+
+_C.EXTRACTION_OBJECTIVE = CN()
+_C.EXTRACTION_OBJECTIVE.MODULE = None # required
+_C.EXTRACTION_OBJECTIVE.NAME = 'ExtractionObjective'
+
+_C.READOUT_OBJECTIVE = CN()
+_C.READOUT_OBJECTIVE.MODULE = 'physopt.objective'
+_C.READOUT_OBJECTIVE.NAME = 'ReadoutObjective'
 
 # for physopt objective
 _C.CONFIG = CN()
