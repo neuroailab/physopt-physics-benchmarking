@@ -37,11 +37,11 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def setup(self):
         mlflow.set_tracking_uri(self.tracking_uri) # needs to be done (again) in __call__ since might be run by worker on different machine
-        mlflow.start_run(run_id=self.run_id)
+        mlflow.start_run(run_id=self.run_id) # dynamically searches runs to get run_id, creates new run if none found
         logging.info(f'Starting run id: {mlflow.active_run().info.run_id}')
         logging.info(f'Tracking URI: {mlflow.get_tracking_uri()}')
         logging.info(f'Artifact URI: {mlflow.get_artifact_uri()}')
-        mlflow.set_tag('run_id', self.run_id)
+        mlflow.set_tag('run_id', mlflow.active_run().info.run_id)
         mlflow.log_params({
             'phase': self.phase,
             'model_name': self.model_name,

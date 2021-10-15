@@ -148,7 +148,7 @@ def get_run(tracking_uri, experiment_id, **kwargs):
     if len(runs) == 0:
         logging.info(f'Creating run with name:"{run_name}"')
         client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
-        run = client.create_run(experiment_id, tags={'mlflow.runName': run_name})
+        run = client.create_run(experiment_id, tags={'mlflow.runName': run_name}) # TODO: create run with params from kwargs?
     else: # found existing run with matching name
         run = runs[0]
         logging.info(f'Found run with name: "{run.data.tags["mlflow.runName"]}"')
