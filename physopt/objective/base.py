@@ -186,15 +186,6 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
         raise NotImplementedError
 
 class ReadoutObjectiveBase(PhysOptObjective):
-    def __init__(self,
-        seed,
-        pretraining_space,
-        readout_space,
-        output_dir,
-        cfg,
-        ):
-        super().__init__(seed, pretraining_space, readout_space, output_dir, cfg)
-
     @property
     def phase(self):
         return READOUT_PHASE_NAME
