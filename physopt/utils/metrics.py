@@ -51,3 +51,18 @@ class MetricModel(object):
 def check_readout_model(readout_model):
     for attr in ['fit', 'predict', 'predict_proba']:
         assert hasattr(readout_model, attr) and callable(getattr(readout_model, attr)), f'Readout model must have {attr} method'
+
+def squared_error(predictions, labels):
+    assert predictions.ndim == 1
+    assert labels.ndim == 1
+    return (predictions - labels) ** 2
+
+def accuracy(predictions, labels):
+    assert predictions.ndim == 1
+    assert labels.ndim == 1
+    return np.mean(predictions == labels)
+
+def negative_accuracy(predictions, labels):
+    assert predictions.ndim == 1
+    assert labels.ndim == 1
+    return -accuracy(predictions, labels)
