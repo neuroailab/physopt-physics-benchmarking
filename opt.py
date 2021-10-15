@@ -14,7 +14,7 @@ from hyperopt.mongoexp import MongoTrials
 
 from physopt.objective.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
 from physopt.data_space import build_data_spaces
-from physopt.search.grid_search import suggest
+from physopt.utils.grid_search import suggest
 from physopt.config import get_cfg_defaults, get_cfg_debug
 
 NO_PARAM_SPACE = hp.choice('dummy', [0])

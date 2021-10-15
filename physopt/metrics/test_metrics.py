@@ -9,7 +9,7 @@ import joblib
 import dill
 
 from physopt.metrics.metric_model import MetricModel
-from physopt.metrics.metric_fns import accuracy 
+from physopt.utils.metric_fns import accuracy 
 
 def build_data(path, max_sequences = 1e9):
     with open(path, 'rb') as f:
