@@ -147,41 +147,43 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
             assert self.initial_step == 1, 'Should be doing pretraining from scratch if not loading model'
 
     def call(self, args):
-        # TODO: run specific stuff should be done in call, since it can be called mutiple times with different args
-        trainloader = self.get_pretraining_dataloader(self.pretraining_space['train'], train=True)
-        try:
-            mlflow.log_param('trainloader_size', len(trainloader))
-        except:
-            logging.info("Couldn't get trainloader size")
-
-        if self.initial_step == 1: # save initial model
-            self.save_model_with_logging(step=0)
-        if (not self.cfg.DEBUG) and (self.initial_step <= self.cfg.TRAIN_STEPS): # only do it if pretraining isn't complete and not debug
-            logging.info('Doing initial validation') 
+        if self.cfg.DEBUG == False: # skip initial val when debugging
+            logging.info(f'Doing initial validation for step {self.initial_step-1}') 
             self.validation_with_logging(self.initial_step-1) # -1 for "zeroth" step
 
-        step = self.initial_step
-        while step <= self.cfg.TRAIN_STEPS:
-            for _, data in enumerate(trainloader):
-                loss = self.train_step(data)
-                logging.info('Step: {0:>10} Loss: {1:>10.4f}'.format(step, loss))
+        if (self.initial_step > self.cfg.TRAIN_STEPS): # loaded ckpt from final step
+            assert self.restore_step == self.cfg.TRAIN_STEPS, f'Restore step {self.restore_step} should match train steps {self.cfg.TRAIN_STEPS}'
+            logging.info(f'Loaded fully trained model ({self.cfg.TRAIN_STEPS} steps) --  skipping pretraining')
+        else:
+            trainloader = self.get_pretraining_dataloader(self.pretraining_space['train'], train=True)
+            try:
+                mlflow.log_param('trainloader_size', len(trainloader))
+            except:
+                logging.info("Couldn't get trainloader size")
 
-                if (step % self.cfg.LOG_FREQ) == 0:
-                    mlflow.log_metric(key='train_loss', value=loss, step=step)
-                if (step % self.cfg.VAL_FREQ) == 0:
-                    self.validation_with_logging(step)
-                if (step % self.cfg.CKPT_FREQ) == 0:
-                    self.save_model_with_logging(step)
-                step += 1
-                if step > self.cfg.TRAIN_STEPS:
-                    break
-        step -= 1 # reset final step increment, so aligns with actual number of steps run
+            if self.initial_step == 1: # save initial model
+                self.save_model_with_logging(step=0)
+            step = self.initial_step
+            while step <= self.cfg.TRAIN_STEPS:
+                for _, data in enumerate(trainloader):
+                    loss = self.train_step(data)
+                    logging.info('Step: {0:>10} Loss: {1:>10.4f}'.format(step, loss))
 
-        # do final validation at end, save model, and log final ckpt -- if it wasn't done at last step
-        if not (self.cfg.TRAIN_STEPS % self.cfg.VAL_FREQ) == 0:
-            self.validation_with_logging(step)
-        if not (self.cfg.TRAIN_STEPS % self.cfg.CKPT_FREQ) == 0:
-            self.save_model_with_logging(step)
+                    if (step % self.cfg.LOG_FREQ) == 0:
+                        mlflow.log_metric(key='train_loss', value=loss, step=step)
+                    if (step % self.cfg.VAL_FREQ) == 0:
+                        self.validation_with_logging(step)
+                    if (step % self.cfg.CKPT_FREQ) == 0:
+                        self.save_model_with_logging(step)
+                    step += 1
+                    if step > self.cfg.TRAIN_STEPS:
+                        break
+
+            # do final validation at end, save model, and log final ckpt -- if it wasn't done at last step
+            if (self.cfg.TRAIN_STEPS % self.cfg.VAL_FREQ != 0):
+                self.validation_with_logging(self.cfg.TRAIN_STEPS)
+            if (self.cfg.TRAIN_STEPS % self.cfg.CKPT_FREQ != 0):
+                self.save_model_with_logging(self.cfg.TRAIN_STEPS)
         # TODO: return result dict for hyperopt
 
     def save_model_with_logging(self, step):
