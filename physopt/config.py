@@ -26,8 +26,8 @@ _C.EXTRACTION_OBJECTIVE.MODULE = None # required
 _C.EXTRACTION_OBJECTIVE.NAME = 'ExtractionObjective'
 
 _C.READOUT_OBJECTIVE = CN()
-_C.READOUT_OBJECTIVE.MODULE = 'physopt.objective'
-_C.READOUT_OBJECTIVE.NAME = 'ReadoutObjective'
+_C.READOUT_OBJECTIVE.MODULE = 'physion.objective'
+_C.READOUT_OBJECTIVE.NAME = 'PhysionReadoutObjective'
 
 # for physopt objective
 _C.CONFIG = CN()
