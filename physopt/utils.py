@@ -124,20 +124,31 @@ def get_readout_model_from_artifact_store(protocol, tracking_uri, run_id, readou
     readout_model_file = download_from_artifact_store(artifact_path, tracking_uri, run_id, readout_dir)
     return readout_model_file
 
-def get_run(tracking_uri, experiment_id, run_name):
-    runs = search_runs(tracking_uri, experiment_id, run_name)
+def get_run(tracking_uri, experiment_id, **kwargs):
+    logging.info(f'Searching for run with params: {kwargs}')
+    runs = search_runs(tracking_uri, experiment_id, **kwargs)
+    if 'run_name' in kwargs:
+        run_name = kwargs['run_name']
+    else:
+        run_name = get_run_name(**kwargs)
     assert len(runs) <= 1, f'Should be at most one (1) run with name "{run_name}", but found {len(runs)}'
     if len(runs) == 0:
         logging.info(f'Creating run with name:"{run_name}"')
         client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
         run = client.create_run(experiment_id, tags={'mlflow.runName': run_name})
     else: # found existing run with matching name
-        logging.info(f'Found run with name:"{run_name}"')
         run = runs[0]
+        logging.info(f'Found run with name: "{run.data.tags["mlflow.runName"]}"')
     return run
 
-def search_runs(tracking_uri, experiment_id, run_name):
-    filter_string = 'tags.mlflow.runName="{}"'.format(run_name)
+def search_runs(tracking_uri, experiment_id, **kwargs):
+    filters = []
+    for param, value in kwargs.items():
+        if param == 'run_name':
+            filters.append(f'tags.mlflow.runName="{value}"')
+        else:
+            filters.append(f'params.{param}="{value}"')
+    filter_string = ' and '.join(filters)
     client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
     runs = client.search_runs([experiment_id], filter_string=filter_string)
     return runs

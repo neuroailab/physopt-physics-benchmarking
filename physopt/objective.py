@@ -44,15 +44,13 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         logging.info(f'Starting run id: {mlflow.active_run().info.run_id}')
         logging.info(f'Tracking URI: {mlflow.get_tracking_uri()}')
         logging.info(f'Artifact URI: {mlflow.get_artifact_uri()}')
-        mlflow.set_tags({
-            'phase': self.phase,
-            'model': self.model_name,
-            })
         mlflow.log_params({
+            'phase': self.phase,
+            'model_name': self.model_name,
             'seed': self.seed,
             'batch_size': self.cfg.BATCH_SIZE,
             })
-        # TODO: log params in self.cfg?
+        # TODO: log params from self.cfg?
         mlflow.log_params({f'pretraining_{k}':v for k,v in self.pretraining_space.items()})
         if self.readout_space is not None:
             mlflow.log_params({f'readout_{k}':v for k,v in self.readout_space.items()})
@@ -118,14 +116,14 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
 
     @property
     def run_id(self):
-        pretraining_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, PRETRAINING_PHASE_NAME)
-        pretraining_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, pretraining_run_name)
+        pretraining_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, 
+            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=PRETRAINING_PHASE_NAME)
         return pretraining_run.info.run_id
 
     def setup(self):
         super().setup() # starts mlflow run and does some logging
-        pretraining_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, PRETRAINING_PHASE_NAME)
-        pretraining_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, pretraining_run_name)
+        pretraining_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
+            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=PRETRAINING_PHASE_NAME)
         if 'step' in pretraining_run.data.metrics:
             self.restore_run_id = self.run_id # restoring from same run
             self.restore_step = int(pretraining_run.data.metrics['step'])
@@ -227,14 +225,14 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
 
     @property
     def run_id(self):
-        extraction_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, EXTRACTION_PHASE_NAME, self.readout_name)
-        extraction_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, extraction_run_name)
+        extraction_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
+            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=EXTRACTION_PHASE_NAME, readout_name=self.readout_name)
         return extraction_run.info.run_id
     
     def setup(self):
         super().setup()
-        pretraining_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, PRETRAINING_PHASE_NAME)
-        pretraining_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, pretraining_run_name)
+        pretraining_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
+            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=PRETRAINING_PHASE_NAME)
         assert pretraining_run is not None, f'Should be exactly 1 run with name "{pretraining_run_name}", but found None'
         assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for "{pretraining_run_name}"'
 
@@ -297,14 +295,14 @@ class ReadoutObjectiveBase(PhysOptObjective):
 
     @property
     def run_id(self):
-        readout_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, READOUT_PHASE_NAME, self.readout_name)
-        readout_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, readout_run_name)
+        readout_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
+            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=READOUT_PHASE_NAME, readout_name=self.readout_name)
         return readout_run.info.run_id
 
     def setup(self):
         super().setup()
-        extraction_run_name = utils.get_run_name(self.model_name, self.pretraining_name, self.seed, EXTRACTION_PHASE_NAME, self.readout_name)
-        extraction_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, extraction_run_name)
+        extraction_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
+            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=EXTRACTION_PHASE_NAME, readout_name=self.readout_name)
         assert extraction_run is not None, f'Should be exactly 1 run with name "{extraction_run_name}", but found None'
         self.train_feature_file = utils.get_feats_from_artifact_store('train', self.tracking_uri, extraction_run.info.run_id, self.output_dir)
         self.test_feature_file = utils.get_feats_from_artifact_store('test', self.tracking_uri, extraction_run.info.run_id, self.output_dir)
