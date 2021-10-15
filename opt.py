@@ -12,7 +12,7 @@ from operator import attrgetter
 from hyperopt import hp, fmin, tpe, Trials
 from hyperopt.mongoexp import MongoTrials
 
-from physopt.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
+from physopt.objective.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
 from physopt.data_space import build_data_spaces
 from physopt.search.grid_search import suggest
 from physopt.config import get_cfg_defaults, get_cfg_debug

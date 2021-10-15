@@ -1,5 +1,5 @@
 from  importlib import import_module
-from physopt.utils import PRETRAINING_PHASE_NAME, READOUT_PHASE_NAME
+from physopt.objective.utils import PRETRAINING_PHASE_NAME, READOUT_PHASE_NAME
 
 def verify_data_spaces(data_spaces):
     def check_inner(space):

@@ -8,8 +8,8 @@ import pickle
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.objective.core import PhysOptObjective, PhysOptModel
 from physopt.metrics.test_metrics import run_metrics, write_metrics
-from physopt import utils
-from physopt.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
+from physopt.objective import utils
+from physopt.objective.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
 
 class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
     @property

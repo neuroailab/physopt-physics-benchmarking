@@ -5,7 +5,7 @@ import logging
 import time
 import mlflow
 from hyperopt import STATUS_OK, STATUS_FAIL
-from physopt import utils
+from physopt.objective import utils
 
 class PhysOptObjective(metaclass=abc.ABCMeta):
     def __init__(self,
