@@ -27,7 +27,7 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
         super().setup() # starts mlflow run and does some logging
         pretraining_run = self.get_run(PRETRAINING_PHASE_NAME)
         if 'step' in pretraining_run.data.metrics:
-            self.restore_run_id = self.run_id # restoring from same run
+            self.restore_run_id = pretraining_run.info.run_id # restoring from same run
             self.restore_step = int(pretraining_run.data.metrics['step'])
             self.initial_step = self.restore_step + 1 # start with next step
         else:
