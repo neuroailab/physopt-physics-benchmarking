@@ -30,24 +30,21 @@ def arg_parse():
     return parser.parse_args()
 
 def get_mongo_path(host, port, database):
-    return 'mongo://{0}:{1}/{2}/jobs'.format(host, port, database)
+    return f'mongo://{host}:{port}/{database}/jobs'
 
 def get_objective(phase, seed, pretraining_space, readout_space, cfg):
+    args = [seed, pretraining_space, readout_space, cfg.CONFIG, cfg.PRETRAINING]
     if phase == PRETRAINING_PHASE_NAME:
-            Objective = getattr(import_module(cfg.PRETRAINING_OBJECTIVE.MODULE), cfg.PRETRAINING_OBJECTIVE.NAME)
+            Objective = getattr(import_module(cfg.PRETRAINING.OBJECTIVE_MODULE), cfg.PRETRAINING.OBJECTIVE_NAME)
     elif phase == EXTRACTION_PHASE_NAME:
-            Objective = getattr(import_module(cfg.EXTRACTION_OBJECTIVE.MODULE), cfg.EXTRACTION_OBJECTIVE.NAME)
+            Objective = getattr(import_module(cfg.EXTRACTION.OBJECTIVE_MODULE), cfg.EXTRACTION.OBJECTIVE_NAME)
+            args.append(cfg.EXTRACTION)
     elif phase == READOUT_PHASE_NAME:
-            Objective = getattr(import_module(cfg.READOUT_OBJECTIVE.MODULE), cfg.READOUT_OBJECTIVE.NAME)
+            Objective = getattr(import_module(cfg.READOUT.OBJECTIVE_MODULE), cfg.READOUT.OBJECTIVE_NAME)
+            args.extend([cfg.EXTRACTION, cfg.READOUT])
     else:
         raise NotImplementedError(f'Unknown phase {phase}')
-    objective = Objective(
-        seed, 
-        pretraining_space, 
-        readout_space, 
-        cfg.OUTPUT_DIR,
-        cfg.CONFIG,
-        )
+    objective = Objective(*args)
     return objective
 
 class OptimizationPipeline():
@@ -144,9 +141,9 @@ def resolve_output_dir(cfg_output, args_output): # updates output dir with the f
 def check_cfg(cfg):
     attrs = [
         'DATA_SPACE.MODULE',
-        'PRETRAINING_OBJECTIVE.MODULE',
-        'EXTRACTION_OBJECTIVE.MODULE',
-        'CONFIG.MODEL_NAME',
+        'PRETRAINING.OBJECTIVE_MODULE',
+        'PRETRAINING.MODEL_NAME',
+        'EXTRACTION.OBJECTIVE_MODULE',
         ]
     for attr in attrs:
         retriever = attrgetter(attr)
@@ -157,7 +154,7 @@ def get_cfg_from_args(args):
     cfg = get_cfg_defaults()
     config_file  = resolve_config_file(args.config)
     cfg.merge_from_file(config_file)
-    cfg.OUTPUT_DIR = resolve_output_dir(cfg.OUTPUT_DIR, args.output)
+    cfg.CONFIG.OUTPUT_DIR = resolve_output_dir(cfg.CONFIG.OUTPUT_DIR, args.output)
     if args.debug: # merge debug at end so takes priority
         cfg.merge_from_other_cfg(get_cfg_debug())
     cfg.freeze()

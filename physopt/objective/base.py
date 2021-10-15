@@ -55,9 +55,9 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
             logging.info(f'Doing initial validation for step {self.initial_step-1}') 
             self.validation_with_logging(self.initial_step-1) # -1 for "zeroth" step
 
-        if (self.initial_step > self.cfg.TRAIN_STEPS): # loaded ckpt from final step
-            assert self.restore_step == self.cfg.TRAIN_STEPS, f'Restore step {self.restore_step} should match train steps {self.cfg.TRAIN_STEPS}'
-            logging.info(f'Loaded fully trained model ({self.cfg.TRAIN_STEPS} steps) --  skipping pretraining')
+        if (self.initial_step > self.pretraining_cfg.TRAIN_STEPS): # loaded ckpt from final step
+            assert self.restore_step == self.pretraining_cfg.TRAIN_STEPS, f'Restore step {self.restore_step} should match train steps {self.pretraining_cfg.TRAIN_STEPS}'
+            logging.info(f'Loaded fully trained model ({self.pretraining_cfg.TRAIN_STEPS} steps) --  skipping pretraining')
         else:
             trainloader = self.get_pretraining_dataloader(self.pretraining_space['train'], train=True)
             try:
@@ -68,26 +68,26 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
             if self.initial_step == 1: # save initial model
                 self.save_model_with_logging(step=0)
             step = self.initial_step
-            while step <= self.cfg.TRAIN_STEPS:
+            while step <= self.pretraining_cfg.TRAIN_STEPS:
                 for _, data in enumerate(trainloader):
                     loss = self.train_step(data)
                     logging.info('Step: {0:>10} Loss: {1:>10.4f}'.format(step, loss))
 
-                    if (step % self.cfg.LOG_FREQ) == 0:
+                    if (step % self.pretraining_cfg.LOG_FREQ) == 0:
                         mlflow.log_metric(key='train_loss', value=loss, step=step)
-                    if (step % self.cfg.VAL_FREQ) == 0:
+                    if (step % self.pretraining_cfg.VAL_FREQ) == 0:
                         self.validation_with_logging(step)
-                    if (step % self.cfg.CKPT_FREQ) == 0:
+                    if (step % self.pretraining_cfg.CKPT_FREQ) == 0:
                         self.save_model_with_logging(step)
                     step += 1
-                    if step > self.cfg.TRAIN_STEPS:
+                    if step > self.pretraining_cfg.TRAIN_STEPS:
                         break
 
             # do final validation at end, save model, and log final ckpt -- if it wasn't done at last step
-            if (self.cfg.TRAIN_STEPS % self.cfg.VAL_FREQ != 0):
-                self.validation_with_logging(self.cfg.TRAIN_STEPS)
-            if (self.cfg.TRAIN_STEPS % self.cfg.CKPT_FREQ != 0):
-                self.save_model_with_logging(self.cfg.TRAIN_STEPS)
+            if (self.pretraining_cfg.TRAIN_STEPS % self.pretraining_cfg.VAL_FREQ != 0):
+                self.validation_with_logging(self.pretraining_cfg.TRAIN_STEPS)
+            if (self.pretraining_cfg.TRAIN_STEPS % self.pretraining_cfg.CKPT_FREQ != 0):
+                self.save_model_with_logging(self.pretraining_cfg.TRAIN_STEPS)
         # TODO: return result dict for hyperopt
 
     def save_model_with_logging(self, step):
@@ -143,14 +143,14 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
         assert pretraining_run is not None, f'Should be exactly 1 run with name "{pretraining_run_name}", but found None'
         assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for "{pretraining_run_name}"'
 
-        if self.cfg.READOUT_LOAD_STEP is not None: # restore from specified checkpoint
+        if self.extraction_cfg.LOAD_STEP is not None: # restore from specified checkpoint
             client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
             metric_history = client.get_metric_history(pretraining_run.info.run_id, 'step')
-            assert self.cfg.READOUT_LOAD_STEP in [m.value for m in metric_history], f'Checkpoint for step {self.cfg.READOUT_LOAD_STEP} not found'
-            self.restore_step = self.cfg.READOUT_LOAD_STEP
+            assert self.extraction_cfg.LOAD_STEP in [m.value for m in metric_history], f'Checkpoint for step {self.extraction_cfg.LOAD_STEP} not found'
+            self.restore_step = self.extraction_cfg.LOAD_STEP
         else: # restore from last checkpoint
             self.restore_step = int(pretraining_run.data.metrics['step'])
-            assert self.restore_step == self.cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {self.restore_step} steps, but expected {self.cfg.TRAIN_STEPS} steps'
+            assert self.restore_step == self.pretraining_cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {self.restore_step} steps, but expected {self.pretraining_cfg.TRAIN_STEPS} steps'
         self.restore_run_id = pretraining_run.info.run_id
         # download ckpt from artifact store and load model
         model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.output_dir)
@@ -205,9 +205,9 @@ class ReadoutObjectiveBase(PhysOptObjective):
         metric_history = client.get_metric_history(extraction_run.info.run_id, 'step')
         metric_values = [m.value for m in metric_history]
         logging.info(f'Steps: {metric_values}')
-        if self.cfg.READOUT_LOAD_STEP is not None: # get features from specified step
-            assert self.cfg.READOUT_LOAD_STEP in metric_values, f'Features for step {self.cfg.READOUT_LOAD_STEP} not found'
-            self.restore_step = self.cfg.READOUT_LOAD_STEP
+        if self.extraction_cfg.LOAD_STEP is not None: # get features from specified step
+            assert self.extraction_cfg.LOAD_STEP in metric_values, f'Features for step {self.extraction_cfg.LOAD_STEP} not found'
+            self.restore_step = self.extraction_cfg.LOAD_STEP
         else: # restore from lastest features
             self.restore_step = int(max(metric_values))
         self.train_feature_file = utils.get_feats_from_artifact_store('train', self.restore_step, self.tracking_uri, extraction_run.info.run_id, self.output_dir)
@@ -217,7 +217,7 @@ class ReadoutObjectiveBase(PhysOptObjective):
 
     def call(self, args):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
-        logging.info(self.cfg.READOUT)
+        logging.info(self.readout_cfg.MODEL)
         metrics_file = os.path.join(self.output_dir, 'metrics_results.csv')
         if os.path.exists(metrics_file): # rename old results, just in case
             dst = os.path.join(self.output_dir, '.metrics_results.csv')
@@ -225,7 +225,7 @@ class ReadoutObjectiveBase(PhysOptObjective):
         protocols = ['observed', 'simulated', 'input']
         for protocol in protocols:
             readout_model_or_file = utils.get_readout_model_from_artifact_store(protocol, self.restore_step, self.tracking_uri, self.run_id, self.output_dir)
-            if not self.cfg.READOUT.DO_RESTORE or (readout_model_or_file is None):
+            if (readout_model_or_file is None):
                 readout_model_or_file = self.get_readout_model()
             results = self.run_metrics(readout_model_or_file, protocol)
             results.update({

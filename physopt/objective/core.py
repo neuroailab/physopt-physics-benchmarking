@@ -12,8 +12,10 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         seed,
         pretraining_space,
         readout_space,
-        output_dir,
         cfg,
+        pretraining_cfg,
+        extraction_cfg=None,
+        readout_cfg=None,
         ):
         self.seed = seed
         self.pretraining_space = pretraining_space
@@ -21,12 +23,15 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.readout_space = readout_space
         self.readout_name = None if readout_space is None else readout_space['name']
         self.cfg = cfg
+        self.pretraining_cfg = pretraining_cfg
+        self.extraction_cfg = extraction_cfg
+        self.readout_cfg = readout_cfg
 
         experiment_name = utils.get_exp_name(cfg.EXPERIMENT_NAME, cfg.ADD_TIMESTAMP, cfg.DEBUG)
-        self.output_dir = utils.get_output_dir(output_dir, experiment_name, self.model_name, self.pretraining_name, self.seed, self.phase, self.readout_name)
+        self.output_dir = utils.get_output_dir(cfg.OUTPUT_DIR, experiment_name, self.model_name, self.pretraining_name, self.seed, self.phase, self.readout_name)
         self.log_file = os.path.join(self.output_dir, 'logs', 'output_{}.log'.format(time.strftime("%Y%m%d-%H%M%S")))
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
-        self.tracking_uri, artifact_location = utils.get_mlflow_backend(output_dir, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
+        self.tracking_uri, artifact_location = utils.get_mlflow_backend(cfg.OUTPUT_DIR, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
         self.experiment = utils.create_experiment(self.tracking_uri, experiment_name, artifact_location)
         super().__init__() # runs init for PhysOptModel
 
@@ -40,9 +45,13 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             'phase': self.phase,
             'model_name': self.model_name,
             'seed': self.seed,
-            'batch_size': self.cfg.BATCH_SIZE,
             })
-        # TODO: log params from self.cfg?
+        for phase in ['pretraining', 'extraction', 'readout']: # log params from cfgs
+            cfg = getattr(self, f'{phase}_cfg')
+            if cfg is not None:
+                mlflow.log_params({
+                    f'{phase}_{k}':v for k,v in cfg.items()
+                    })
         mlflow.log_params({f'pretraining_{k}':v for k,v in self.pretraining_space.items()})
         if self.readout_space is not None:
             mlflow.log_params({f'readout_{k}':v for k,v in self.readout_space.items()})
@@ -69,7 +78,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     @property
     def model_name(self):
-        return self.cfg.MODEL_NAME
+        return self.pretraining_cfg.MODEL_NAME
 
     @abc.abstractmethod
     def call(self, args):
