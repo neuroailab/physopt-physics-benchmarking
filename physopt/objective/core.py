@@ -6,6 +6,7 @@ import time
 import mlflow
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.objective import utils
+from physopt.objective.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
 
 class PhysOptObjective(metaclass=abc.ABCMeta):
     def __init__(self,
@@ -34,6 +35,16 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.tracking_uri, artifact_location = utils.get_mlflow_backend(cfg.OUTPUT_DIR, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
         self.experiment = utils.create_experiment(self.tracking_uri, experiment_name, artifact_location)
         super().__init__() # runs init for PhysOptModel
+
+    def get_run(self, phase):
+        cfgs = utils.flatten(self.pretraining_cfg, prefix=PRETRAINING_PHASE_NAME) # all phases need pretraining
+        if phase != PRETRAINING_PHASE_NAME: # for extraction and readout phases
+            cfgs.update(utils.flatten(self.extraction_cfg, prefix=EXTRACTION_PHASE_NAME))
+        if phase == READOUT_PHASE_NAME: # only readout needs all three
+            cfgs.update(utils.flatten(self.readout_cfg, prefix=READOUT_PHASE_NAME))
+        run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, model_name=self.model_name, 
+            seed=self.seed, pretraining_name=self.pretraining_name, phase=phase, **cfgs)
+        return run
 
     def setup(self):
         mlflow.set_tracking_uri(self.tracking_uri) # needs to be done (again) in __call__ since might be run by worker on different machine

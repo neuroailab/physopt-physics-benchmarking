@@ -20,14 +20,12 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
 
     @property
     def run_id(self):
-        pretraining_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, 
-            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=PRETRAINING_PHASE_NAME, **utils.flatten(self.pretraining_cfg, prefix='pretraining'))
+        pretraining_run = self.get_run(PRETRAINING_PHASE_NAME)
         return pretraining_run.info.run_id
 
     def setup(self):
         super().setup() # starts mlflow run and does some logging
-        pretraining_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
-            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=PRETRAINING_PHASE_NAME, **utils.flatten(self.pretraining_cfg, prefix='pretraining'))
+        pretraining_run = self.get_run(PRETRAINING_PHASE_NAME)
         if 'step' in pretraining_run.data.metrics:
             self.restore_run_id = self.run_id # restoring from same run
             self.restore_step = int(pretraining_run.data.metrics['step'])
@@ -132,15 +130,12 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
 
     @property
     def run_id(self):
-        extraction_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
-            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=EXTRACTION_PHASE_NAME, readout_name=self.readout_name, 
-            **utils.flatten(self.pretraining_cfg, prefix='pretraining'), **utils.flatten(self.extraction_cfg, prefix='extraction'))
+        extraction_run = self.get_run(EXTRACTION_PHASE_NAME)
         return extraction_run.info.run_id
     
     def setup(self):
         super().setup()
-        pretraining_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
-            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=PRETRAINING_PHASE_NAME, **utils.flatten(self.pretraining_cfg, prefix='pretraining'))
+        pretraining_run = self.get_run(PRETRAINING_PHASE_NAME)
         assert pretraining_run is not None, f'Should be exactly 1 run with name "{pretraining_run_name}", but found None'
         assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for "{pretraining_run_name}"'
 
@@ -193,16 +188,12 @@ class ReadoutObjectiveBase(PhysOptObjective):
 
     @property
     def run_id(self):
-        readout_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
-            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=READOUT_PHASE_NAME, readout_name=self.readout_name,
-            **utils.flatten(self.pretraining_cfg, prefix='pretraining'), **utils.flatten(self.extraction_cfg, prefix='extraction'), **utils.flatten(self.readout_cfg, prefix='readout'))
+        readout_run = self.get_run(READOUT_PHASE_NAME)
         return readout_run.info.run_id
 
     def setup(self):
         super().setup()
-        extraction_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
-            model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=EXTRACTION_PHASE_NAME, readout_name=self.readout_name, 
-            **utils.flatten(self.pretraining_cfg, prefix='pretraining'), **utils.flatten(self.extraction_cfg, prefix='extraction'))
+        extraction_run = self.get_run(EXTRACTION_PHASE_NAME)
         assert extraction_run is not None, f'Should be exactly 1 run with name "{extraction_run_name}", but found None'
         client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
         metric_history = client.get_metric_history(extraction_run.info.run_id, 'step')
