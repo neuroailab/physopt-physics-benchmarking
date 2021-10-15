@@ -3,6 +3,7 @@ import logging
 import errno
 import traceback
 import time
+import collections
 import mlflow
 import psycopg2
 import boto3
@@ -11,6 +12,18 @@ import botocore
 PRETRAINING_PHASE_NAME = 'pretraining'
 EXTRACTION_PHASE_NAME = 'extraction'
 READOUT_PHASE_NAME = 'readout'
+
+def flatten(d, parent_key='', sep='_', prefix=None):
+    items = []
+    for k, v in d.items():
+        new_key = parent_key + sep + k if parent_key else k
+        if isinstance(v, collections.MutableMapping):
+            items.extend(flatten(v, new_key, sep=sep).items())
+        else:
+            items.append((new_key, v))
+    if prefix is not None:
+        items = [(prefix+sep+k, v) for k,v in items]
+    return dict(items)
 
 def setup_logger(log_file, debug=False):
     _create_dir(log_file)
@@ -67,7 +80,7 @@ def create_postgres_db(host, port, dbname):
             cur.execute(sql_create_database)
         connection.close()
 
-def get_run_name(model_name, pretraining_name, seed, phase, readout_name=None, separator='-'):
+def get_run_name(model_name, pretraining_name, seed, phase, readout_name=None, separator='-', **kwargs): # TODO: remove need for unused kwargs
     to_join = [model_name, pretraining_name, str(seed), phase]
     if readout_name is not None:
         to_join.append(readout_name)

@@ -41,6 +41,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         logging.info(f'Starting run id: {mlflow.active_run().info.run_id}')
         logging.info(f'Tracking URI: {mlflow.get_tracking_uri()}')
         logging.info(f'Artifact URI: {mlflow.get_artifact_uri()}')
+        mlflow.set_tag('run_id', self.run_id)
         mlflow.log_params({
             'phase': self.phase,
             'model_name': self.model_name,
@@ -49,6 +50,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         for phase in ['pretraining', 'extraction', 'readout']: # log params from cfgs
             cfg = getattr(self, f'{phase}_cfg')
             if cfg is not None:
+                cfg = utils.flatten(cfg)
                 mlflow.log_params({
                     f'{phase}_{k}':v for k,v in cfg.items()
                     })
