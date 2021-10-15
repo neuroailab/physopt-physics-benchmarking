@@ -120,6 +120,7 @@ def run_metrics(
         train_feature_file,
         test_feature_file,
         protocol,
+        restore_step,
         ):
     # Construct data providers
     logging.info(f'Train feature file: {train_feature_file}')
@@ -150,7 +151,7 @@ def run_metrics(
         logging.info('Training readout model and saving to: {}'.format(readout_model_file))
         metric_model.fit(train_data_balanced)
         joblib.dump(metric_model, readout_model_file)
-        mlflow.log_artifact(readout_model_file, artifact_path='readout_models')
+        mlflow.log_artifact(readout_model_file, artifact_path=f'step_{restore_step}/readout_models')
 
     train_acc = metric_model.score(train_data_balanced)
     test_acc = metric_model.score(test_data_balanced)

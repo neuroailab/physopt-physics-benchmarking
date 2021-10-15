@@ -154,10 +154,11 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
         except:
             logging.info("Couldn't get trainloader size")
 
+        if self.initial_step == 1: # save initial model
+            self.save_model_with_logging(step=0)
         if (not self.cfg.DEBUG) and (self.initial_step <= self.cfg.TRAIN_STEPS): # only do it if pretraining isn't complete and not debug
             logging.info('Doing initial validation') 
             self.validation_with_logging(self.initial_step-1) # -1 for "zeroth" step
-            self.save_model_with_logging(self.initial_step-1) # -1 for "zeroth" step
 
         step = self.initial_step
         while step <= self.cfg.TRAIN_STEPS:
@@ -185,9 +186,9 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
 
     def save_model_with_logging(self, step):
         logging.info('Saving model at step {}'.format(step))
-        model_file = os.path.join(self.output_dir, f'model_{step:06d}.pt') # create model file with step 
+        model_file = os.path.join(self.output_dir, 'model.pt')
         self.save_model(model_file)
-        mlflow.log_artifact(model_file, artifact_path='model_ckpts')
+        mlflow.log_artifact(model_file, artifact_path=f'step_{step}/model_ckpts')
         mlflow.log_metric('step', step, step=step) # used to know most recent step with model ckpt
 
     def validation_with_logging(self, step):
@@ -249,17 +250,16 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
         model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.output_dir)
         self.model = self.load_model(model_file)
         mlflow.log_params({ # log restore settings as params for readout since features and metric results depend on model ckpt
-            'restore_step': self.restore_step,
             'restore_run_id': self.restore_run_id,
-            'restore_model_file': model_file,
             })
+        mlflow.log_metric('step', self.restore_step, step=self.restore_step)
 
     def call(self, args):
         for mode in ['train', 'test']:
             self.extract_feats(mode) 
 
     def extract_feats(self,  mode):
-        feature_file = utils.get_feats_from_artifact_store(mode, self.tracking_uri, self.run_id, self.output_dir)
+        feature_file = utils.get_feats_from_artifact_store(mode, self.restore_step, self.tracking_uri, self.run_id, self.output_dir)
         if feature_file is None: # features weren't found in artifact store
             dataloader = self.get_readout_dataloader(self.readout_space[mode])
             extracted_feats = []
@@ -269,7 +269,7 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
             feature_file = os.path.join(self.output_dir, mode+'_feat.pkl')
             pickle.dump(extracted_feats, open(feature_file, 'wb')) 
             logging.info('Saved features to {}'.format(feature_file))
-            mlflow.log_artifact(feature_file, artifact_path='features')
+            mlflow.log_artifact(feature_file, artifact_path=f'step_{self.restore_step}/features')
 
     @abc.abstractmethod
     def extract_feat_step(self, data):
@@ -304,8 +304,17 @@ class ReadoutObjectiveBase(PhysOptObjective):
         extraction_run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
             model_name=self.model_name, seed=self.seed, pretraining_name=self.pretraining_name, phase=EXTRACTION_PHASE_NAME, readout_name=self.readout_name)
         assert extraction_run is not None, f'Should be exactly 1 run with name "{extraction_run_name}", but found None'
-        self.train_feature_file = utils.get_feats_from_artifact_store('train', self.tracking_uri, extraction_run.info.run_id, self.output_dir)
-        self.test_feature_file = utils.get_feats_from_artifact_store('test', self.tracking_uri, extraction_run.info.run_id, self.output_dir)
+        client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
+        metric_history = client.get_metric_history(extraction_run.info.run_id, 'step')
+        metric_values = [m.value for m in metric_history]
+        logging.info(f'Steps: {metric_values}')
+        if self.cfg.READOUT_LOAD_STEP is not None: # get features from specified step
+            assert self.cfg.READOUT_LOAD_STEP in metric_values, f'Features for step {self.cfg.READOUT_LOAD_STEP} not found'
+            self.restore_step = self.cfg.READOUT_LOAD_STEP
+        else: # restore from lastest features
+            self.restore_step = int(max(metric_values))
+        self.train_feature_file = utils.get_feats_from_artifact_store('train', self.restore_step, self.tracking_uri, extraction_run.info.run_id, self.output_dir)
+        self.test_feature_file = utils.get_feats_from_artifact_store('test', self.restore_step, self.tracking_uri, extraction_run.info.run_id, self.output_dir)
         assert self.train_feature_file is not None, 'Train features not found'
         assert self.test_feature_file is not None, 'Test features not found'
 
@@ -318,7 +327,7 @@ class ReadoutObjectiveBase(PhysOptObjective):
             os.rename(metrics_file, dst)
         protocols = ['observed', 'simulated', 'input']
         for protocol in protocols:
-            readout_model_or_file = utils.get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.output_dir)
+            readout_model_or_file = utils.get_readout_model_from_artifact_store(protocol, self.restore_step, self.tracking_uri, self.run_id, self.output_dir)
             if not self.cfg.READOUT.DO_RESTORE or (readout_model_or_file is None):
                 readout_model_or_file = self.get_readout_model()
             results = run_metrics(
@@ -328,6 +337,7 @@ class ReadoutObjectiveBase(PhysOptObjective):
                 self.train_feature_file,
                 self.test_feature_file,
                 protocol, 
+                self.restore_step,
                 )
             results.update({
                 'model_name': self.model_name,
@@ -337,17 +347,18 @@ class ReadoutObjectiveBase(PhysOptObjective):
             mlflow.log_metrics({
                 'train_acc_'+protocol: results['train_accuracy'], 
                 'test_acc_'+protocol: results['test_accuracy'],
-                })
+                'step': self.restore_step,
+                }, step=self.restore_step)
             if 'best_params' in results:
                 assert isinstance(results['best_params'], dict)
                 prefix = f'best_params_{protocol}_'
                 best_params = {prefix+str(k): v for k, v in results['best_params'].items()}
-                mlflow.log_metrics(best_params)
+                mlflow.log_metrics(best_params, step=self.restore_step)
 
             # Write every iteration to be safe
             processed_results = self.process_results(results)
             write_metrics(processed_results, metrics_file)
-            mlflow.log_artifact(metrics_file)
+            mlflow.log_artifact(metrics_file, artifact_path=f'step_{self.restore_step}/metrics')
 
     @abc.abstractmethod
     def get_readout_model(self):
