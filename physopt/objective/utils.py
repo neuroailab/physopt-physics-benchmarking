@@ -122,18 +122,18 @@ def download_from_artifact_store(artifact_path, tracking_uri, run_id, output_dir
         output_file = None
     return output_file
 
-def get_ckpt_from_artifact_store(step, tracking_uri, run_id, output_dir): # returns path to downloaded ckpt, if found
-    artifact_path = f'step_{step}/model_ckpts/model.pt'
+def get_ckpt_from_artifact_store(tracking_uri, run_id, output_dir, artifact_path='model_ckpts'): # returns path to downloaded ckpt, if found
+    artifact_path = f'{artifact_path}/model.pt'
     model_file = download_from_artifact_store(artifact_path, tracking_uri, run_id, output_dir)
     return model_file
 
-def get_feats_from_artifact_store(mode, step, tracking_uri, run_id, output_dir): # returns path to downloaded feats, if found
-    artifact_path = f'step_{step}/features/{mode}_feat.pkl'
+def get_feats_from_artifact_store(mode, tracking_uri, run_id, output_dir, artifact_path='features'): # returns path to downloaded feats, if found
+    artifact_path = f'{artifact_path}/{mode}_feat.pkl'
     feat_file = download_from_artifact_store(artifact_path, tracking_uri, run_id, output_dir)
     return feat_file
 
-def get_readout_model_from_artifact_store(protocol, step, tracking_uri, run_id, output_dir): # returns path to downloaded readout model, if found
-    artifact_path = f'step_{step}/readout_models/{protocol}_readout_model.joblib'
+def get_readout_model_from_artifact_store(protocol, tracking_uri, run_id, output_dir, artifact_path='readout_models'): # returns path to downloaded readout model, if found
+    artifact_path = f'{artifact_path}/{protocol}_readout_model.joblib'
     readout_model_file = download_from_artifact_store(artifact_path, tracking_uri, run_id, output_dir)
     return readout_model_file
 
