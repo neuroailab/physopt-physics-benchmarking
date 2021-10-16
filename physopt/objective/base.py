@@ -27,26 +27,19 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
         super().setup() # starts mlflow run and does some logging
         pretraining_run = self.get_run(PRETRAINING_PHASE_NAME)
         if 'step' in pretraining_run.data.metrics:
-            self.restore_run_id = pretraining_run.info.run_id # restoring from same run
-            self.restore_step = int(pretraining_run.data.metrics['step'])
-            self.initial_step = self.restore_step + 1 # start with next step
-        else:
-            self.restore_run_id = None
-            self.restore_step = None
-            self.initial_step = 1
-        logging.info(f'Set initial step to {self.initial_step}')
-
-        # download ckpt from artifact store and load model, if not doing pretraining from scratch
-        if (self.restore_step is not None) and (self.restore_run_id is not None):
-            model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.output_dir)
+            restore_run_id = pretraining_run.info.run_id # restoring from same run
+            restore_step = int(pretraining_run.data.metrics['step'])
+            # download ckpt from artifact store and load model, if not doing pretraining from scratch
+            model_file = utils.get_ckpt_from_artifact_store(restore_step, self.tracking_uri, restore_run_id, self.output_dir)
             self.model = self.load_model(model_file)
             mlflow.set_tags({ # set as tags for pretraining since can resume run multiple times
-                'restore_step': self.restore_step,
-                'restore_run_id': self.restore_run_id,
-                'restore_model_file': model_file,
+                'restore_step': restore_step,
+                'restore_run_id': restore_run_id,
                 })
+            self.initial_step = restore_step + 1 # start with next step
         else:
-            assert self.initial_step == 1, 'Should be doing pretraining from scratch if not loading model'
+            self.initial_step = 1
+        logging.info(f'Set initial step to {self.initial_step}')
 
     def call(self, args):
         if self.cfg.DEBUG == False: # skip initial val when debugging
@@ -54,7 +47,6 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
             self.validation_with_logging(self.initial_step-1) # -1 for "zeroth" step
 
         if (self.initial_step > self.pretraining_cfg.TRAIN_STEPS): # loaded ckpt from final step
-            assert self.restore_step == self.pretraining_cfg.TRAIN_STEPS, f'Restore step {self.restore_step} should match train steps {self.pretraining_cfg.TRAIN_STEPS}'
             logging.info(f'Loaded fully trained model ({self.pretraining_cfg.TRAIN_STEPS} steps) --  skipping pretraining')
         else:
             trainloader = self.get_pretraining_dataloader(self.pretraining_space['train'], train=True)
