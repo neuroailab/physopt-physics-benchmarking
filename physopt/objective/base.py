@@ -143,11 +143,10 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
         # download ckpt from artifact store and load model
         model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, restore_run_id, self.output_dir)
         self.model = self.load_model(model_file)
-        mlflow.log_params({ # log restore settings as params for readout since features and metric results depend on model ckpt
+        mlflow.log_params({ # log restore settings as params for extraction since features depend on model ckpt
             'restore_step': self.restore_step,
             'restore_run_id': restore_run_id,
             })
-        mlflow.log_metric('step', self.restore_step, step=self.restore_step)
 
     def call(self, args):
         for mode in ['train', 'test']:
@@ -188,24 +187,19 @@ class ReadoutObjectiveBase(PhysOptObjective):
         super().setup()
         extraction_run = self.get_run(EXTRACTION_PHASE_NAME)
         assert extraction_run is not None, f'Should be exactly 1 run with name "{extraction_run_name}", but found None'
-        client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
-        metric_history = client.get_metric_history(extraction_run.info.run_id, 'step')
-        metric_values = [m.value for m in metric_history]
-        logging.info(f'Steps: {metric_values}')
-        if self.extraction_cfg.LOAD_STEP is not None: # get features from specified step
-            assert self.extraction_cfg.LOAD_STEP in metric_values, f'Features for step {self.extraction_cfg.LOAD_STEP} not found'
-            self.restore_step = self.extraction_cfg.LOAD_STEP
-        else: # restore from lastest features
-            self.restore_step = int(max(metric_values))
-        mlflow.log_param('restore_run_id', extraction_run.info.run_id)
-        self.train_feature_file = utils.get_feats_from_artifact_store('train', self.restore_step, self.tracking_uri, extraction_run.info.run_id, self.output_dir)
-        self.test_feature_file = utils.get_feats_from_artifact_store('test', self.restore_step, self.tracking_uri, extraction_run.info.run_id, self.output_dir)
+        restore_run_id = extraction_run.info.run_id
+        self.restore_step = int(extraction_run.data.params['restore_step']) # use same restore step as extracted features
+        mlflow.log_params({ # log restore settings as params for readout since features and metric results depend on model ckpt
+            'restore_step': self.restore_step,
+            'restore_run_id': restore_run_id,
+            })
+        self.train_feature_file = utils.get_feats_from_artifact_store('train', self.restore_step, self.tracking_uri, restore_run_id, self.output_dir)
+        self.test_feature_file = utils.get_feats_from_artifact_store('test', self.restore_step, self.tracking_uri, restore_run_id, self.output_dir)
         assert self.train_feature_file is not None, 'Train features not found'
         assert self.test_feature_file is not None, 'Test features not found'
 
     def call(self, args):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
-        logging.info(self.readout_cfg.MODEL)
         metrics_file = os.path.join(self.output_dir, 'metrics_results.csv')
         if os.path.exists(metrics_file): # rename old results, just in case
             dst = os.path.join(self.output_dir, '.metrics_results.csv')
