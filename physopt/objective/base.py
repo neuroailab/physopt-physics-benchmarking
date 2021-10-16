@@ -201,9 +201,6 @@ class ReadoutObjectiveBase(PhysOptObjective):
     def call(self, args):
         logging.info('\n\n{}\nStart Compute Metrics:'.format('*'*80))
         metrics_file = os.path.join(self.output_dir, 'metrics_results.csv')
-        if os.path.exists(metrics_file): # rename old results, just in case
-            dst = os.path.join(self.output_dir, '.metrics_results.csv')
-            os.rename(metrics_file, dst)
         protocols = ['observed', 'simulated', 'input']
         for protocol in protocols:
             readout_model_or_file = utils.get_readout_model_from_artifact_store(protocol, self.restore_step, self.tracking_uri, self.run_id, self.output_dir)
