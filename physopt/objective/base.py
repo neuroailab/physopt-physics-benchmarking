@@ -139,12 +139,13 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
         else: # restore from last checkpoint
             self.restore_step = int(pretraining_run.data.metrics['step'])
             assert self.restore_step == self.pretraining_cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {self.restore_step} steps, but expected {self.pretraining_cfg.TRAIN_STEPS} steps'
-        self.restore_run_id = pretraining_run.info.run_id
+        restore_run_id = pretraining_run.info.run_id
         # download ckpt from artifact store and load model
-        model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, self.restore_run_id, self.output_dir)
+        model_file = utils.get_ckpt_from_artifact_store(self.restore_step, self.tracking_uri, restore_run_id, self.output_dir)
         self.model = self.load_model(model_file)
         mlflow.log_params({ # log restore settings as params for readout since features and metric results depend on model ckpt
-            'restore_run_id': self.restore_run_id,
+            'restore_step': self.restore_step,
+            'restore_run_id': restore_run_id,
             })
         mlflow.log_metric('step', self.restore_step, step=self.restore_step)
 
