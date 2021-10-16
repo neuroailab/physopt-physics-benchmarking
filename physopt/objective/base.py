@@ -203,10 +203,59 @@ class ReadoutObjectiveBase(PhysOptObjective):
         metrics_file = os.path.join(self.output_dir, 'metrics_results.csv')
         protocols = ['observed', 'simulated', 'input']
         for protocol in protocols:
-            readout_model_or_file = utils.get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.output_dir)
-            if (readout_model_or_file is None):
-                readout_model_or_file = self.get_readout_model()
-            results = self.run_metrics(readout_model_or_file, protocol)
+###########
+            # Construct data providers
+            logging.info(f'Train feature file: {self.train_feature_file}')
+            train_data = metric_utils.build_data(self.train_feature_file)
+            logging.info(f'Test feature file: {self.test_feature_file}')
+            test_data = metric_utils.build_data(self.test_feature_file)
+
+            # Get stimulus names and labels for test data
+            stimulus_names = [d['stimulus_name'] for d in test_data]
+            labels = [metric_utils.label_fn(d)[0] for d in test_data]
+
+            # Rebalance data
+            np.random.seed(self.seed) # TODO: seed init should probably be done elsewhere
+            logging.info("Rebalancing training data")
+            train_data_balanced = metric_utils.rebalance(train_data, metric_utils.label_fn)
+            logging.info("Rebalancing testing data")
+            test_data_balanced = metric_utils.rebalance(test_data, metric_utils.label_fn)
+
+            readout_model_file = utils.get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.output_dir)
+            if readout_model_file is not None: # using readout model downloaded from artifact store
+                logging.info('Loading readout model from: {}'.format(readout_model_file))
+                metric_model = joblib.load(readout_model_file)
+            else:
+                logging.info('Creating new readout model')
+                readout_model = self.get_readout_model()
+                feature_fn = metric_utils.get_feature_fn(protocol)
+                metric_model = metric_utils.MetricModel(readout_model, feature_fn, metric_utils.label_fn, metric_utils.accuracy)
+
+                readout_model_file = os.path.join(self.output_dir, protocol+'_readout_model.joblib')
+                logging.info('Training readout model and saving to: {}'.format(readout_model_file))
+                metric_model.fit(train_data_balanced)
+                joblib.dump(metric_model, readout_model_file)
+                mlflow.log_artifact(readout_model_file, artifact_path='readout_models')
+
+            train_acc = metric_model.score(train_data_balanced)
+            test_acc = metric_model.score(test_data_balanced)
+            test_proba = metric_model.predict(test_data, proba=True)
+
+            results = {
+                'train_accuracy': train_acc, 
+                'test_accuracy': test_acc, 
+                'test_proba': test_proba, 
+                'stimulus_name': stimulus_names, 
+                'labels': labels,
+                'protocol': protocol,
+                'seed': self.seed,
+                }
+            if hasattr(metric_model._readout_model, 'best_params_'): # kinda verbose to get the "real" readout model
+                results['best_params'] = metric_model._readout_model.best_params_
+            logging.info(f'Protocol: {protocol} | Train acc: {train_acc} | Test acc: {test_acc}')
+            if hasattr(metric_model._readout_model, 'cv_results_'):
+                logging.info(metric_model._readout_model.cv_results_)
+###########
             results.update({
                 'model_name': self.model_name,
                 'pretraining_name': self.pretraining_name,
@@ -227,58 +276,6 @@ class ReadoutObjectiveBase(PhysOptObjective):
             processed_results = self.process_results(results)
             metric_utils.write_metrics(processed_results, metrics_file)
             mlflow.log_artifact(metrics_file, artifact_path='metrics')
-
-    def run_metrics(self, readout_model_or_file, protocol):
-        # Construct data providers
-        logging.info(f'Train feature file: {self.train_feature_file}')
-        train_data = metric_utils.build_data(self.train_feature_file)
-        logging.info(f'Test feature file: {self.test_feature_file}')
-        test_data = metric_utils.build_data(self.test_feature_file)
-
-        # Get stimulus names and labels for test data
-        stimulus_names = [d['stimulus_name'] for d in test_data]
-        labels = [metric_utils.label_fn(d)[0] for d in test_data]
-
-        # Rebalance data
-        np.random.seed(self.seed) # TODO: seed init should probably be done elsewhere
-        logging.info("Rebalancing training data")
-        train_data_balanced = metric_utils.rebalance(train_data, metric_utils.label_fn)
-        logging.info("Rebalancing testing data")
-        test_data_balanced = metric_utils.rebalance(test_data, metric_utils.label_fn)
-
-        if isinstance(readout_model_or_file, str) and os.path.isfile(readout_model_or_file): # using readout model downloaded from artifact store
-            logging.info('Loading readout model from: {}'.format(readout_model_or_file))
-            metric_model = joblib.load(readout_model_or_file)
-        else:
-            logging.info('Creating new readout model')
-            feature_fn = metric_utils.get_feature_fn(protocol)
-            metric_model = metric_utils.MetricModel(readout_model_or_file, feature_fn, metric_utils.label_fn, metric_utils.accuracy)
-
-            readout_model_file = os.path.join(self.output_dir, protocol+'_readout_model.joblib')
-            logging.info('Training readout model and saving to: {}'.format(readout_model_file))
-            metric_model.fit(train_data_balanced)
-            joblib.dump(metric_model, readout_model_file)
-            mlflow.log_artifact(readout_model_file, artifact_path='readout_models')
-
-        train_acc = metric_model.score(train_data_balanced)
-        test_acc = metric_model.score(test_data_balanced)
-        test_proba = metric_model.predict(test_data, proba=True)
-
-        result = {
-            'train_accuracy': train_acc, 
-            'test_accuracy': test_acc, 
-            'test_proba': test_proba, 
-            'stimulus_name': stimulus_names, 
-            'labels': labels,
-            'protocol': protocol,
-            'seed': self.seed,
-            }
-        if hasattr(metric_model._readout_model, 'best_params_'): # kinda verbose to get the "real" readout model
-            result['best_params'] = metric_model._readout_model.best_params_
-        logging.info(f'Protocol: {protocol} | Train acc: {train_acc} | Test acc: {test_acc}')
-        if hasattr(metric_model._readout_model, 'cv_results_'):
-            logging.info(metric_model._readout_model.cv_results_)
-        return result
 
     @abc.abstractmethod
     def get_readout_model(self):
