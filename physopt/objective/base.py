@@ -13,8 +13,6 @@ from physopt.utils import metrics as metric_utils
 from physopt.objective import utils
 from physopt.objective.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
 
-LINE_WIDTH = 120
-
 class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
     @property
     def phase(self):
@@ -26,7 +24,6 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
         return pretraining_run.info.run_id
 
     def setup(self):
-        logging.info(f'\n\n{"*"*LINE_WIDTH}\n{self.phase} setup:')
         super().setup() # starts mlflow run and does some logging
         pretraining_run = self.get_run(PRETRAINING_PHASE_NAME)
         if 'step' in pretraining_run.data.metrics:
@@ -45,7 +42,6 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
         logging.info(f'Set initial step to {self.initial_step}')
 
     def call(self, args):
-        logging.info(f'\n\n{"*"*LINE_WIDTH}\n{self.phase} call:')
         if self.cfg.DEBUG == False: # skip initial val when debugging
             logging.info(f'Doing initial validation for step {self.initial_step-1}') 
             self.validation_with_logging(self.initial_step-1) # -1 for "zeroth" step
@@ -130,7 +126,6 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
         return extraction_run.info.run_id
     
     def setup(self):
-        logging.info(f'\n\n{"*"*LINE_WIDTH}\n{self.phase} setup:')
         super().setup()
         pretraining_run = self.get_run(PRETRAINING_PHASE_NAME)
         assert pretraining_run is not None, f'Should be exactly 1 run with name "{pretraining_run_name}", but found None'
@@ -154,7 +149,6 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
             })
 
     def call(self, args):
-        logging.info(f'\n\n{"*"*LINE_WIDTH}\n{self.phase} call:')
         for mode in ['train', 'test']:
             self.extract_feats(mode) 
 
@@ -190,7 +184,6 @@ class ReadoutObjectiveBase(PhysOptObjective):
         return readout_run.info.run_id
 
     def setup(self):
-        logging.info(f'\n\n{"*"*LINE_WIDTH}\n{self.phase} setup:')
         super().setup()
         extraction_run = self.get_run(EXTRACTION_PHASE_NAME)
         assert extraction_run is not None, f'Should be exactly 1 run with name "{extraction_run_name}", but found None'
@@ -206,7 +199,6 @@ class ReadoutObjectiveBase(PhysOptObjective):
         assert self.test_feature_file is not None, 'Test features not found'
 
     def call(self, args):
-        logging.info(f'\n\n{"*"*LINE_WIDTH}\n{self.phase} call:')
         # Construct data providers
         logging.info(f'Train feature file: {self.train_feature_file}')
         train_data = metric_utils.build_data(self.train_feature_file)

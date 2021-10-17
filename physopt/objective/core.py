@@ -8,6 +8,8 @@ from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.objective import utils
 from physopt.objective.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
 
+LINE_WIDTH = 120
+
 class PhysOptObjective(metaclass=abc.ABCMeta):
     def __init__(self,
         seed,
@@ -82,8 +84,11 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def __call__(self, args):
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
+        logging.info(f'\n\n{"*"*LINE_WIDTH}\n{self.phase} setup:')
         self.setup()
+        logging.info(f'\n\n{"*"*LINE_WIDTH}\n{self.phase} call:')
         ret = self.call(args)
+        logging.info(f'\n\n{"*"*LINE_WIDTH}\n{self.phase} teardown:')
         self.teardown()
         if ret is None:
             ret = {'loss': 0.0, 'status': STATUS_OK}
