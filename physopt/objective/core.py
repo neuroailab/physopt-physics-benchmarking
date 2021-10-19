@@ -41,6 +41,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
     def get_run(self, phase):
         cfgs = utils.flatten(self.pretraining_cfg, prefix=PRETRAINING_PHASE_NAME) # all phases need pretraining
         if phase != PRETRAINING_PHASE_NAME: # for extraction and readout phases
+            assert self.readout_name is not None, f'{phase} should have readout_name, but is None'
+            cfgs['readout_name'] = self.readout_name # no readout_name for pretraining phase
             cfgs.update(utils.flatten(self.extraction_cfg, prefix=EXTRACTION_PHASE_NAME))
         if phase == READOUT_PHASE_NAME: # only readout needs all three
             cfgs.update(utils.flatten(self.readout_cfg, prefix=READOUT_PHASE_NAME))
