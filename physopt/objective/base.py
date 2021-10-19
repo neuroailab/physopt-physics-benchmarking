@@ -206,7 +206,6 @@ class ReadoutObjectiveBase(PhysOptObjective):
         test_data = metric_utils.build_data(self.test_feature_file)
 
         # Rebalance data
-        np.random.seed(self.seed) # TODO: seed init should probably be done elsewhere
         logging.info("Rebalancing training data")
         train_data_balanced = metric_utils.rebalance(train_data, metric_utils.label_fn)
         logging.info("Rebalancing testing data")

@@ -123,6 +123,7 @@ def get_num_samples(data, label_fn):
     return pos, neg
 
 def oversample(data, pos, neg):
+    raise NotImplementedError # Causes leakage during CV
     balanced_data = []
     if len(pos) < len(neg):
         balanced_data = [data[i] for i in neg]
@@ -146,17 +147,17 @@ def undersample(data, pos, neg):
         balanced_data = data
     return balanced_data
 
-def rebalance(data, label_fn, balancing = oversample):
-    # Get number of positive and negative samples
+def rebalance(data, label_fn, balance_fn=None):
     pos, neg = get_num_samples(data, label_fn)
     logging.info("Before rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
 
-    # Rebalance data by oversampling underrepresented calls
-    balanced_data = balancing(data, pos, neg)
-
-    pos, neg = get_num_samples(balanced_data, label_fn)
-    logging.info("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
-    return balanced_data
+    if balance_fn is not None:
+        data = balance_fn(data, pos, neg)
+        pos, neg = get_num_samples(data, label_fn)
+        logging.info("After rebalancing: pos=%d, neg=%d" % (len(pos), len(neg)))
+    else:
+        logging.info('Not rebalancing since balance_fn is None')
+    return data
 
 def write_metrics(results, metrics_file):
     file_exists = os.path.isfile(metrics_file) # check before opening file
