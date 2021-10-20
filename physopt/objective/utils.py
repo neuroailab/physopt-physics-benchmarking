@@ -140,10 +140,11 @@ def get_readout_model_from_artifact_store(protocol, tracking_uri, run_id, output
 def get_run(tracking_uri, experiment_id, **kwargs):
     logging.info(f'Searching for run with params: {kwargs}')
     runs = search_runs(tracking_uri, experiment_id, **kwargs)
-    if 'run_name' in kwargs:
+    if 'run_name' in kwargs: # mainly for compatibility to also get run by name instead of params
         run_name = kwargs['run_name']
     else:
-        run_name = get_run_name(**kwargs)
+        model_name = kwargs.pop('pretraining_MODEL_NAME') # use model name from pretraining config
+        run_name = get_run_name(model_name, **kwargs)
     assert len(runs) <= 1, f'Should be at most one (1) run with name "{run_name}", but found {len(runs)}'
     if len(runs) == 0:
         logging.info(f'Creating run with name:"{run_name}"')
@@ -157,7 +158,7 @@ def get_run(tracking_uri, experiment_id, **kwargs):
 def search_runs(tracking_uri, experiment_id, **kwargs):
     filters = []
     for param, value in kwargs.items():
-        if param == 'run_name':
+        if param == 'run_name': # mainly for compatibility to also get run by name instead of params
             filters.append(f'tags.mlflow.runName="{value}"')
         else:
             filters.append(f'params.{param}="{value}"')

@@ -46,7 +46,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             cfgs.update(utils.flatten(self.extraction_cfg, prefix=EXTRACTION_PHASE_NAME))
         if phase == READOUT_PHASE_NAME: # only readout needs all three
             cfgs.update(utils.flatten(self.readout_cfg, prefix=READOUT_PHASE_NAME))
-        run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, model_name=self.pretraining_cfg.MODEL_NAME, 
+        run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
             seed=self.seed, pretraining_name=self.pretraining_name, phase=phase, **cfgs)
         return run
 
@@ -59,7 +59,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         mlflow.set_tag('run_id', mlflow.active_run().info.run_id)
         mlflow.log_params({
             'phase': self.phase,
-            'model_name': self.pretraining_cfg.MODEL_NAME,
             'seed': self.seed,
             })
         for phase in ['pretraining', 'extraction', 'readout']: # log params from cfgs
@@ -112,6 +111,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
 class PhysOptModel(metaclass=abc.ABCMeta):
     def __init__(self):
+        assert hasattr(self, 'pretraining_cfg')
         self.model = self.get_model()
 
     @abc.abstractmethod
