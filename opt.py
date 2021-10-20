@@ -138,7 +138,7 @@ def resolve_output_dir(cfg_output, args_output): # updates output dir with the f
     print(f'Output dir: {output_dir}')
     return output_dir
 
-def check_cfg(cfg):
+def check_cfg(cfg): # TODO: just check that none are none?
     attrs = [
         'DATA_SPACE.MODULE',
         'PRETRAINING.OBJECTIVE_MODULE',

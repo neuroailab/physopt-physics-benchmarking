@@ -31,7 +31,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.readout_cfg = readout_cfg
 
         experiment_name = utils.get_exp_name(cfg.EXPERIMENT_NAME, cfg.ADD_TIMESTAMP, cfg.DEBUG)
-        self.output_dir = utils.get_output_dir(cfg.OUTPUT_DIR, experiment_name, self.model_name, self.pretraining_name, self.seed, self.phase, self.readout_name)
+        self.output_dir = utils.get_output_dir(cfg.OUTPUT_DIR, experiment_name, self.pretraining_cfg.MODEL_NAME, self.pretraining_name, self.seed, self.phase, self.readout_name)
         self.log_file = os.path.join(self.output_dir, 'logs', 'output_{}.log'.format(time.strftime("%Y%m%d-%H%M%S")))
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
         self.tracking_uri, artifact_location = utils.get_mlflow_backend(cfg.OUTPUT_DIR, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
@@ -46,7 +46,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             cfgs.update(utils.flatten(self.extraction_cfg, prefix=EXTRACTION_PHASE_NAME))
         if phase == READOUT_PHASE_NAME: # only readout needs all three
             cfgs.update(utils.flatten(self.readout_cfg, prefix=READOUT_PHASE_NAME))
-        run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, model_name=self.model_name, 
+        run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, model_name=self.pretraining_cfg.MODEL_NAME, 
             seed=self.seed, pretraining_name=self.pretraining_name, phase=phase, **cfgs)
         return run
 
@@ -59,7 +59,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         mlflow.set_tag('run_id', mlflow.active_run().info.run_id)
         mlflow.log_params({
             'phase': self.phase,
-            'model_name': self.model_name,
+            'model_name': self.pretraining_cfg.MODEL_NAME,
             'seed': self.seed,
             })
         for phase in ['pretraining', 'extraction', 'readout']: # log params from cfgs
@@ -95,10 +95,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         if ret is None:
             ret = {'loss': 0.0, 'status': STATUS_OK}
         return ret
-
-    @property
-    def model_name(self):
-        return self.pretraining_cfg.MODEL_NAME
 
     @abc.abstractmethod
     def call(self, args):

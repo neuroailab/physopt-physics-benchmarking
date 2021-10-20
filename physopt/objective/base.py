@@ -244,7 +244,7 @@ class ReadoutObjectiveBase(PhysOptObjective):
                 'labels': labels,
                 'protocol': protocol,
                 'seed': self.seed,
-                'model_name': self.model_name,
+                'model_name': self.pretraining_cfg.MODEL_NAME,
                 'pretraining_name': self.pretraining_name,
                 'readout_name': self.readout_name,
                 }
