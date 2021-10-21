@@ -60,7 +60,7 @@ def _create_dir(path): # creates dir from path or filename, if doesn't exist
 def create_postgres_db(host, port, dbname):
     connection = None
     try:
-        connection = psycopg2.connect(f"user='physopt' password='physopt' host='{host}' port='{port}' dbname='postgres'") # use postgres db just for connection
+        connection = psycopg2.connect(f"user='physopt' password='physopt' host='{host}' port='{port}' dbname='postgres' options='-c statement_timeout=60000'") # use postgres db just for connection
         logging.info('Database connected.')
     except Exception as e:
         logging.info('Database not connected.')
