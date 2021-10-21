@@ -6,6 +6,7 @@ import mlflow
 import pickle
 import joblib
 import dill
+import pandas as pd
 
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.objective.core import PhysOptObjective, PhysOptModel
@@ -255,6 +256,10 @@ class ReadoutObjectiveBase(PhysOptObjective):
             logging.info(f'Protocol: {protocol} | Train acc: {train_acc} | Test acc: {test_acc}')
             if hasattr(metric_model._readout_model, 'cv_results_'):
                 logging.info(metric_model._readout_model.cv_results_)
+                df = pd.DataFrame(metric_model._readout_model.cv_results_)
+                cv_results_file = os.path.join(self.output_dir, protocol+'_cv_results.csv')
+                df.to_csv(cv_results_file)
+                mlflow.log_artifact(cv_results_file, artifact_path='cv_results')
 
             # log metrics into mlflow
             mlflow.log_metrics({
