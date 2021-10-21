@@ -56,11 +56,22 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         logging.info(f'Starting run id: {mlflow.active_run().info.run_id}')
         logging.info(f'Tracking URI: {mlflow.get_tracking_uri()}')
         logging.info(f'Artifact URI: {mlflow.get_artifact_uri()}')
+        logging.info(f'Pretraining Space: {self.pretraining_space}')
+        logging.info(f'Readout Space: {self.readout_space}')
         mlflow.set_tag('run_id', mlflow.active_run().info.run_id)
         mlflow.log_params({
             'phase': self.phase,
             'seed': self.seed,
+            'pretraining_name': self.pretraining_name,
+            'pretraining_train_hash': hash(tuple(self.pretraining_space['train'])),
+            'pretraining_test_hash': hash(tuple(self.pretraining_space['test'])),
             })
+        if self.readout_space is not None:
+            mlflow.log_params({
+                'readout_name': self.readout_name,
+                'readout_train_hash': hash(tuple(self.readout_space['train'])),
+                'readout_test_hash': hash(tuple(self.readout_space['test'])),
+                })
         for phase in ['pretraining', 'extraction', 'readout']: # log params from cfgs
             cfg = getattr(self, f'{phase}_cfg')
             if cfg is not None:
@@ -68,9 +79,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 mlflow.log_params({
                     f'{phase}_{k}':v for k,v in cfg.items()
                     })
-        mlflow.log_params({f'pretraining_{k}':v for k,v in self.pretraining_space.items()})
-        if self.readout_space is not None:
-            mlflow.log_params({f'readout_{k}':v for k,v in self.readout_space.items()})
 
     def teardown(self):
         mlflow.log_artifact(self.log_file) # TODO: log to artifact store more frequently?
