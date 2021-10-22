@@ -36,7 +36,7 @@ _C.EXTRACTION.OBJECTIVE_NAME = 'ExtractionObjective'
 _C.EXTRACTION.LOAD_STEP = None # which pretraining ckpt to extract readout features from
 
 _C.READOUT= CN()
-_C.READOUT.OBJECTIVE_MODULE = 'physion.objective'
+_C.READOUT.OBJECTIVE_MODULE = 'physion.objective.objective'
 _C.READOUT.OBJECTIVE_NAME = 'PhysionReadoutObjective'
 _C.READOUT.MODEL = CN(new_allowed=True)
 _C.READOUT.MODEL.LOGSPACE = (-4, 4, 9)
