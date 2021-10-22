@@ -3,6 +3,8 @@ import shutil
 import abc
 import logging
 import time
+import hashlib
+import json
 import mlflow
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.objective import utils
@@ -63,14 +65,14 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             'phase': self.phase,
             'seed': self.seed,
             'pretraining_name': self.pretraining_name,
-            'pretraining_train_hash': hash(tuple(self.pretraining_space['train'])),
-            'pretraining_test_hash': hash(tuple(self.pretraining_space['test'])),
+            'pretraining_train_hash': hashlib.md5(json.dumps(self.pretraining_space['train']).encode()).hexdigest(),
+            'pretraining_test_hash': hashlib.md5(json.dumps(self.pretraining_space['test']).encode()).hexdigest(),
             })
         if self.readout_space is not None:
             mlflow.log_params({
                 'readout_name': self.readout_name,
-                'readout_train_hash': hash(tuple(self.readout_space['train'])),
-                'readout_test_hash': hash(tuple(self.readout_space['test'])),
+                'readout_train_hash': hashlib.md5(json.dumps(self.readout_space['train']).encode()).hexdigest(),
+                'readout_test_hash': hashlib.md5(json.dumps(self.readout_space['test']).encode()).hexdigest(),
                 })
         for phase in ['pretraining', 'extraction', 'readout']: # log params from cfgs
             cfg = getattr(self, f'{phase}_cfg')
