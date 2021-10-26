@@ -162,6 +162,7 @@ class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
             dataloader = self.get_readout_dataloader(self.readout_space[mode])
             extracted_feats = []
             for i, data in enumerate(dataloader):
+                logging.info('Extract Step: {0:>5}'.format(i+1))
                 output = self.extract_feat_step(data)
                 extracted_feats.append(output)
             feature_file = os.path.join(self.output_dir, mode+'_feat.pkl')
