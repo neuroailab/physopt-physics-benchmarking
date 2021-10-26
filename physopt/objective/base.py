@@ -43,8 +43,11 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
         logging.info(f'Set initial step to {self.initial_step}')
 
     def call(self, args):
-        if (self.initial_step > self.pretraining_cfg.TRAIN_STEPS): # loaded ckpt from final step
-            logging.info(f'Loaded fully trained model ({self.pretraining_cfg.TRAIN_STEPS} steps) --  skipping pretraining')
+        if (self.initial_step > self.pretraining_cfg.TRAIN_STEPS): # training completed
+            if self.initial_step == 1: # TRAIN_STEPS = 0
+                self.save_model_with_logging(step=0) # save model since checkpoint might not already exist
+            else: # loaded ckpt from final step
+                logging.info(f'Loaded fully trained model ({self.pretraining_cfg.TRAIN_STEPS} steps) --  skipping pretraining')
         else:
             trainloader = self.get_pretraining_dataloader(self.pretraining_space['train'], train=True)
             try:
