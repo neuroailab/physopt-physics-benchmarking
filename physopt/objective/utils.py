@@ -98,13 +98,11 @@ def get_run_name(model_name, pretraining_name, seed, phase, readout_name=None, s
         to_join.append(readout_name)
     return separator.join(to_join)
 
-def get_exp_name(name, add_ts=False, debug=False):
-        if debug:
+def get_exp_name(cfg):
+        if cfg.DEBUG:
             experiment_name = 'DEBUG'
-        elif add_ts:
-            experiment_name = name + '_' + time.strftime("%Y%m%d-%H%M%S")
         else:
-            experiment_name = name
+            experiment_name = cfg.EXPERIMENT_NAME
         return experiment_name
 
 def get_mlflow_backend(output_dir, host, port, dbname): # TODO: split this?

@@ -32,7 +32,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.extraction_cfg = extraction_cfg
         self.readout_cfg = readout_cfg
 
-        experiment_name = utils.get_exp_name(cfg.EXPERIMENT_NAME, cfg.ADD_TIMESTAMP, cfg.DEBUG)
+        experiment_name = utils.get_exp_name(cfg)
         self.output_dir = utils.get_output_dir(cfg.OUTPUT_DIR, experiment_name, self.pretraining_cfg.MODEL_NAME, self.pretraining_name, self.seed, self.phase, self.readout_name)
         self.log_file = os.path.join(self.output_dir, 'logs', 'output_{}.log'.format(time.strftime("%Y%m%d-%H%M%S")))
         utils.setup_logger(self.log_file, self.cfg.DEBUG)

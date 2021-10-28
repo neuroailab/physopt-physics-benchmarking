@@ -50,7 +50,6 @@ _C.CONFIG.DEBUG = False
 _C.CONFIG.OUTPUT_DIR = '/home/{}/physopt/'
 _C.CONFIG.DELETE_LOCAL = True # delete local files (not artifact store)
 _C.CONFIG.EXPERIMENT_NAME = 'Default'
-_C.CONFIG.ADD_TIMESTAMP = False # append timestamp to experiment name
 
 _C.CONFIG.POSTGRES = CN()
 _C.CONFIG.POSTGRES.HOST = 'localhost'
