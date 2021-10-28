@@ -240,8 +240,9 @@ class ReadoutObjectiveBase(PhysOptObjective):
             train_acc = metric_model.score(train_data_balanced)
             test_acc = metric_model.score(test_data_balanced)
             test_proba = metric_model.predict(test_data, proba=True)
+            logging.info(f'Protocol: {protocol} | Train acc: {train_acc} | Test acc: {test_acc}')
 
-            results = { # TODO: what's actually needed in here vs. just used locally
+            results = {
                 'train_accuracy': train_acc, 
                 'test_accuracy': test_acc, 
                 'test_proba': test_proba, 
@@ -253,17 +254,6 @@ class ReadoutObjectiveBase(PhysOptObjective):
                 'pretraining_name': self.pretraining_name,
                 'readout_name': self.readout_name,
                 }
-            if hasattr(metric_model._readout_model, 'best_params_'): # kinda verbose to get the "real" readout model
-                results['best_params'] = metric_model._readout_model.best_params_
-
-            # log to logfile
-            logging.info(f'Protocol: {protocol} | Train acc: {train_acc} | Test acc: {test_acc}')
-            if hasattr(metric_model._readout_model, 'cv_results_'):
-                logging.info(metric_model._readout_model.cv_results_)
-                df = pd.DataFrame(metric_model._readout_model.cv_results_)
-                cv_results_file = os.path.join(self.output_dir, protocol+'_cv_results.csv')
-                df.to_csv(cv_results_file)
-                mlflow.log_artifact(cv_results_file, artifact_path='cv_results')
 
             # log metrics into mlflow
             mlflow.log_metrics({
@@ -271,11 +261,19 @@ class ReadoutObjectiveBase(PhysOptObjective):
                 'test_acc_'+protocol: results['test_accuracy'],
                 'step': self.restore_step,
                 }, step=self.restore_step)
-            if 'best_params' in results:
-                assert isinstance(results['best_params'], dict)
+
+            if hasattr(metric_model._readout_model, 'best_params_'): # kinda verbose to get the "real" readout model
+                assert isinstance(metric_model._readout_model.best_params_, dict)
                 prefix = f'best_params_{protocol}_'
-                best_params = {prefix+str(k): v for k, v in results['best_params'].items()}
+                best_params = {prefix+str(k): v for k, v in metric_model._readout_model.best_params_.items()}
                 mlflow.log_metrics(best_params, step=self.restore_step)
+
+            if hasattr(metric_model._readout_model, 'cv_results_'):
+                logging.info(metric_model._readout_model.cv_results_)
+                df = pd.DataFrame(metric_model._readout_model.cv_results_)
+                cv_results_file = os.path.join(self.output_dir, protocol+'_cv_results.csv')
+                df.to_csv(cv_results_file)
+                mlflow.log_artifact(cv_results_file, artifact_path='cv_results')
 
             # Write every iteration to be safe
             processed_results = self.process_results(results)
