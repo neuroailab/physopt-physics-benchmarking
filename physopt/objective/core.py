@@ -5,6 +5,7 @@ import logging
 import time
 import hashlib
 import json
+import numpy as np
 import mlflow
 from hyperopt import STATUS_OK, STATUS_FAIL
 from physopt.objective import utils
@@ -53,6 +54,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         return run
 
     def setup(self):
+        self.init_seed()
         mlflow.set_tracking_uri(self.tracking_uri) # needs to be done (again) in __call__ since might be run by worker on different machine
         mlflow.start_run(run_id=self.run_id) # dynamically searches runs to get run_id, creates new run if none found
         logging.info(f'Starting run id: {mlflow.active_run().info.run_id}')
@@ -92,6 +94,10 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
                 shutil.rmtree(self.output_dir)
             except OSError as e:
                 print(f'Error: {e.filename} - {e.strerror}.')
+
+    def init_seed(self):
+        np.random.seed(self.seed)
+        super().init_seed()
 
     def __call__(self, args):
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
