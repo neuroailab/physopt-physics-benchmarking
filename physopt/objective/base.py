@@ -14,7 +14,7 @@ from physopt.utils import metrics as metric_utils
 from physopt.objective import utils
 from physopt.objective.utils import PRETRAINING_PHASE_NAME, EXTRACTION_PHASE_NAME, READOUT_PHASE_NAME
 
-class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
+class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
     @property
     def phase(self):
         return PRETRAINING_PHASE_NAME
@@ -119,7 +119,7 @@ class PretrainingObjectiveBase(PhysOptObjective, PhysOptModel):
     def get_pretraining_dataloader(self, datapaths, train): # returns object that can be iterated over for batches of data
         raise NotImplementedError
 
-class ExtractionObjectiveBase(PhysOptObjective, PhysOptModel):
+class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
     @property
     def phase(self):
         return EXTRACTION_PHASE_NAME

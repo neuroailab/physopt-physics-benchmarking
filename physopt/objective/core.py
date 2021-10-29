@@ -39,7 +39,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
         self.tracking_uri, artifact_location = utils.get_mlflow_backend(cfg.OUTPUT_DIR, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
         self.experiment = utils.create_experiment(self.tracking_uri, experiment_name, artifact_location)
-        super().__init__() # runs init for PhysOptModel
 
     def get_run(self, phase):
         cfgs = utils.flatten(self.pretraining_cfg, prefix=PRETRAINING_PHASE_NAME) # all phases need pretraining
@@ -97,7 +96,6 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def init_seed(self):
         np.random.seed(self.seed)
-        super().init_seed()
 
     def __call__(self, args):
         utils.setup_logger(self.log_file, self.cfg.DEBUG)
@@ -125,9 +123,9 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
     def phase(self):
         raise NotImplementedError
 
-class PhysOptModel(metaclass=abc.ABCMeta):
-    def __init__(self):
-        assert hasattr(self, 'pretraining_cfg')
+class PhysOptModel(metaclass=abc.ABCMeta): # Mixin Class
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs) # runs init for PhysOptObjective
         self.model = self.get_model()
 
     @abc.abstractmethod
