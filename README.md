@@ -4,17 +4,16 @@
 
 ## Overview
 
-The goal of this repository is to train and evaluate different physics prediction models on one or many different physics scenarios. The inputs are model specific, however all currently implemented models predict from images. The output metrics are dataset specific, however all currently used datasets are evaluated on some form of binary prediction task. The procedure consists of two phases, as follows:
+The goal of this repository is to train and evaluate different physics prediction models under various pretraining and readout protocols. The procedure consists of three phases, as follows:
 
 1. **Pretraining**: Train the physics prediction model on its specific prediction task on the specific train dataset.
     - Output: Model-specific trained checkpoint file saved to ``[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/model.pt``
-2. **Readout**: Evaulate the trained models under different readout protocols.
-    - __Feature Extraction__: Extract latent model features on the readout training and testing datasets.
-        - Output: List of dicts, each dict corresponding to results from a batch, saved to `[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/{train/test}_feat.pkl`
-        - Each dict has the following keys: `input_states`, `observed_states`, `simulated_states`, `labels`, `stimulus_name`
-    - __Metrics Computation__: Train a classifier / regressor to predict the task using extracted latent train features and ground truth train labels, and test the trained classifier on the extracted latent test features to predict the test labels and evaluate them against the ground truth test labels using the the dataset specific test metric.
-        - Output: Metric results and other data used for model-human comparisons saved to `[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/metric_results.csv`
-        - Used for analysis in [physics-benchmarking-neurips2021](https://github.com/cogtoolslab/physics-benchmarking-neurips2021)
+2. **Extraction**: Extract model features for the readout training and testing datasets.
+    - Output: List of dicts, each dict corresponding to results from a batch, saved to `[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/{train/test}_feat.pkl`
+    - Each dict has the following keys: `input_states`, `observed_states`, `simulated_states`, `labels`, `stimulus_name`
+3. **Readout**: Train a model to predict the task labels using extracted features, and evaluate the trained readout model on the readout test set.
+    - Output: Metric results and other data used for model-human comparisons saved to `[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/metric_results.csv`
+    - Used for analysis in [physics-benchmarking-neurips2021](https://github.com/cogtoolslab/physics-benchmarking-neurips2021)
 
 Runs and artifacts from running the pipeline are recorded with [MLflow](https://mlflow.org/).
 
@@ -25,42 +24,45 @@ Run `pip install -e .` in the root `physopt` directory to install the `physopt` 
 
 In order to distribute jobs across machines, you'll need to have MongoDB installed. In order to use PostgreSQL as the MLflow backend store, you'll need to install postgresql with `sudo apt-get install postgresql`, if it's not installed already -- you can check with `psql --version`.
 
-## Setup
-### MongoDB
-To use MongoDB for `hyperopt`, create a `mongodb.conf` file with the following:
+## Configuration 
+The default configuration can be found in `physopt/config.py`, which is updated by specifying a YAML configuration file using the `--config` (or `-C`) commandline argument. The following are required:
+- `DATA_SPACE.MODULE` (see [data spaces specification](#data-spaces-specification))
+- `PRETRAINING.OBJECTIVE_MODULE` (see [model specification](#model-specification))
+- `PRETRAINING.MODEL_NAME` 
+- `EXTRACTION.OBJECTIVE_MODULE` (see [model specification](#model-specification))
 
-```
-net:
-    # MongoDB server listening port
-    port: [MONGO_PORT]
-storage:
-    # Data store directory
-    dbPath: "/[PATH_TO_DB]"
-    mmapv1:
-        # Reduce data files size and journal files size
-        smallFiles: true
-systemLog:
-    # Write logs to log file
-    destination: file
-    path: "/[PATH_TO_DB]/logs/mongodb.log"
-```
+### Data Spaces Specification
+The `DATA_SPACE.FUNC` (defaults to `get_data_spaces`) from the specified `DATA_SPACE.MODULE` must return a list of dicts with the following structure:
+- `pretraining`: dict with `name`, `train`, and `test` that specify the dataset/scenario name, train datapaths, and test datapaths, respectively
+- `readout`: a list of dicts, with each dict having the same format as in `pretraining` but specifying data for readout phase instead
 
-Then run `sudo service mongodb start` and `sudo mongod -f /[PATH_TO_CONF]/mongodb.conf&` to start the MongoDB server.
+Any `kwargs` for `DATA_SPACE.FUNC` can be specified using `DATA_SPACE.KWARGS`.
 
-### PostgreSQL
-Connect to the PostgreSQL server using `sudo -u postgres psql`. You should see the prompt start with `postgres=#`. Next, create a user with username and password "physopt" using `CREATE USER physopt WITH PASSWORD 'physopt' CREATEDB;`. Verify that the user was created successfully with `\du`. 
+The seeds, specified by `DATA_SPACE.SEEDS`, should  be a list  of seeds to use. Each set of pretraining and readout datasets (i.e. each element of the list of dicts returned by `DATA_SPACE.FUNC`) will be run with each seed.
 
-You can change the port by changing the setting in the `postgresql.conf` file, whose location can be shown using `SHOW config_file;`. After you change `postgresql.conf` make sure to restart the server using `sudo service postgresql restart`. You can check what port is being used with `\conninfo` after connecting to the server.
+An example of how the data spaces can be constructed can be found in the [Physion](https://github.com/neuroailab/physion/tree/master/physion/data_space) repo.
 
-### Amazon S3
-In order to use S3 as the MLflow artifact store, you'll need to add your AWS credentials to `~/.aws/credentials`. See [this link](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) for more information about the AWS credential file.
+###  Model Specification
+Running a model in `physopt` requires creating an Objective class for each phase (pretraining, extraction, and readout), specified by `[PHASE]_OBJECTIVE.MODULE` and `[PHASE]_OBJECTIVE.NAME`. 
 
+Your `PretrainingObjective` should inherit from `PretrainingObjecitveBase` and requires implmenting the following methods:
+- `get_pretraining_dataloader`: Takes as input params a list of `datapaths` and a bool `train` flag. Returns the dataloader object that can be iterated over for batches of data
+- `train_step`: Takes as input a batch of data, performs the train optimization step, and returns the scalar loss value for that step
+- `val_step`: Takes as input a batch of data, performs validation on that batch, and returns the scalar metric used for validation
 
-### MLflow Tracking UI
-To view the MLflow tracking UI run `mlflow ui`. If you are using local storage add `--backend-store-uri file:///[OUTPUT_DIR]/mlruns`. Otherwise, if you're using the PostgreSQL backend add `--backend-store-uri postgresql://<username>:<password>@<host>:<port>/<database>`. Finally, navigate to `http://localhost:5000`.
+Your `ExtractionObjective` should inherit from `ExtractionObjecitveBase` and requires implmenting the following methods:
+- `get_readout_dataloader`: Takes as input params a list of `datapaths`. Returns the dataloader object that can be iterated over for batches of data
+- `extract_feat_step`: Takes as input a batch of data, and outputs a dict with `input_states`, `observed_states`, `simulated_states`, `labels`, and `stimulus_name`
 
-#### Notes
-If the machine running the MongoDB, PostgreSQL, and MLflow tracking servers is not publically visible, you'll need to setup the necessary ssh tunnels.
+A simple logistic regression readout model is provided, but a different `ReadoutObjective` can be used by inheriting from `ReadoutObjectiveBase` and implementing:
+- `get_readout_model`: Returns a model object that has the following methods: `fit`, `predict`, and `predict_proba`.
+
+The `PretrainingObjective` and `ExtractionObjective` both also inherit from `PhysOptModel`, which requires implementing:
+- `get_model`: Returns the model object
+- `load_model`: Implements loading of the model given a model checkpoint file
+- `save_model`: Implements saving of the model given a model checkpoint file
+
+An example can be found [here](https://github.com/neuroailab/physion/blob/master/physion/FROZEN.py#L11).
 
 ## How To Run
 
@@ -101,33 +103,42 @@ To see all available argument options use
 
 `python opt.py --help`
 
-## Configuration 
-The default configuration can be found in `physopt/config.py`, which is updated by specifying a YAML configuration file using the `--config` (or `-C`) commandline argument. This configuration must specify at least the `DATA_SPACE.MODULE` (see [data spaces specification](#data-spaces-specification)) and `OBJECTIVE.MODULE` (see [model specification](#model-specification)).
+## Setup
+### MongoDB
+To use MongoDB for `hyperopt`, create a `mongodb.conf` file with the following:
 
-### Data Spaces Specification
-The `DATA_SPACE.FUNC` (defaults to `get_data_spaces`) from the specified `DATA_SPACE.MODULE` must return a list of dicts with the following structure:
-- `pretraining`: dict with `name`, `train`, and `test` that specify the dataset/scenario name, train datapaths, and test datapaths, respectively
-- `readout`: a list of dicts, with each dict having the same format as in `pretraining` but specifying data for readout phase instead
+```
+net:
+    # MongoDB server listening port
+    port: [MONGO_PORT]
+storage:
+    # Data store directory
+    dbPath: "/[PATH_TO_DB]"
+    mmapv1:
+        # Reduce data files size and journal files size
+        smallFiles: true
+systemLog:
+    # Write logs to log file
+    destination: file
+    path: "/[PATH_TO_DB]/logs/mongodb.log"
+```
 
-Any `kwargs` for `DATA_SPACE.FUNC` can be specified using `DATA_SPACE.KWARGS`.
+Then run `sudo service mongodb start` and `sudo mongod -f /[PATH_TO_CONF]/mongodb.conf&` to start the MongoDB server.
 
-The seeds, specified by `DATA_SPACE.SEEDS`, can either be a list/tuple of seeds to use or an int that specifies the number of seeds, starting from 0. Each set of pretraining and readout datasets (i.e. each element of the list of dicts returned by `DATA_SPACE.FUNC`) will be run with each seed.
+### PostgreSQL
+Connect to the PostgreSQL server using `sudo -u postgres psql`. You should see the prompt start with `postgres=#`. Next, create a user with username and password "physopt" using `CREATE USER physopt WITH PASSWORD 'physopt' CREATEDB;`. Verify that the user was created successfully with `\du`. 
 
-An example of how the data spaces can be constructed can be found in the [Physion](https://github.com/neuroailab/physion/tree/master/physion/data_space) repo.
+You can change the port by changing the setting in the `postgresql.conf` file, whose location can be shown using `SHOW config_file;`. After you change `postgresql.conf` make sure to restart the server using `sudo service postgresql restart`. You can check what port is being used with `\conninfo` after connecting to the server.
 
-###  Model Specification
-Running a model in `physopt` requires creating an Objective class, specified by `OBJECTIVE.MODULEi` and `OBJECTIVE.NAME`, that implements the following abstract methods in `PhysOptObjective`:
-- `model_name`: Class attribute that specifies the name of the model for this class
-- `get_model`: Returns the model object
-- `load_model`: Implements loading of the model given a model checkpoint file
-- `save_model`: Implements saving of the model given a model checkpoint file
-- `get_pretraining_dataloader`: Takes as input params a list of `datapaths` and a bool `train` flag. Returns the dataloader object that can be iterated over for batches of data
-- `get_readout_dataloader`: Takes as input params a list of `datapaths`. Returns the dataloader object that can be iterated over for batches of data
-- `train_step`: Takes as input a batch of data, performs the train optimization step, and returns the scalar loss value for that step
-- `val_step`: Takes as input a batch of data, performs validation on that batch, and returns the scalar metric used for validation
-- `extract_feat_step`: Takes as input a batch of data, and outputs a dict with `input_states`, `observed_states`, `simulated_states`, `labels`, and `stimulus_name`
+### Amazon S3
+In order to use S3 as the MLflow artifact store, you'll need to add your AWS credentials to `~/.aws/credentials`. See [this link](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) for more information about the AWS credential file.
 
-An example can be found [here](https://github.com/neuroailab/physion/blob/master/physion/FROZEN.py#L11).
+
+### MLflow Tracking UI
+To view the MLflow tracking UI run `mlflow ui`. If you are using local storage add `--backend-store-uri file:///[OUTPUT_DIR]/mlruns`. Otherwise, if you're using the PostgreSQL backend add `--backend-store-uri postgresql://<username>:<password>@<host>:<port>/<database>`. Finally, navigate to `http://localhost:5000`.
+
+#### Notes
+If the machine running the MongoDB, PostgreSQL, and MLflow tracking servers is not publically visible, you'll need to setup the necessary ssh tunnels.
 
 ## Citing Physion
 
