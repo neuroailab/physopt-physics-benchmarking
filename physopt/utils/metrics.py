@@ -1,6 +1,4 @@
-import os
 import numpy as np
-import csv
 import logging
 import pickle
 
@@ -158,16 +156,6 @@ def rebalance(data, label_fn, balance_fn=None):
     else:
         logging.info('Not rebalancing since balance_fn is None')
     return data
-
-def write_metrics(results, metrics_file):
-    file_exists = os.path.isfile(metrics_file) # check before opening file
-    with open(metrics_file, 'a', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames = list(results[0].keys()))
-        if not file_exists: # only write header once - if file doesn't exist yet
-            writer.writeheader()
-        writer.writerows(results)
-
-    logging.info('%d results written to %s' % (len(results), metrics_file))
 
 def squared_error(predictions, labels):
     assert predictions.ndim == 1

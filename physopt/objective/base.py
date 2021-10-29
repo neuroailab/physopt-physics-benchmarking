@@ -275,33 +275,10 @@ class ReadoutObjectiveBase(PhysOptObjective):
                 df.to_csv(cv_results_file)
                 mlflow.log_artifact(cv_results_file, artifact_path='cv_results')
 
-            # Write every iteration to be safe
-            processed_results = self.process_results(results)
-            metrics_file = os.path.join(self.output_dir, 'metrics_results.csv')
-            metric_utils.write_metrics(processed_results, metrics_file)
+            metrics_file = os.path.join(self.output_dir, protocol+'_metrics_results.pkl')
+            pickle.dump(results, open(metrics_file, 'wb'))
             mlflow.log_artifact(metrics_file, artifact_path='metrics')
 
     @abc.abstractmethod
     def get_readout_model(self):
         raise NotImplementedError
-
-    @staticmethod
-    def process_results(results):
-        output = []
-        for i, (stim_name, test_proba, label) in enumerate(zip(results['stimulus_name'], results['test_proba'], results['labels'])):
-            data = {
-                'Model Name': results['model_name'],
-                'Pretraining Name': results['pretraining_name'],
-                'Readout Name': results['readout_name'],
-                'Train Accuracy': results['train_accuracy'],
-                'Test Accuracy': results['test_accuracy'],
-                'Readout Protocol': results['protocol'],
-                'Predicted Prob_false': test_proba[0],
-                'Predicted Prob_true': test_proba[1],
-                'Predicted Outcome': np.argmax(test_proba),
-                'Actual Outcome': label,
-                'Stimulus Name': stim_name,
-                'Seed': results['seed'],
-                }
-            output.append(data)
-        return output
