@@ -255,25 +255,15 @@ class ReadoutObjectiveBase(PhysOptObjective):
                 'readout_name': self.readout_name,
                 }
 
+            model_info = self.get_readout_model_info(metric_model._readout_model)
+            logging.info(f'Model info: {model_info}')
+            results.update(model_info)
+
             # log metrics into mlflow
             mlflow.log_metrics({
                 'train_acc_'+protocol: results['train_accuracy'], 
                 'test_acc_'+protocol: results['test_accuracy'],
-                'step': self.restore_step,
                 }, step=self.restore_step)
-
-            if hasattr(metric_model._readout_model, 'best_params_'): # kinda verbose to get the "real" readout model
-                assert isinstance(metric_model._readout_model.best_params_, dict)
-                prefix = f'best_params_{protocol}_'
-                best_params = {prefix+str(k): v for k, v in metric_model._readout_model.best_params_.items()}
-                mlflow.log_metrics(best_params, step=self.restore_step)
-
-            if hasattr(metric_model._readout_model, 'cv_results_'):
-                logging.info(metric_model._readout_model.cv_results_)
-                df = pd.DataFrame(metric_model._readout_model.cv_results_)
-                cv_results_file = os.path.join(self.output_dir, protocol+'_cv_results.csv')
-                df.to_csv(cv_results_file)
-                mlflow.log_artifact(cv_results_file, artifact_path='cv_results')
 
             metrics_file = os.path.join(self.output_dir, protocol+'_metrics_results.pkl')
             pickle.dump(results, open(metrics_file, 'wb'))
@@ -282,3 +272,7 @@ class ReadoutObjectiveBase(PhysOptObjective):
     @abc.abstractmethod
     def get_readout_model(self):
         raise NotImplementedError
+
+    @staticmethod
+    def get_readout_model_info(readout_model): # split into metrics and artifact?
+        return {}
