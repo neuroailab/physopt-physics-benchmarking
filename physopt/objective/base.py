@@ -163,12 +163,41 @@ class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
             extracted_feats = []
             for i, data in enumerate(dataloader):
                 logging.info('Extract Step: {0:>5}'.format(i+1))
-                output = self.extract_feat_step(data)
-                extracted_feats.append(output)
+                feats = self.extract_feat_step(data)
+                extracted_feats.append(feats)
             feature_file = os.path.join(self.output_dir, mode+'_feat.pkl')
             pickle.dump(extracted_feats, open(feature_file, 'wb')) 
             logging.info('Saved features to {}'.format(feature_file))
             mlflow.log_artifact(feature_file, artifact_path=f'features')
+        self.check_feats(feature_file)
+
+    @staticmethod
+    def check_feats(feature_file):
+        feats_batches = pickle.load(open(feature_file, 'rb'))
+        assert isinstance(feats_batches, list), f'Features should be list, but is {type(feats_batches)}'
+        for feats in feats_batches:
+            assert isinstance(feats, dict)
+            required_keys = set(['input_states', 'observed_states', 'simulated_states', 'labels', 'stimulus_name'])
+            assert set(feats.keys()) == required_keys, f'{set(feat.keys())} does not match {required_keys}'
+            assert all([isinstance(v, np.ndarray) for v in feats.values()])
+
+            assert feats['stimulus_name'].ndim == 1
+            assert all([isinstance(name, (bytes, str)) for name in feats['stimulus_name']])
+            bs = feats['stimulus_name'].size
+
+            assert feats['labels'].ndim == 3
+            assert feats['labels'].shape[0] == bs
+            assert feats['labels'].shape[2] == 1 # TODO: if labels always scaler this extra dim is unecessary
+            T = feats['labels'].shape[1]
+
+            assert feats['input_states'].ndim == 3
+            assert feats['input_states'].shape[0] == bs
+            T_inp = feats['input_states'].shape[1]
+            feat_dim = feats['input_states'].shape[2]
+
+            for k in ['observed_states', 'simulated_states']:
+                assert feats[k].ndim == 3
+                assert feats[k].shape == (bs, T-T_inp, feat_dim)
 
     @abc.abstractmethod
     def extract_feat_step(self, data):
