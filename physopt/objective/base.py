@@ -103,8 +103,13 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
             assert isinstance(val_res, dict)
             val_results.append(val_res)
             logging.info('Val Step: {0:>5}'.format(i+1))
+        val_results = self.validation_agg_func(val_results)
+        return val_results
+
+    @staticmethod
+    def validation_agg_func(val_results):
         # convert list of dicts into single dict by aggregating with mean over values for a given key
-        val_results = {k: np.mean([res[k] for res in val_results]) for k in val_results[0]} # assumes all keys are the same across list
+        val_results = {k+'_mean': np.mean([res[k] for res in val_results]) for k in val_results[0]} # assumes all keys are the same across list
         return val_results
 
     @abc.abstractmethod
