@@ -79,7 +79,7 @@ class OptimizationPipeline():
                         algo=suggest, max_evals=1,
                         )
                 except ValueError as e:
-                    print("Job died: {0}".format(objective.run_name))
+                    print("Job died")
                     traceback.print_exc()
                 return best
 
