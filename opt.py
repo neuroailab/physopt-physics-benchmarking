@@ -2,7 +2,6 @@ import os
 import glob
 import socket
 import getpass
-import traceback
 import yaml
 from pathos.multiprocessing import ProcessingPool as Pool
 import argparse
@@ -80,7 +79,7 @@ class OptimizationPipeline():
                         )
                 except ValueError as e:
                     print("Job died")
-                    traceback.print_exc()
+                    raise
                 return best
 
             # Pretraining Phase
