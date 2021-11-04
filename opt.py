@@ -83,7 +83,8 @@ class OptimizationPipeline():
                 return best
 
             # Pretraining Phase
-            run_inner(PRETRAINING_PHASE_NAME, None)
+            if not cfg.SKIP_PRETRAINING:
+                run_inner(PRETRAINING_PHASE_NAME, None)
 
             # Extraction+Readout Phase # TODO: Implement parallel readout evaluation
             for readout_space in readout_spaces:

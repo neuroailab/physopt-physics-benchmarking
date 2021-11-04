@@ -40,7 +40,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.tracking_uri, artifact_location = utils.get_mlflow_backend(cfg.OUTPUT_DIR, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
         self.experiment = utils.create_experiment(self.tracking_uri, experiment_name, artifact_location)
 
-    def get_run(self, phase):
+    def get_run(self, phase, create_new=True):
         cfgs = utils.flatten(self.pretraining_cfg, prefix=PRETRAINING_PHASE_NAME) # all phases need pretraining
         if phase != PRETRAINING_PHASE_NAME: # for extraction and readout phases
             assert self.readout_name is not None, f'{phase} should have readout_name, but is None'
@@ -48,7 +48,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             cfgs.update(utils.flatten(self.extraction_cfg, prefix=EXTRACTION_PHASE_NAME))
         if phase == READOUT_PHASE_NAME: # only readout needs all three
             cfgs.update(utils.flatten(self.readout_cfg, prefix=READOUT_PHASE_NAME))
-        run = utils.get_run(self.tracking_uri, self.experiment.experiment_id,
+        run = utils.get_run(self.tracking_uri, self.experiment.experiment_id, create_new,
             seed=self.seed, pretraining_name=self.pretraining_name, phase=phase, **cfgs)
         return run
 

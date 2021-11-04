@@ -4,6 +4,7 @@ _C = CN()
 
 # for optimization pipeline
 _C.NUM_THREADS = 1
+_C.SKIP_PRETRAINING = False
 
 _C.DATA_SPACE = CN()
 _C.DATA_SPACE.MODULE = None # required

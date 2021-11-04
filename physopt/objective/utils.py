@@ -147,7 +147,7 @@ def get_readout_model_from_artifact_store(protocol, tracking_uri, run_id, output
     readout_model_file = download_from_artifact_store(artifact_path, tracking_uri, run_id, output_dir)
     return readout_model_file
 
-def get_run(tracking_uri, experiment_id, **kwargs):
+def get_run(tracking_uri, experiment_id, create_new=True, **kwargs):
     logging.info(f'Searching for run with params: {kwargs}')
     runs = search_runs(tracking_uri, experiment_id, **kwargs)
     if 'run_name' in kwargs: # mainly for compatibility to also get run by name instead of params
@@ -157,6 +157,7 @@ def get_run(tracking_uri, experiment_id, **kwargs):
         run_name = get_run_name(model_name, **kwargs)
     assert len(runs) <= 1, f'Should be at most one (1) run with name "{run_name}", but found {len(runs)}'
     if len(runs) == 0:
+        assert create_new, f'No run found, if you want to create a new run you must set create_run to True'
         logging.info(f'Creating run with name:"{run_name}"')
         client = mlflow.tracking.MlflowClient(tracking_uri=tracking_uri)
         run = client.create_run(experiment_id, tags={'mlflow.runName': run_name}) # TODO: create run with params from kwargs?

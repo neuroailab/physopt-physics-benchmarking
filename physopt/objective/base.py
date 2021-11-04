@@ -136,8 +136,7 @@ class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
     
     def setup(self):
         super().setup()
-        pretraining_run = self.get_run(PRETRAINING_PHASE_NAME)
-        assert pretraining_run is not None, f'Should be exactly 1 pretraining run, but found None'
+        pretraining_run = self.get_run(PRETRAINING_PHASE_NAME, create_new=False)
         assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for pretraining run'
 
         if self.extraction_cfg.LOAD_STEP is not None: # restore from specified checkpoint
@@ -224,8 +223,7 @@ class ReadoutObjectiveBase(PhysOptObjective):
 
     def setup(self):
         super().setup()
-        extraction_run = self.get_run(EXTRACTION_PHASE_NAME)
-        assert extraction_run is not None, f'Should be exactly 1 extraction run, but found None'
+        extraction_run = self.get_run(EXTRACTION_PHASE_NAME, create_new=False)
         restore_run_id = extraction_run.info.run_id
         self.restore_step = int(extraction_run.data.params['restore_step']) # use same restore step as extracted features
         mlflow.log_params({ # log restore settings as params for readout since features and metric results depend on model ckpt
