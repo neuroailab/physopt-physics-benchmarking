@@ -9,3 +9,15 @@ node19-ccncluster:
 physion-eli-1:
     PHYSOPT_CONFIG_DIR: '/home/eliwang_stanford_edu/physion/configs'
     PHYSOPT_OUTPUT_DIR: '/mnt/fs1/eliwang/physopt'
+
+physion-eli-2:
+    PHYSOPT_CONFIG_DIR: '/home/eliwang_stanford_edu/physion/configs'
+    PHYSOPT_OUTPUT_DIR: '/mnt/fs1/eliwang/physopt'
+
+physion-eli-3:
+    PHYSOPT_CONFIG_DIR: '/home/eliwang_stanford_edu/physion/configs'
+    PHYSOPT_OUTPUT_DIR: '/mnt/fs1/eliwang/physopt'
+
+physion-eli-4:
+    PHYSOPT_CONFIG_DIR: '/home/eliwang_stanford_edu/physion/configs'
+    PHYSOPT_OUTPUT_DIR: '/mnt/fs1/eliwang/physopt'
