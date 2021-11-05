@@ -39,10 +39,11 @@ _C.EXTRACTION.LOAD_STEP = None # which pretraining ckpt to extract readout featu
 _C.READOUT= CN()
 _C.READOUT.OBJECTIVE_MODULE = 'physion.objective.objective'
 _C.READOUT.OBJECTIVE_NAME = 'PhysionReadoutObjective'
+_C.READOUT.PROTOCOLS = ['observed', 'simulated', 'input']
 _C.READOUT.MODEL = CN(new_allowed=True)
-_C.READOUT.MODEL.LOGSPACE = (-8, 2, 11)
+_C.READOUT.MODEL.LOGSPACE = (-8, 8, 17)
 _C.READOUT.MODEL.CV = 5 # number of folds
-_C.READOUT.MODEL.MAX_ITER = 1000
+_C.READOUT.MODEL.MAX_ITER = 200
 _C.READOUT.MODEL.NORM_INPUT = True # whether to standardize input features 
 
 # for physopt objective

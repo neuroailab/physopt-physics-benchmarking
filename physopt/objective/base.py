@@ -212,6 +212,8 @@ class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
         raise NotImplementedError
 
 class ReadoutObjectiveBase(PhysOptObjective):
+    READOUT_PROTOCOLS = {'observed', 'simulated', 'input'}
+
     @property
     def phase(self):
         return READOUT_PHASE_NAME
@@ -252,7 +254,8 @@ class ReadoutObjectiveBase(PhysOptObjective):
         stimulus_names = [d['stimulus_name'] for d in test_data]
         labels = [metric_utils.label_fn(d)[0] for d in test_data]
 
-        for protocol in ['observed', 'simulated', 'input']:
+        for protocol in self.readout_cfg.PROTOCOLS:
+            assert protocol in self.READOUT_PROTOCOLS, f'Unknown protocol "{protocol}" -- allowed values {self.READOUT_PROTOCOL}'
             readout_model_file = utils.get_readout_model_from_artifact_store(protocol, self.tracking_uri, self.run_id, self.output_dir)
             if readout_model_file is not None: # using readout model downloaded from artifact store
                 logging.info('Loading readout model from: {}'.format(readout_model_file))
