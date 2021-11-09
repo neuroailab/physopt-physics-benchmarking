@@ -36,7 +36,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         experiment_name = utils.get_exp_name(cfg)
         self.output_dir = utils.get_output_dir(cfg.OUTPUT_DIR, experiment_name, self.pretraining_cfg.MODEL_NAME, self.pretraining_name, self.seed, self.phase, self.readout_name)
         self.log_file = os.path.join(self.output_dir, 'logs', 'output_{}.log'.format(time.strftime("%Y%m%d-%H%M%S")))
-        utils.setup_logger(self.log_file, self.cfg.DEBUG)
+        utils.setup_logger(self.log_file, self.cfg.DEBUG) # logger only used for utils.create_experiment
         self.tracking_uri, artifact_location = utils.get_mlflow_backend(cfg.OUTPUT_DIR, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
         self.experiment = utils.create_experiment(self.tracking_uri, experiment_name, artifact_location)
 
