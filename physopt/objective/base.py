@@ -99,6 +99,8 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
         valloader = self.get_pretraining_dataloader(self.pretraining_space['test'], train=False)
         val_results = []
         for i, data in enumerate(valloader):
+            if self.cfg.DEBUG and i >= 20: # stop val early if debug
+                break
             val_res = self.val_step(data)
             assert isinstance(val_res, dict)
             val_results.append(val_res)
@@ -173,7 +175,7 @@ class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
             pickle.dump(extracted_feats, open(feature_file, 'wb')) 
             logging.info('Saved features to {}'.format(feature_file))
             mlflow.log_artifact(feature_file, artifact_path=f'features')
-        self.check_feats(feature_file)
+        self.check_feats(feature_file) # TODO: move check feats to readout.call
 
     @staticmethod
     def check_feats(feature_file):
@@ -234,13 +236,14 @@ class ReadoutObjectiveBase(PhysOptObjective):
             })
         self.train_feature_file = utils.get_feats_from_artifact_store('train', self.tracking_uri, restore_run_id, self.output_dir)
         self.test_feature_file = utils.get_feats_from_artifact_store('test', self.tracking_uri, restore_run_id, self.output_dir)
-        assert self.train_feature_file is not None, 'Train features not found'
-        assert self.test_feature_file is not None, 'Test features not found'
 
     def call(self, args):
         # Construct data providers
+        assert self.train_feature_file is not None, 'Train features not found'
         logging.info(f'Train feature file: {self.train_feature_file}')
         train_data = metric_utils.build_data(self.train_feature_file)
+
+        assert self.test_feature_file is not None, 'Test features not found'
         logging.info(f'Test feature file: {self.test_feature_file}')
         test_data = metric_utils.build_data(self.test_feature_file)
 
