@@ -73,6 +73,7 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
                         self.validation_with_logging(step)
                     if (step % self.pretraining_cfg.CKPT_FREQ) == 0:
                         self.save_model_with_logging(step)
+                    # TODO: add function to run at end of each epoch
                     step += 1
                     if step > self.pretraining_cfg.TRAIN_STEPS:
                         break
@@ -95,7 +96,7 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
         val_results = self.validation()
         mlflow.log_metrics(val_results, step=step)
 
-    def validation(self): # TODO: allow variable agg_func
+    def validation(self):
         valloader = self.get_pretraining_dataloader(self.pretraining_space['test'], train=False)
         val_results = []
         for i, data in enumerate(valloader):

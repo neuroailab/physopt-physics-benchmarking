@@ -42,6 +42,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
 
     def get_run(self, phase, create_new=True):
         cfgs = utils.flatten(self.pretraining_cfg, prefix=PRETRAINING_PHASE_NAME) # all phases need pretraining
+        cfgs.pop('pretraining_TRAIN_STEPS') # remove since train steps not logged as mlflow param
         if phase != PRETRAINING_PHASE_NAME: # for extraction and readout phases
             assert self.readout_name is not None, f'{phase} should have readout_name, but is None'
             cfgs['readout_name'] = self.readout_name # no readout_name for pretraining phase
@@ -79,6 +80,9 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             cfg = getattr(self, f'{phase}_cfg')
             if cfg is not None:
                 cfg = utils.flatten(cfg)
+                train_steps = cfg.pop('TRAIN_STEPS', None) # don't log train steps as param
+                if train_steps:
+                    mlflow.set_tag('TRAIN_STEPS', train_steps)
                 mlflow.log_params({
                     f'{phase}_{k}':v for k,v in cfg.items()
                     })
