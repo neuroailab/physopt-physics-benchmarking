@@ -143,13 +143,12 @@ class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
         assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for pretraining run'
 
         if self.extraction_cfg.LOAD_STEP is not None: # restore from specified checkpoint
-            client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
-            metric_history = client.get_metric_history(pretraining_run.info.run_id, 'step')
-            assert self.extraction_cfg.LOAD_STEP in [m.value for m in metric_history], f'Checkpoint for step {self.extraction_cfg.LOAD_STEP} not found'
             self.restore_step = self.extraction_cfg.LOAD_STEP
-        else: # restore from last checkpoint
-            self.restore_step = int(pretraining_run.data.metrics['step'])
-            assert self.restore_step == self.pretraining_cfg.TRAIN_STEPS, f'Training not finished - found checkpoint at {self.restore_step} steps, but expected {self.pretraining_cfg.TRAIN_STEPS} steps'
+        else:
+            self.restore_step = self.pretraining_cfg.TRAIN_STEPS
+        client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
+        metric_history = client.get_metric_history(pretraining_run.info.run_id, 'step')
+        assert self.restore_step in [m.value for m in metric_history], f'Checkpoint for step {self.restore_step} not found'
         restore_run_id = pretraining_run.info.run_id
         # download ckpt from artifact store and load model
         model_file = utils.get_ckpt_from_artifact_store(self.tracking_uri, restore_run_id, self.output_dir, artifact_path=f'step_{self.restore_step}/model_ckpts')
