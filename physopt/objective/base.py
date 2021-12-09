@@ -100,7 +100,7 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
         valloader = self.get_pretraining_dataloader(self.pretraining_space['test'], train=False)
         val_results = []
         for i, data in enumerate(valloader):
-            if self.cfg.DEBUG and i >= 20: # stop val early if debug
+            if self.cfg.DEBUG and i >= 2: # stop val early if debug
                 break
             val_res = self.val_step(data)
             assert isinstance(val_res, dict)
