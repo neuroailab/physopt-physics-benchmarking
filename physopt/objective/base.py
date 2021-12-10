@@ -184,7 +184,7 @@ class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
         for feats in feats_batches:
             assert isinstance(feats, dict)
             required_keys = set(['input_states', 'observed_states', 'simulated_states', 'labels', 'stimulus_name'])
-            assert set(feats.keys()) == required_keys, f'{set(feat.keys())} does not match {required_keys}'
+            assert set(feats.keys()) == required_keys, f'{set(feats.keys())} does not match {required_keys}'
             assert all([isinstance(v, np.ndarray) for v in feats.values()])
 
             assert feats['stimulus_name'].ndim == 1
