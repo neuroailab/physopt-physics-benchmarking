@@ -175,35 +175,6 @@ class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
             pickle.dump(extracted_feats, open(feature_file, 'wb')) 
             logging.info('Saved features to {}'.format(feature_file))
             mlflow.log_artifact(feature_file, artifact_path=f'features')
-        self.check_feats(feature_file) # TODO: move check feats to readout.call
-
-    @staticmethod
-    def check_feats(feature_file):
-        feats_batches = pickle.load(open(feature_file, 'rb'))
-        assert isinstance(feats_batches, list), f'Features should be list, but is {type(feats_batches)}'
-        for feats in feats_batches:
-            assert isinstance(feats, dict)
-            required_keys = set(['input_states', 'observed_states', 'simulated_states', 'labels', 'stimulus_name'])
-            assert set(feats.keys()) == required_keys, f'{set(feats.keys())} does not match {required_keys}'
-            assert all([isinstance(v, np.ndarray) for v in feats.values()])
-
-            assert feats['stimulus_name'].ndim == 1
-            assert all([isinstance(name, (bytes, str)) for name in feats['stimulus_name']])
-            bs = feats['stimulus_name'].size
-
-            assert feats['labels'].ndim == 3
-            assert feats['labels'].shape[0] == bs
-            assert feats['labels'].shape[2] == 1 # TODO: if labels always scaler this extra dim is unecessary
-            T = feats['labels'].shape[1]
-
-            assert feats['input_states'].ndim == 3
-            assert feats['input_states'].shape[0] == bs
-            T_inp = feats['input_states'].shape[1]
-            feat_dim = feats['input_states'].shape[2]
-
-            for k in ['observed_states', 'simulated_states']:
-                assert feats[k].ndim == 3
-                assert feats[k].shape == (bs, T-T_inp, feat_dim)
 
     @abc.abstractmethod
     def extract_feat_step(self, data):
@@ -225,6 +196,35 @@ class ReadoutObjectiveBase(PhysOptObjective):
         readout_run = self.get_run(READOUT_PHASE_NAME)
         return readout_run.info.run_id
 
+    @staticmethod
+    def check_feats(feature_file):
+        feats_batches = pickle.load(open(feature_file, 'rb'))
+        assert isinstance(feats_batches, list), f'Features should be list, but is {type(feats_batches)}'
+        for feats in feats_batches:
+            assert isinstance(feats, dict)
+            required_keys = set(['input_states', 'observed_states', 'simulated_states', 'labels', 'stimulus_name'])
+            assert set(feats.keys()) == required_keys, f'{set(feats.keys())} does not match {required_keys}'
+            for k,v in feats.items():
+                assert isinstance(v, np.ndarray), f'{k} is type {type(v)}, not np.ndarray'
+
+            assert feats['stimulus_name'].ndim == 1
+            assert all([isinstance(name, (bytes, str)) for name in feats['stimulus_name']])
+            bs = feats['stimulus_name'].size
+
+            assert feats['labels'].ndim == 3
+            assert feats['labels'].shape[0] == bs
+            assert feats['labels'].shape[2] == 1 # TODO: if labels always scaler this extra dim is unecessary
+            T = feats['labels'].shape[1]
+
+            assert feats['input_states'].ndim == 3
+            assert feats['input_states'].shape[0] == bs
+            T_inp = feats['input_states'].shape[1]
+            feat_dim = feats['input_states'].shape[2]
+
+            for k in ['observed_states', 'simulated_states']:
+                assert feats[k].ndim == 3
+                assert feats[k].shape == (bs, T-T_inp, feat_dim), f'{feats[k].shape} {(bs, T-T_inp, feat_dim)}'
+
     def setup(self):
         super().setup()
         extraction_run = self.get_run(EXTRACTION_PHASE_NAME, create_new=False)
@@ -235,7 +235,9 @@ class ReadoutObjectiveBase(PhysOptObjective):
             'restore_run_id': restore_run_id,
             })
         self.train_feature_file = utils.get_feats_from_artifact_store('train', self.tracking_uri, restore_run_id, self.output_dir)
+        self.check_feats(self.train_feature_file)
         self.test_feature_file = utils.get_feats_from_artifact_store('test', self.tracking_uri, restore_run_id, self.output_dir)
+        self.check_feats(self.test_feature_file)
 
     def call(self, args):
         # Construct data providers
