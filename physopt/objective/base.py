@@ -252,7 +252,7 @@ class ReadoutObjectiveBase(PhysOptObjective):
 
         # Rebalance data
         logging.info("Rebalancing training data")
-        train_data_balanced = metric_utils.rebalance(train_data, metric_utils.label_fn)
+        train_data_balanced = metric_utils.rebalance(train_data, metric_utils.label_fn, metric_utils.undersample) # undersample to get 50/50 distribution for training data
         logging.info("Rebalancing testing data")
         test_data_balanced = metric_utils.rebalance(test_data, metric_utils.label_fn)
 
