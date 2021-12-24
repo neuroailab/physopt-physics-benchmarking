@@ -61,21 +61,21 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
             if self.initial_step == 1: # save initial model if from scratch, other ckpt should already exist
                 self.save_model_with_logging(step=0)
 
-            step = self.initial_step
-            while step <= self.pretraining_cfg.TRAIN_STEPS:
+            self.step = self.initial_step
+            while self.step <= self.pretraining_cfg.TRAIN_STEPS:
                 for _, data in enumerate(trainloader):
                     loss = self.train_step(data)
-                    logging.info('Step: {0:>10} Loss: {1:>10.4f}'.format(step, loss))
+                    logging.info('Step: {0:>10} Loss: {1:>10.4f}'.format(self.step, loss))
 
-                    if (step % self.pretraining_cfg.LOG_FREQ) == 0:
-                        mlflow.log_metric(key='train_loss', value=loss, step=step)
-                    if (step % self.pretraining_cfg.VAL_FREQ) == 0:
-                        self.validation_with_logging(step)
-                    if (step % self.pretraining_cfg.CKPT_FREQ) == 0:
-                        self.save_model_with_logging(step)
+                    if (self.step % self.pretraining_cfg.LOG_FREQ) == 0:
+                        mlflow.log_metric(key='train_loss', value=loss, step=self.step)
+                    if (self.step % self.pretraining_cfg.VAL_FREQ) == 0:
+                        self.validation_with_logging(self.step)
+                    if (self.step % self.pretraining_cfg.CKPT_FREQ) == 0:
+                        self.save_model_with_logging(self.step)
                     # TODO: add function to run at end of each epoch
-                    step += 1
-                    if step > self.pretraining_cfg.TRAIN_STEPS:
+                    self.step += 1
+                    if self.step > self.pretraining_cfg.TRAIN_STEPS:
                         break
 
             # do final validation at end, save model, and log final ckpt -- if it wasn't done at last step
@@ -99,13 +99,13 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
     def validation(self):
         valloader = self.get_pretraining_dataloader(self.pretraining_space['test'], train=False)
         val_results = []
-        for i, data in enumerate(valloader):
-            if self.cfg.DEBUG and i >= 2: # stop val early if debug
+        for step, data in enumerate(valloader):
+            if self.cfg.DEBUG and step >= 2: # stop val early if debug
                 break
             val_res = self.val_step(data)
             assert isinstance(val_res, dict)
             val_results.append(val_res)
-            logging.info('Val Step: {0:>5}'.format(i+1))
+            logging.info('Val Step: {0:>5}'.format(step+1))
         val_results = self.validation_agg_func(val_results)
         return val_results
 
@@ -163,12 +163,14 @@ class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
             self.extract_feats(mode) 
 
     def extract_feats(self,  mode):
+        self.mode = mode
         feature_file = utils.get_feats_from_artifact_store(mode, self.tracking_uri, self.run_id, self.output_dir)
         if feature_file is None: # features weren't found in artifact store
             dataloader = self.get_readout_dataloader(self.readout_space[mode])
             extracted_feats = []
-            for i, data in enumerate(dataloader):
-                logging.info('Extract Step: {0:>5}'.format(i+1))
+            for step, data in enumerate(dataloader):
+                self.step = step
+                logging.info('Extract Step: {0:>5}'.format(step+1))
                 feats = self.extract_feat_step(data)
                 extracted_feats.append(feats)
             feature_file = os.path.join(self.output_dir, mode+'_feat.pkl')
@@ -252,7 +254,7 @@ class ReadoutObjectiveBase(PhysOptObjective):
 
         # Rebalance data
         logging.info("Rebalancing training data")
-        train_data_balanced = metric_utils.rebalance(train_data, metric_utils.label_fn)
+        train_data_balanced = metric_utils.rebalance(train_data, metric_utils.label_fn, metric_utils.undersample) # undersample to get 50/50 distribution for training data
         logging.info("Rebalancing testing data")
         test_data_balanced = metric_utils.rebalance(test_data, metric_utils.label_fn)
 
