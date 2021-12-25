@@ -148,6 +148,10 @@ def check_cfg(cfg): # TODO: just check that none are none?
     for attr in attrs:
         retriever = attrgetter(attr)
         assert retriever(cfg) is not None, f'{attr} must be set in the config'
+    if cfg.EXTRACTION.LOAD_STEP is None:
+        cfg.defrost()
+        cfg.EXTRACTION.LOAD_STEP = cfg.PRETRAINING.TRAIN_STEPS
+        cfg.freeze()
     return True
 
 def get_cfg_from_args(args):
