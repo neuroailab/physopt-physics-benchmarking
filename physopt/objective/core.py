@@ -40,7 +40,7 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
         self.tracking_uri, artifact_location = utils.get_mlflow_backend(cfg.OUTPUT_DIR, cfg.POSTGRES.HOST, cfg.POSTGRES.PORT, cfg.POSTGRES.DBNAME)
         self.experiment = utils.create_experiment(self.tracking_uri, experiment_name, artifact_location)
 
-    def get_run(self, phase, create_new=True):
+    def get_run(self, phase, create_new=True): # TODO: add list of settings to not use when searching for run (e.g. train_steps, ckpt_freq)
         cfgs = utils.flatten(self.pretraining_cfg, prefix=PRETRAINING_PHASE_NAME) # all phases need pretraining
         cfgs.pop('pretraining_TRAIN_STEPS') # remove since train steps not logged as mlflow param
         if phase != PRETRAINING_PHASE_NAME: # for extraction and readout phases
