@@ -55,13 +55,14 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
             except:
                 logging.info("Couldn't get trainloader size")
 
+            self.step = self.initial_step - 1 # -1 for "zeroth" step
             if self.cfg.DEBUG == False: # skip initial val when debugging
                 logging.info(f'Doing initial validation for step {self.initial_step-1}') 
-                self.validation_with_logging(self.initial_step-1) # -1 for "zeroth" step
-            if self.initial_step == 1: # save initial model if from scratch, other ckpt should already exist
+                self.validation_with_logging(self.step)
+            if self.step == 0: # save initial model if from scratch, other ckpt should already exist
                 self.save_model_with_logging(step=0)
 
-            self.step = self.initial_step
+            self.step += 1 # set step back to initial step
             while self.step <= self.pretraining_cfg.TRAIN_STEPS:
                 for _, data in enumerate(trainloader):
                     loss = self.train_step(data)
@@ -100,6 +101,7 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
         valloader = self.get_pretraining_dataloader(self.pretraining_space['test'], train=False)
         val_results = []
         for step, data in enumerate(valloader):
+            self.vstep = step # for use in self.val_step()
             if self.cfg.DEBUG and step >= 2: # stop val early if debug
                 break
             val_res = self.val_step(data)
