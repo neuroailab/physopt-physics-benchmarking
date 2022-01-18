@@ -6,9 +6,10 @@ setup(
     packages=['physopt'],
     install_requires=[
         'pathos',
-        'hyperopt',
+        'hyperopt==0.2.5',
         'yacs',
         'mlflow',
+        'numpy==1.19.5',
         'psycopg2-binary',
         'boto3',
         'sklearn',
