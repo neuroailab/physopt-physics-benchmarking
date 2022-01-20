@@ -62,7 +62,7 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
             if self.step == 0: # save initial model if from scratch, other ckpt should already exist
                 self.save_model_with_logging(step=0)
 
-            self.step += 1 # set step back to initial step
+            self.step = self.initial_step # set step back to initial step
             while self.step <= self.pretraining_cfg.TRAIN_STEPS:
                 for _, data in enumerate(trainloader):
                     loss = self.train_step(data)
@@ -70,20 +70,20 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
 
                     if (self.step % self.pretraining_cfg.LOG_FREQ) == 0:
                         mlflow.log_metric(key='train_loss', value=loss, step=self.step)
-                    if (self.step % self.pretraining_cfg.VAL_FREQ) == 0:
-                        self.validation_with_logging(self.step)
                     if (self.step % self.pretraining_cfg.CKPT_FREQ) == 0:
                         self.save_model_with_logging(self.step)
+                    if (self.step % self.pretraining_cfg.VAL_FREQ) == 0:
+                        self.validation_with_logging(self.step)
                     # TODO: add function to run at end of each epoch
                     self.step += 1
                     if self.step > self.pretraining_cfg.TRAIN_STEPS:
                         break
 
             # do final validation at end, save model, and log final ckpt -- if it wasn't done at last step
-            if (self.pretraining_cfg.TRAIN_STEPS % self.pretraining_cfg.VAL_FREQ != 0):
-                self.validation_with_logging(self.pretraining_cfg.TRAIN_STEPS)
             if (self.pretraining_cfg.TRAIN_STEPS % self.pretraining_cfg.CKPT_FREQ != 0):
                 self.save_model_with_logging(self.pretraining_cfg.TRAIN_STEPS)
+            if (self.pretraining_cfg.TRAIN_STEPS % self.pretraining_cfg.VAL_FREQ != 0):
+                self.validation_with_logging(self.pretraining_cfg.TRAIN_STEPS)
         # TODO: return result dict for hyperopt
 
     def save_model_with_logging(self, step):
