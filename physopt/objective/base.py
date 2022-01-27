@@ -150,7 +150,8 @@ class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
             self.restore_step = self.pretraining_cfg.TRAIN_STEPS
         client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
         metric_history = client.get_metric_history(pretraining_run.info.run_id, 'step')
-        assert self.restore_step in [m.value for m in metric_history], f'Checkpoint for step {self.restore_step} not found'
+        available_ckpts = [m.value for m in metric_history]
+        assert self.restore_step in available_ckpts, f'Checkpoint for step {self.restore_step} not found in {available_ckpts}.'
         restore_run_id = pretraining_run.info.run_id
         # download ckpt from artifact store and load model
         model_file = utils.get_ckpt_from_artifact_store(self.tracking_uri, restore_run_id, self.output_dir, artifact_path=f'step_{self.restore_step}/model_ckpts')
@@ -228,7 +229,7 @@ class ReadoutObjectiveBase(PhysOptObjective):
 
                 for k in ['observed_states', 'simulated_states']:
                     assert feats[k].ndim == 3
-                    assert feats[k].shape == (bs, T-T_inp, feat_dim), f'{feats[k].shape} {(bs, T-T_inp, feat_dim)}'
+                    assert feats[k].shape == (bs, T-T_inp, feat_dim), f'{k} {feats[k].shape} {(bs, T-T_inp, feat_dim)}'
 
     def setup(self):
         super().setup()
