@@ -56,9 +56,9 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
                 logging.info("Couldn't get trainloader size")
 
             self.step = self.initial_step - 1 # -1 for "zeroth" step
-            if self.cfg.DEBUG == False: # skip initial val when debugging
-                logging.info(f'Doing initial validation for step {self.initial_step-1}') 
-                self.validation_with_logging(self.step)
+            # if self.cfg.DEBUG == False: # skip initial val when debugging
+            #     logging.info(f'Doing initial validation for step {self.initial_step-1}') 
+            #     self.validation_with_logging(self.step)
             if self.step == 0: # save initial model if from scratch, other ckpt should already exist
                 self.save_model_with_logging(step=0)
 

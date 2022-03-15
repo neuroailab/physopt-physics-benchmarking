@@ -67,7 +67,7 @@ def create_postgres_db(host, port, dbname):
             password='physopt',
             host=host,
             port=port,
-            connect_timeout=3,
+            connect_timeout=10,
             # https://www.postgresql.org/docs/9.3/libpq-connect.html
             keepalives=1,
             keepalives_idle=5,
