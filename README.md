@@ -18,11 +18,48 @@ The goal of this repository is to train and evaluate different physics predictio
 Runs and artifacts from running the pipeline are recorded with [MLflow](https://mlflow.org/).
 
 ## How to Install
-**Recommended**: Create a virtualenv with `virtualenv -p python3 .venv` and activate it using `source .venv/bin/activate`. 
+**Recommended**: Create a virtualenv with `virtualenv -p python3 .venv` and activate it using `source .venv/bin/activate`. Note that you will likely run into issues if you use python3 if it is an older version. python3.5 may cause issues while python3.7 appears to be fine. You may be able to find later python versions in /usr/bin.
 
 Run `pip install -e .` in the root `physopt` directory to install the `physopt` package. You will also need to install the correct version of PyTorch for your system, see [this link](https://pytorch.org/get-started/locally/) for instructions.
 
 In order to distribute jobs across machines, you'll need to have MongoDB installed. In order to use PostgreSQL as the MLflow backend store, you'll need to install postgresql with `sudo apt-get install postgresql`, if it's not installed already -- you can check with `psql --version`.
+
+## How To Run
+
+Physopt uses [Hyperopt](https://github.com/neuroailab/hyperopt) to train and evaluate physics prediction models on one or many different datasets. 
+
+### Local
+The main script to run the pipeline is `opt.py`. To run locally you only need to set the `--data_module` and `--objective_module` commandline arguments. See the [Data Spaces Specification](#data-spaces-specification) and [Model Specification](#model-specification) sections, respectively, for more details. Optionally, you may also choose to specifiy the output directory where the results are saved (with `--output`) and the number of parallel threads (with `--num_threads`). The mlflow backend store is set to `[OUTPUT_DIR]/mlruns`.
+
+Therefore, the command would look like,
+
+`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
+
+Note that it is often preferable to run (e.g. with the physion repo installed and on an up-to-date branch) the following command. 
+
+`python opt.py --config physion/configs/MODEL/MODEL.yaml`.
+
+This can be used to run the training and evaluation loop on a particular model as specified by the yaml config file. See the (lab-internal) [physion repo](https://github.com/neuroailab/physion/blob/fe10826dffef59bd866f388202b6dadc5b3f91d4/physion/models/frozen.py) for examples of these models with the training and feature extraction wrappers. At a high level, physion and physopt depend on one another recursively, where physion uses physopt (as a package) as a wrapper around its models, which must be run using `opt.py` in the physopt repo. 
+
+### Remote MLflow Tracking Server
+MLflow allows for using a remote Tracking Server. Specifically, we use a Postgres database for backend entity storage and an S3 bucket for artifact storage. This requires setting up PostgreSQL and Amazon S3 as detailed in the [Setup](#setup) section above. The relevant commandline arguments are the port (`--postgres_port`) and database name (`--postgres_dbname`). Note that the name "local" is reserved for using local storage. Also if the Postgres server is not running on `localhost` you'll need to specify the host (`--postgres_host`). 
+
+Therefore, the command would look like, 
+
+`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --postgres_port [PORT] --postgres_dbname [DBNAME] (--postgres_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
+
+### Distributed Workers
+Using the functionality from [Hyperopt](https://github.com/neuroailab/hyperopt), it is also possible to use an optimization server that distributes jobs across as many workers as you want. This requires setting up MongoDB as detailed in the [Setup](#setup) section above. Additionally, you must set the MongoDB port (`--mongo_port`), database name (`--mongo_dbname`), and host (`--mongo_host`).
+
+Therefore, the command to create the jobs in the MongoDB would look like, 
+
+`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --mongo_port [PORT] --mongo_dbname [DBNAME] (--mongo_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`
+
+and then start up as many workers as you want with,
+
+`hyperopt-mongo-worker --mongo=[HOST]:[PORT]/[DBNAME] (--poll-interval=[POLL_INTERVAL]) (--reserve-timeout=[RESERVE_TIMEOUT]) (--logfile=l[LOGFILE])`.
+
+This approach has the advantage that you only need one set of workers pointing all to the same database `database`. Although currently not a problem, potential library conflicts between models might make approach c) infeasible in the future without separate python environments. In that case each model would have to be run in model-specific python environment which is beyond the scope of this documentation.
 
 ## Configuration 
 The default configuration can be found in `physopt/config.py`, which is updated by specifying a YAML configuration file using the `--config` (or `-C`) commandline argument. The following are required:
@@ -62,38 +99,7 @@ The `PretrainingObjective` and `ExtractionObjective` both also inherit from `Phy
 - `load_model`: Implements loading of the model given a model checkpoint file
 - `save_model`: Implements saving of the model given a model checkpoint file
 
-An example can be found [here](https://github.com/neuroailab/physion/blob/master/physion/FROZEN.py#L11).
-
-## How To Run
-
-Physopt uses [Hyperopt](https://github.com/neuroailab/hyperopt) to train and evaluate physics prediction models on one or many different datasets. 
-
-### Local
-The main script to run the pipeline is `opt.py`. To run locally you only need to set the `--data_module` and `--objective_module` commandline arguments. See the [Data Spaces Specification](#data-spaces-specification) and [Model Specification](#model-specification) sections, respectively, for more details. Optionally, you may also choose to specifiy the output directory where the results are saved (with `--output`) and the number of parallel threads (with `--num_threads`). The mlflow backend store is set to `[OUTPUT_DIR]/mlruns`.
-
-Therefore, the command would look like,
-
-`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
-
-### Remote MLflow Tracking Server
-MLflow allows for using a remote Tracking Server. Specifically, we use a Postgres database for backend entity storage and an S3 bucket for artifact storage. This requires setting up PostgreSQL and Amazon S3 as detailed in the [Setup](#setup) section above. The relevant commandline arguments are the port (`--postgres_port`) and database name (`--postgres_dbname`). Note that the name "local" is reserved for using local storage. Also if the Postgres server is not running on `localhost` you'll need to specify the host (`--postgres_host`). 
-
-Therefore, the command would look like, 
-
-`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --postgres_port [PORT] --postgres_dbname [DBNAME] (--postgres_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
-
-### Distributed Workers
-Using the functionality from [Hyperopt](https://github.com/neuroailab/hyperopt), it is also possible to use an optimization server that distributes jobs across as many workers as you want. This requires setting up MongoDB as detailed in the [Setup](#setup) section above. Additionally, you must set the MongoDB port (`--mongo_port`), database name (`--mongo_dbname`), and host (`--mongo_host`).
-
-Therefore, the command to create the jobs in the MongoDB would look like, 
-
-`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --mongo_port [PORT] --mongo_dbname [DBNAME] (--mongo_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`
-
-and then start up as many workers as you want with,
-
-`hyperopt-mongo-worker --mongo=[HOST]:[PORT]/[DBNAME] (--poll-interval=[POLL_INTERVAL]) (--reserve-timeout=[RESERVE_TIMEOUT]) (--logfile=l[LOGFILE])`.
-
-This approach has the advantage that you only need one set of workers pointing all to the same database `database`. Although currently not a problem, potential library conflicts between models might make approach c) infeasible in the future without separate python environments. In that case each model would have to be run in model-specific python environment which is beyond the scope of this documentation.
+An example can be found [here](https://github.com/neuroailab/physion/blob/fe10826dffef59bd866f388202b6dadc5b3f91d4/physion/models/frozen.py).
 
 ### Notes
 
