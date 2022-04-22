@@ -67,8 +67,8 @@ class PhysOptObjective(metaclass=abc.ABCMeta):
             'phase': self.phase,
             'seed': self.seed,
             'pretraining_name': self.pretraining_name,
-            # 'pretraining_train_hash': hashlib.md5(json.dumps(self.pretraining_space['train']).encode()).hexdigest(),
-            # 'pretraining_test_hash': hashlib.md5(json.dumps(self.pretraining_space['test']).encode()).hexdigest(),
+            'pretraining_train_hash': hashlib.md5(json.dumps(self.pretraining_space['train']).encode()).hexdigest(),
+            'pretraining_test_hash': hashlib.md5(json.dumps(self.pretraining_space['test']).encode()).hexdigest(),
             })
         if self.readout_space is not None:
             mlflow.log_params({
