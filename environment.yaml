@@ -16,7 +16,13 @@ physion-eli-2:
 
 physion-eli-3:
     PHYSOPT_CONFIG_DIR: '/home/eliwang_stanford_edu/physion/configs'
-    PHYSOPT_OUTPUT_DIR: '/mnt/fs1/eliwang/physopt'
+    # PHYSOPT_OUTPUT_DIR: '/mnt/fs1/eliwang/physopt'
+    PHYSOPT_OUTPUT_DIR: '/mnt/fs4/eliwang/physopt'
+
+physion-eli-3-1:
+    PHYSOPT_CONFIG_DIR: '/home/eliwang_stanford_edu/physion/configs'
+    # PHYSOPT_OUTPUT_DIR: '/mnt/fs1/eliwang/physopt'
+    PHYSOPT_OUTPUT_DIR: '/mnt/fs4/eliwang/physopt'
 
 physion-eli-4:
     PHYSOPT_CONFIG_DIR: '/home/eliwang_stanford_edu/physion/configs'

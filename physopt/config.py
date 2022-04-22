@@ -26,6 +26,8 @@ _C.PRETRAINING.BATCH_SIZE = 32
 _C.PRETRAINING.LOG_FREQ = 10
 _C.PRETRAINING.VAL_FREQ = 25
 _C.PRETRAINING.CKPT_FREQ = 100
+_C.PRETRAINING.NOTE = ''
+_C.PRETRAINING.SKIP_INITIAL_VAL = False
 _C.PRETRAINING.TRAIN = CN(new_allowed=True)
 _C.PRETRAINING.MODEL = CN(new_allowed=True)
 _C.PRETRAINING.DATA = CN(new_allowed=True)
@@ -35,11 +37,13 @@ _C.EXTRACTION= CN()
 _C.EXTRACTION.OBJECTIVE_MODULE = None # required
 _C.EXTRACTION.OBJECTIVE_NAME = 'ExtractionObjective'
 _C.EXTRACTION.LOAD_STEP = None # which pretraining ckpt to extract readout features from
+_C.EXTRACTION.NOTE = ''
 
 _C.READOUT= CN()
 _C.READOUT.OBJECTIVE_MODULE = 'physion.objective.objective'
 _C.READOUT.OBJECTIVE_NAME = 'PhysionReadoutObjective'
 _C.READOUT.PROTOCOLS = ['observed', 'simulated', 'input']
+_C.READOUT.NOTE = ''
 _C.READOUT.MODEL = CN(new_allowed=True)
 _C.READOUT.MODEL.LOGSPACE = (-8, 8, 17)
 _C.READOUT.MODEL.CV = 5 # number of folds
