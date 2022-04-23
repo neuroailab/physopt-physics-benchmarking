@@ -7,13 +7,8 @@
 The goal of this repository is to train and evaluate different physics prediction models under various pretraining and readout protocols. The procedure consists of three phases, as follows:
 
 1. **Pretraining**: Train the physics prediction model on its specific prediction task on the specific train dataset.
-    - Output: Model-specific trained checkpoint file saved to ``[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/model.pt``
 2. **Extraction**: Extract model features for the readout training and testing datasets.
-    - Output: List of dicts, each dict corresponding to results from a batch, saved to `[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/{train/test}_feat.pkl`
-    - Each dict has the following keys: `input_states`, `observed_states`, `simulated_states`, `labels`, `stimulus_name`
 3. **Readout**: Train a model to predict the task labels using extracted features, and evaluate the trained readout model on the readout test set.
-    - Output: Metric results and other data used for model-human comparisons saved to `[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/metric_results.csv`
-    - Used for analysis in [physics-benchmarking-neurips2021](https://github.com/cogtoolslab/physics-benchmarking-neurips2021)
 
 Runs and artifacts from running the pipeline are recorded with [MLflow](https://mlflow.org/).
 
