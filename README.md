@@ -27,17 +27,9 @@ In order to use PostgreSQL as the MLflow backend store, you'll need to install p
 ## How To Run
 
 ### Local
-The main script to run the pipeline is `opt.py`. To run locally you only need to set the `--data_module` and `--objective_module` commandline arguments. See the [Data Spaces Specification](#data-spaces-specification) and [Model Specification](#model-specification) sections, respectively, for more details. Optionally, you may also choose to specifiy the output directory where the results are saved (with `--output`) and the number of parallel threads (with `--num_threads`). The mlflow backend store is set to `[OUTPUT_DIR]/mlruns`.
+To run, use `run` from `physopt.opt`. The only required commandline argument is  `--config` or  `-C`. Optionally, you may also choose to specifiy the output directory where the results are saved (with `--output` or `-O`). The mlflow backend store is set to `[OUTPUT_DIR]/mlruns`.
 
-Therefore, the command would look like,
-
-`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
-
-Note that it is often preferable to run (e.g. with the physion repo installed and on an up-to-date branch) the following command. 
-
-`python opt.py --config physion/configs/MODEL/MODEL.yaml`.
-
-This can be used to run the training and evaluation loop on a particular model as specified by the yaml config file. See the (lab-internal) [physion repo](https://github.com/neuroailab/physion/blob/fe10826dffef59bd866f388202b6dadc5b3f91d4/physion/models/frozen.py) for examples of these models with the training and feature extraction wrappers. At a high level, physion and physopt depend on one another recursively, where physion uses physopt (as a package) as a wrapper around its models, which must be run using `opt.py` in the physopt repo. 
+For convenience, you can use the following environment variables: `PHYSOPT_CONFIG_DIR`, which specifies the directory to look for configs if passed a relative path, and `PHYSOPT_OUTPUT_DIR`, which specifies the output directory to use if none is specified in the commandline. Also, `setup_environment_vars` is also provided in `physopt.opt` which allows you to specify the environment variables using a `.yaml` file.
 
 ### Remote MLflow Tracking Server
 MLflow allows for using a remote Tracking Server. Specifically, we use a Postgres database for backend entity storage and an S3 bucket for artifact storage. This requires setting up PostgreSQL and Amazon S3 as detailed in the [Setup](#setup) section above. The relevant commandline arguments are the port (`--postgres_port`) and database name (`--postgres_dbname`). Note that the name "local" is reserved for using local storage. Also if the Postgres server is not running on `localhost` you'll need to specify the host (`--postgres_host`). 
