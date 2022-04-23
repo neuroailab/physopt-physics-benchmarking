@@ -19,7 +19,6 @@ from physopt.config import get_cfg_defaults, get_cfg_debug
 NO_PARAM_SPACE = hp.choice('dummy', [0])
 CONFIG_ENV_VAR = 'PHYSOPT_CONFIG_DIR'
 OUTPUT_ENV_VAR = 'PHYSOPT_OUTPUT_DIR'
-ENV_FILE = 'environment.yaml'
 
 def arg_parse():
     parser = argparse.ArgumentParser(description='Large-scale physics prediction')
@@ -165,9 +164,9 @@ def get_cfg_from_args(args):
     check_cfg(cfg)
     return cfg
 
-def setup_environment_vars():
-    if os.path.isfile(ENV_FILE):
-        environment = yaml.safe_load(open(ENV_FILE, 'rb'))
+def setup_environment_vars(env_file='environment.yaml'):
+    if os.path.isfile(env_file):
+        environment = yaml.safe_load(open(env_file, 'rb'))
         hostname = socket.gethostname()
         if hostname in environment:
             assert isinstance(environment[hostname], dict)
@@ -176,7 +175,6 @@ def setup_environment_vars():
                 os.environ[k] = str(v)
 
 def run():
-    setup_environment_vars()
     args = arg_parse()
     cfg = get_cfg_from_args(args)
     pipeline = OptimizationPipeline(cfg)
