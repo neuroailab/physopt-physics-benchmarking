@@ -34,7 +34,7 @@ For convenience, you can use the following environment variables: `PHYSOPT_CONFI
 Local files will be saved to `[OUTPUT_DIR]/[DBNAME]` and MLflow files will be saved in the `[OUTPUT_DIR]/[DBNAME]/mlruns` subdirectory.
 
 ### Remote MLflow Tracking Server
-MLflow allows for using a remote Tracking Server. Specifically, we use a Postgres database for backend entity storage and an S3 bucket for artifact storage. This requires setting up PostgreSQL and Amazon S3 as detailed in the [Setup](#setup) section above. The relevant commandline arguments are the port (`--postgres_port`) and database name (`--postgres_dbname`). Note that the name "local" is reserved for using local storage. Also if the Postgres server is not running on `localhost` you'll need to specify the host (`--postgres_host`). 
+MLflow allows for using a remote Tracking Server. Specifically, we use a Postgres database for backend entity storage and an S3 bucket for artifact storage. This requires setting up PostgreSQL and Amazon S3 as detailed in the [Setup](#setup) section above. The relevant cofig file settings are `HOSTPORT` (format `host:port`)  and `DBNAME` (default: `physopt`).
 
 ## Configuration 
 The default configuration can be found in `physopt/config.py`, which is updated by specifying a YAML configuration file using the `--config` (or `-C`) commandline argument. The following are required:
