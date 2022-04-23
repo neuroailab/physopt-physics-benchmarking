@@ -156,8 +156,18 @@ def check_cfg(cfg): # TODO: just check that none are none?
 def get_cfg_from_args(args):
     cfg = get_cfg_defaults()
     config_file  = resolve_config_file(args.config)
+
     cfg.merge_from_file(config_file)
     cfg.CONFIG.OUTPUT_DIR = resolve_output_dir(cfg.CONFIG.OUTPUT_DIR, args.output)
+
+    cust_cfg = cfg.PRETRAINING.MODEL.CUSTOM_CONFIG
+
+    if cust_cfg is not None:
+        with open(cust_cfg, 'r') as f:
+            model_config = yaml.load(f, Loader=yaml.FullLoader)
+        cfg.PRETRAINING.MODEL.update(model_config)
+        cfg.PRETRAINING.MODEL.CUSTOM_CONFIG = True
+
     if args.debug: # merge debug at end so takes priority
         cfg.merge_from_other_cfg(get_cfg_debug())
     cfg.freeze()
