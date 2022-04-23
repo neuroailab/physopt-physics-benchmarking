@@ -37,6 +37,7 @@ The default configuration can be found in `physopt/config.py`, which is updated 
 - `PRETRAINING.OBJECTIVE_MODULE` (see [model specification](#model-specification))
 - `PRETRAINING.MODEL_NAME` 
 - `EXTRACTION.OBJECTIVE_MODULE` (see [model specification](#model-specification))
+- `READOUT.OBJECTIVE_MODULE` (see [model specification](#model-specification))
 
 ### Data Spaces Specification
 The `DATA_SPACE.FUNC` (defaults to `get_data_spaces`) from the specified `DATA_SPACE.MODULE` must return a list of dicts with the following structure:
@@ -61,7 +62,7 @@ Your `ExtractionObjective` should inherit from `ExtractionObjecitveBase` and req
 - `get_readout_dataloader`: Takes as input params a list of `datapaths`. Returns the dataloader object that can be iterated over for batches of data
 - `extract_feat_step`: Takes as input a batch of data, and outputs a dict with `input_states`, `observed_states`, `simulated_states`, `labels`, and `stimulus_name`
 
-A simple logistic regression readout model is provided, but a different `ReadoutObjective` can be used by inheriting from `ReadoutObjectiveBase` and implementing:
+A simple logistic regression readout model is provided in [Physion](https://github.com/neuroailab/physion/blob/master/physion/objective/objective.py), but a different `ReadoutObjective` can be used by inheriting from `ReadoutObjectiveBase` and implementing:
 - `get_readout_model`: Returns a model object that has the following methods: `fit`, `predict`, and `predict_proba`.
 
 The `PretrainingObjective` and `ExtractionObjective` both also inherit from `PhysOptModel`, which requires implementing:

@@ -40,8 +40,8 @@ _C.EXTRACTION.LOAD_STEP = None # which pretraining ckpt to extract readout featu
 _C.EXTRACTION.NOTE = ''
 
 _C.READOUT= CN()
-_C.READOUT.OBJECTIVE_MODULE = 'physion.objective.objective'
-_C.READOUT.OBJECTIVE_NAME = 'PhysionReadoutObjective'
+_C.READOUT.OBJECTIVE_MODULE = None # required
+_C.READOUT.OBJECTIVE_NAME = 'ReadoutObjective'
 _C.READOUT.PROTOCOLS = ['observed', 'simulated', 'input']
 _C.READOUT.NOTE = ''
 _C.READOUT.MODEL = CN(new_allowed=True)
