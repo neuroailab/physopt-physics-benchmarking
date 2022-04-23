@@ -144,8 +144,15 @@ In order to use S3 as the MLflow artifact store, you'll need to add your AWS cre
 To view the MLflow tracking UI run `mlflow ui`. If you are using local storage add `--backend-store-uri file:///[OUTPUT_DIR]/mlruns`. Otherwise, if you're using the PostgreSQL backend add `--backend-store-uri postgresql://<username>:<password>@<host>:<port>/<database>`. Finally, navigate to `http://localhost:5000`.
 
 #### Notes
-If the machine running the MongoDB, PostgreSQL, and MLflow tracking servers is not publically visible, you'll need to setup the necessary ssh tunnels.
+If the machine running the MongoDB, PostgreSQL, and MLflow tracking servers is not publicly visible, you'll need to setup the necessary ssh tunnels.
 
+## Using external models 
+If you've trained a model for forward prediction using your own external code-base and want to evaluate it on our benchmark, please refer to the following steps.
+- Set `SKIP_PRETRAINING = True` in `physion.yaml`
+- Specify a path to the config file pertaining to your external repository in the `PRETRAINING.MODEL.CUSTOM_CONFIG` field of `physion.yaml`. This file should contain the requisite parameter specifications for creating your model. Your config dict will now be stored in `PRETRAINING.MODEL`.
+- Define your `model`: implement the `get_model` function by instantiating your model using the configs listed in `PRETRAINING.MODEL` and loading the pretrained weights. 
+- See `physion/configs/fitvid.yaml` and `physion/configs/physion_only_test.yaml` for an example of how to create these configs. `physion/physion/objective/FitVidExt.py` lists an example of how an external model can be defined. 
+  
 ## Citing Physion
 
 If you find this codebase useful in your research, please consider citing:
