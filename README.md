@@ -22,11 +22,9 @@ Runs and artifacts from running the pipeline are recorded with [MLflow](https://
 
 Run `pip install -e .` in the root `physopt` directory to install the `physopt` package. You will also need to install the correct version of PyTorch for your system, see [this link](https://pytorch.org/get-started/locally/) for instructions.
 
-In order to distribute jobs across machines, you'll need to have MongoDB installed. In order to use PostgreSQL as the MLflow backend store, you'll need to install postgresql with `sudo apt-get install postgresql`, if it's not installed already -- you can check with `psql --version`.
+In order to use PostgreSQL as the MLflow backend store, you'll need to install postgresql with `sudo apt-get install postgresql`, if it's not installed already -- you can check with `psql --version`.
 
 ## How To Run
-
-Physopt uses [Hyperopt](https://github.com/neuroailab/hyperopt) to train and evaluate physics prediction models on one or many different datasets. 
 
 ### Local
 The main script to run the pipeline is `opt.py`. To run locally you only need to set the `--data_module` and `--objective_module` commandline arguments. See the [Data Spaces Specification](#data-spaces-specification) and [Model Specification](#model-specification) sections, respectively, for more details. Optionally, you may also choose to specifiy the output directory where the results are saved (with `--output`) and the number of parallel threads (with `--num_threads`). The mlflow backend store is set to `[OUTPUT_DIR]/mlruns`.
@@ -47,19 +45,6 @@ MLflow allows for using a remote Tracking Server. Specifically, we use a Postgre
 Therefore, the command would look like, 
 
 `python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --postgres_port [PORT] --postgres_dbname [DBNAME] (--postgres_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
-
-### Distributed Workers
-Using the functionality from [Hyperopt](https://github.com/neuroailab/hyperopt), it is also possible to use an optimization server that distributes jobs across as many workers as you want. This requires setting up MongoDB as detailed in the [Setup](#setup) section above. Additionally, you must set the MongoDB port (`--mongo_port`), database name (`--mongo_dbname`), and host (`--mongo_host`).
-
-Therefore, the command to create the jobs in the MongoDB would look like, 
-
-`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --mongo_port [PORT] --mongo_dbname [DBNAME] (--mongo_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`
-
-and then start up as many workers as you want with,
-
-`hyperopt-mongo-worker --mongo=[HOST]:[PORT]/[DBNAME] (--poll-interval=[POLL_INTERVAL]) (--reserve-timeout=[RESERVE_TIMEOUT]) (--logfile=l[LOGFILE])`.
-
-This approach has the advantage that you only need one set of workers pointing all to the same database `database`. Although currently not a problem, potential library conflicts between models might make approach c) infeasible in the future without separate python environments. In that case each model would have to be run in model-specific python environment which is beyond the scope of this documentation.
 
 ## Configuration 
 The default configuration can be found in `physopt/config.py`, which is updated by specifying a YAML configuration file using the `--config` (or `-C`) commandline argument. The following are required:
@@ -101,36 +86,7 @@ The `PretrainingObjective` and `ExtractionObjective` both also inherit from `Phy
 
 An example can be found [here](https://github.com/neuroailab/physion/blob/fe10826dffef59bd866f388202b6dadc5b3f91d4/physion/models/frozen.py).
 
-### Notes
-
-The Postgres/S3 remote tracking server can be used independently of MongoDB, although it is likely that if the workers are distrbuted across multiple machines, a central store for the experimental runs would be preferred. 
-
-To see all available argument options use
-
-`python opt.py --help`
-
 ## Setup
-### MongoDB
-To use MongoDB for `hyperopt`, create a `mongodb.conf` file with the following:
-
-```
-net:
-    # MongoDB server listening port
-    port: [MONGO_PORT]
-storage:
-    # Data store directory
-    dbPath: "/[PATH_TO_DB]"
-    mmapv1:
-        # Reduce data files size and journal files size
-        smallFiles: true
-systemLog:
-    # Write logs to log file
-    destination: file
-    path: "/[PATH_TO_DB]/logs/mongodb.log"
-```
-
-Then run `sudo service mongodb start` and `sudo mongod -f /[PATH_TO_CONF]/mongodb.conf&` to start the MongoDB server.
-
 ### PostgreSQL
 Connect to the PostgreSQL server using `sudo -u postgres psql`. You should see the prompt start with `postgres=#`. Next, create a user with username and password "physopt" using `CREATE USER physopt WITH PASSWORD 'physopt' CREATEDB;`. Verify that the user was created successfully with `\du`. 
 
@@ -144,7 +100,7 @@ In order to use S3 as the MLflow artifact store, you'll need to add your AWS cre
 To view the MLflow tracking UI run `mlflow ui`. If you are using local storage add `--backend-store-uri file:///[OUTPUT_DIR]/mlruns`. Otherwise, if you're using the PostgreSQL backend add `--backend-store-uri postgresql://<username>:<password>@<host>:<port>/<database>`. Finally, navigate to `http://localhost:5000`.
 
 #### Notes
-If the machine running the MongoDB, PostgreSQL, and MLflow tracking servers is not publically visible, you'll need to setup the necessary ssh tunnels.
+If the machine running the PostgreSQL and MLflow tracking servers is not publically visible, you'll need to setup the necessary ssh tunnels.
 
 ## Citing Physion
 
