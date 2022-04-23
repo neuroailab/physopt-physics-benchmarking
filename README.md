@@ -27,16 +27,14 @@ In order to use PostgreSQL as the MLflow backend store, you'll need to install p
 ## How To Run
 
 ### Local
-To run, use `run` from `physopt.opt`. The only required commandline argument is  `--config` or  `-C`. Optionally, you may also choose to specifiy the output directory where the results are saved (with `--output` or `-O`). The mlflow backend store is set to `[OUTPUT_DIR]/mlruns`.
+To run, use `run` from `physopt.opt`. The only required commandline argument is  `--config` or  `-C`, which should point to the `.yaml` config file (see [Configuration](#configuration)). Optionally, you may also choose to specifiy the output directory where the results are saved (with `--output` or `-O`).
 
 For convenience, you can use the following environment variables: `PHYSOPT_CONFIG_DIR`, which specifies the directory to look for configs if passed a relative path, and `PHYSOPT_OUTPUT_DIR`, which specifies the output directory to use if none is specified in the commandline. Also, `setup_environment_vars` is also provided in `physopt.opt` which allows you to specify the environment variables using a `.yaml` file.
 
+Local files will be saved to `[OUTPUT_DIR]/[DBNAME]` and MLflow files will be saved in the `[OUTPUT_DIR]/[DBNAME]/mlruns` subdirectory.
+
 ### Remote MLflow Tracking Server
 MLflow allows for using a remote Tracking Server. Specifically, we use a Postgres database for backend entity storage and an S3 bucket for artifact storage. This requires setting up PostgreSQL and Amazon S3 as detailed in the [Setup](#setup) section above. The relevant commandline arguments are the port (`--postgres_port`) and database name (`--postgres_dbname`). Note that the name "local" is reserved for using local storage. Also if the Postgres server is not running on `localhost` you'll need to specify the host (`--postgres_host`). 
-
-Therefore, the command would look like, 
-
-`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --postgres_port [PORT] --postgres_dbname [DBNAME] (--postgres_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
 
 ## Configuration 
 The default configuration can be found in `physopt/config.py`, which is updated by specifying a YAML configuration file using the `--config` (or `-C`) commandline argument. The following are required:

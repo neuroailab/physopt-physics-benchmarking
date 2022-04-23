@@ -106,11 +106,12 @@ def get_exp_name(cfg):
             experiment_name = cfg.EXPERIMENT_NAME
         return experiment_name
 
-def get_mlflow_backend(output_dir, host, port, dbname): # TODO: split this?
-    if dbname  == 'local':
-        tracking_uri = os.path.join(output_dir, 'mlruns')
+def get_mlflow_backend(output_dir, hostport, dbname): # TODO: split this?
+    if hostport == None:
+        tracking_uri = os.path.join(output_dir, dbname, 'mlruns')
         artifact_location = None
     else:
+        host, port = hostport.split(':') # TODO: add checks that it's parsed correctly
         # create postgres db, and use for backend store
         create_postgres_db(host, port, dbname)
         tracking_uri = 'postgresql://physopt:physopt@{}:{}/{}'.format(host, port, dbname) 
