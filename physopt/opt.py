@@ -148,7 +148,7 @@ def check_cfg(cfg): # TODO: just check that none are none?
     for attr in attrs:
         retriever = attrgetter(attr)
         assert retriever(cfg) is not None, f'{attr} must be set in the config'
-    if cfg.EXTRACTION.LOAD_STEP is None: # replace extraction load step with pretraining train steps, if not set
+    if cfg.EXTRACTION.LOAD_STEP is None:
         cfg.defrost()
         cfg.EXTRACTION.LOAD_STEP = cfg.PRETRAINING.TRAIN_STEPS
         cfg.freeze()
@@ -175,7 +175,7 @@ def setup_environment_vars():
                 print(f'Setting environment variable {k} to {v}')
                 os.environ[k] = str(v)
 
-if __name__ == '__main__':
+def run():
     setup_environment_vars()
     args = arg_parse()
     cfg = get_cfg_from_args(args)
