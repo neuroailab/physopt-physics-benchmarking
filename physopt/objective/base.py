@@ -66,10 +66,13 @@ class PretrainingObjectiveBase(PhysOptModel, PhysOptObjective):
             while self.step <= self.pretraining_cfg.TRAIN_STEPS:
                 for _, data in enumerate(trainloader):
                     loss = self.train_step(data)
-                    logging.info('Step: {0:>10} Loss: {1:>10.8f}'.format(self.step, loss))
+
+                    if not isinstance(loss, dict):
+                        logging.info('Step: {0:>10} Loss: {1:>10.8f}'.format(self.step, loss))
+                        loss = {'train_loss': loss}
 
                     if (self.step % self.pretraining_cfg.LOG_FREQ) == 0:
-                        mlflow.log_metric(key='train_loss', value=loss, step=self.step)
+                        mlflow.log_metrics(loss, step=self.step)
                     if (self.step % self.pretraining_cfg.CKPT_FREQ) == 0:
                         self.save_model_with_logging(self.step)
                     if (self.step % self.pretraining_cfg.VAL_FREQ) == 0:
