@@ -51,7 +51,7 @@ The seeds, specified by `DATA_SPACE.SEEDS`, should  be a list  of seeds to use. 
 An example of how the data spaces can be constructed can be found in the [Physion](https://github.com/neuroailab/physion/tree/master/physion/data_space) repo.
 
 ###  Model Specification
-Running a model in `physopt` requires creating an Objective class for each phase (pretraining, extraction, and readout), specified by `[PHASE]_OBJECTIVE.MODULE` and `[PHASE]_OBJECTIVE.NAME`. 
+Running a model in `physopt` requires creating an Objective class for each phase (pretraining, extraction, and readout), specified by `[PHASE].OBJECTIVE_MODULE` and `[PHASE].OBJECTIVE_NAME` in the config. 
 
 Your `PretrainingObjective` should inherit from `PretrainingObjectiveBase` ([link](https://github.com/neuroailab/physopt/blob/0801ba64506edebe0a56f1a16948d8d42fc7fea3/physopt/objective/base.py#L17)) and requires implmenting the following methods:
 - `get_pretraining_dataloader`: Takes as input params a list of `datapaths` and a bool `train` flag. Returns the dataloader object that can be iterated over for batches of data
