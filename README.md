@@ -151,7 +151,7 @@ If you've trained a model for forward prediction using your own external code-ba
 - Set `SKIP_PRETRAINING = True` in `physion.yaml`
 - Specify a path to the config file pertaining to your external repository in the `PRETRAINING.MODEL.CUSTOM_CONFIG` field of `physion.yaml`. This file should contain the requisite parameter specifications for creating your model. Your config dict will now be stored in `PRETRAINING.MODEL`.
 - Define your `model`: implement the `get_model` function by instantiating your model using the configs listed in `PRETRAINING.MODEL` and loading the pretrained weights. 
-- See `physion/configs/fitvid.yaml` and `physion/configs/physion_only_test.yaml` for an example of how to create these configs. `physion/physion/objective/FitVidExt.py` lists an example of how an external model can be defined. 
+- See [`physion/configs/fitvid.yaml`](https://github.com/neuroailab/physion/blob/external_model/configs/FitVid/fitvid.yaml) and [`physion/configs/physion_only_test.yaml`](https://github.com/neuroailab/physion/blob/external_model/configs/FitVid/physion_only_test.yaml) for an example of how to create these configs. [`physion/physion/objective/FitVidExt.py`](https://github.com/neuroailab/physion/blob/external_model/physion/objective/FitVidExt.py) lists an example of how an external model can be defined. 
   
 ## Citing Physion
 
