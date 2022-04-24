@@ -88,6 +88,11 @@ To view the MLflow tracking UI run `mlflow ui`. If you are using local storage a
 #### Notes
 If the machine running the PostgreSQL and MLflow tracking servers is not publically visible, you'll need to setup the necessary ssh tunnels.
 
+## Example
+- Download example (physion) data from [here]().
+- Install [physion](https://github.com/neuroailab/physion) (if not already done).
+- Update data directory in [example config](https://github.com/neuroailab/physion/blob/master/configs/example.yaml).
+
 ## Citing Physion
 
 If you find this codebase useful in your research, please consider citing:
