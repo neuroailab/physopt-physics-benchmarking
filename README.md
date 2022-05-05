@@ -7,13 +7,8 @@
 The goal of this repository is to train and evaluate different physics prediction models under various pretraining and readout protocols. The procedure consists of three phases, as follows:
 
 1. **Pretraining**: Train the physics prediction model on its specific prediction task on the specific train dataset.
-    - Output: Model-specific trained checkpoint file saved to ``[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/model.pt``
 2. **Extraction**: Extract model features for the readout training and testing datasets.
-    - Output: List of dicts, each dict corresponding to results from a batch, saved to `[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/{train/test}_feat.pkl`
-    - Each dict has the following keys: `input_states`, `observed_states`, `simulated_states`, `labels`, `stimulus_name`
 3. **Readout**: Train a model to predict the task labels using extracted features, and evaluate the trained readout model on the readout test set.
-    - Output: Metric results and other data used for model-human comparisons saved to `[OUTPUT_DIR]/[PRETRAINING_SCENARIO]/[SEED]/model/features/[READOUT_SCENARIO]/metric_results.csv`
-    - Used for analysis in [physics-benchmarking-neurips2021](https://github.com/cogtoolslab/physics-benchmarking-neurips2021)
 
 Runs and artifacts from running the pipeline are recorded with [MLflow](https://mlflow.org/).
 
@@ -22,44 +17,19 @@ Runs and artifacts from running the pipeline are recorded with [MLflow](https://
 
 Run `pip install -e .` in the root `physopt` directory to install the `physopt` package. You will also need to install the correct version of PyTorch for your system, see [this link](https://pytorch.org/get-started/locally/) for instructions.
 
-In order to distribute jobs across machines, you'll need to have MongoDB installed. In order to use PostgreSQL as the MLflow backend store, you'll need to install postgresql with `sudo apt-get install postgresql`, if it's not installed already -- you can check with `psql --version`.
+In order to use PostgreSQL as the MLflow backend store, you'll need to install postgresql with `sudo apt-get install postgresql`, if it's not installed already -- you can check with `psql --version`.
 
 ## How To Run
 
-Physopt uses [Hyperopt](https://github.com/neuroailab/hyperopt) to train and evaluate physics prediction models on one or many different datasets. 
-
 ### Local
-The main script to run the pipeline is `opt.py`. To run locally you only need to set the `--data_module` and `--objective_module` commandline arguments. See the [Data Spaces Specification](#data-spaces-specification) and [Model Specification](#model-specification) sections, respectively, for more details. Optionally, you may also choose to specifiy the output directory where the results are saved (with `--output`) and the number of parallel threads (with `--num_threads`). The mlflow backend store is set to `[OUTPUT_DIR]/mlruns`.
+To run, use `run` from `physopt.opt`. The only required commandline argument is  `--config` or  `-C`, which should point to the `.yaml` config file (see [Configuration](#configuration)). Optionally, you may also choose to specifiy the output directory where the results are saved (with `--output` or `-O`).
 
-Therefore, the command would look like,
+For convenience, you can use the following environment variables: `PHYSOPT_CONFIG_DIR`, which specifies the directory to look for configs if passed a relative path, and `PHYSOPT_OUTPUT_DIR`, which specifies the output directory to use if none is specified in the commandline. Also, `setup_environment_vars` is also provided in `physopt.opt` which allows you to specify the environment variables using a `.yaml` file.
 
-`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
-
-Note that it is often preferable to run (e.g. with the physion repo installed and on an up-to-date branch) the following command. 
-
-`python opt.py --config physion/configs/MODEL/MODEL.yaml`.
-
-This can be used to run the training and evaluation loop on a particular model as specified by the yaml config file. See the (lab-internal) [physion repo](https://github.com/neuroailab/physion/blob/fe10826dffef59bd866f388202b6dadc5b3f91d4/physion/models/frozen.py) for examples of these models with the training and feature extraction wrappers. At a high level, physion and physopt depend on one another recursively, where physion uses physopt (as a package) as a wrapper around its models, which must be run using `opt.py` in the physopt repo. 
+Local files will be saved to `[OUTPUT_DIR]/[DBNAME]` and MLflow files will be saved in the `[OUTPUT_DIR]/[DBNAME]/mlruns` subdirectory.
 
 ### Remote MLflow Tracking Server
-MLflow allows for using a remote Tracking Server. Specifically, we use a Postgres database for backend entity storage and an S3 bucket for artifact storage. This requires setting up PostgreSQL and Amazon S3 as detailed in the [Setup](#setup) section above. The relevant commandline arguments are the port (`--postgres_port`) and database name (`--postgres_dbname`). Note that the name "local" is reserved for using local storage. Also if the Postgres server is not running on `localhost` you'll need to specify the host (`--postgres_host`). 
-
-Therefore, the command would look like, 
-
-`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --postgres_port [PORT] --postgres_dbname [DBNAME] (--postgres_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`.
-
-### Distributed Workers
-Using the functionality from [Hyperopt](https://github.com/neuroailab/hyperopt), it is also possible to use an optimization server that distributes jobs across as many workers as you want. This requires setting up MongoDB as detailed in the [Setup](#setup) section above. Additionally, you must set the MongoDB port (`--mongo_port`), database name (`--mongo_dbname`), and host (`--mongo_host`).
-
-Therefore, the command to create the jobs in the MongoDB would look like, 
-
-`python opt.py --data_module [DATA_SPACE_MODULE_NAME] --objective_module [OBJECTIVE_MODULE_NAME] --mongo_port [PORT] --mongo_dbname [DBNAME] (--mongo_host [HOST]) (--ouput [OUTPUT_DIR]) (--num_threads [NUM_THREADS])`
-
-and then start up as many workers as you want with,
-
-`hyperopt-mongo-worker --mongo=[HOST]:[PORT]/[DBNAME] (--poll-interval=[POLL_INTERVAL]) (--reserve-timeout=[RESERVE_TIMEOUT]) (--logfile=l[LOGFILE])`.
-
-This approach has the advantage that you only need one set of workers pointing all to the same database `database`. Although currently not a problem, potential library conflicts between models might make approach c) infeasible in the future without separate python environments. In that case each model would have to be run in model-specific python environment which is beyond the scope of this documentation.
+MLflow allows for using a remote Tracking Server. Specifically, we use a Postgres database for backend entity storage and an S3 bucket for artifact storage. This requires setting up PostgreSQL and Amazon S3 as detailed in the [Setup](#setup) section above. The relevant cofig file settings are `HOSTPORT` (format `host:port`)  and `DBNAME` (default: `physopt`).
 
 ## Configuration 
 The default configuration can be found in `physopt/config.py`, which is updated by specifying a YAML configuration file using the `--config` (or `-C`) commandline argument. The following are required:
@@ -67,6 +37,7 @@ The default configuration can be found in `physopt/config.py`, which is updated 
 - `PRETRAINING.OBJECTIVE_MODULE` (see [model specification](#model-specification))
 - `PRETRAINING.MODEL_NAME` 
 - `EXTRACTION.OBJECTIVE_MODULE` (see [model specification](#model-specification))
+- `READOUT.OBJECTIVE_MODULE` (see [model specification](#model-specification))
 
 ### Data Spaces Specification
 The `DATA_SPACE.FUNC` (defaults to `get_data_spaces`) from the specified `DATA_SPACE.MODULE` must return a list of dicts with the following structure:
@@ -80,7 +51,7 @@ The seeds, specified by `DATA_SPACE.SEEDS`, should  be a list  of seeds to use. 
 An example of how the data spaces can be constructed can be found in the [Physion](https://github.com/neuroailab/physion/tree/master/physion/data_space) repo.
 
 ###  Model Specification
-Running a model in `physopt` requires creating an Objective class for each phase (pretraining, extraction, and readout), specified by `[PHASE]_OBJECTIVE.MODULE` and `[PHASE]_OBJECTIVE.NAME`. 
+Running a model in `physopt` requires creating an Objective class for each phase (pretraining, extraction, and readout), specified by `[PHASE].OBJECTIVE_MODULE` and `[PHASE].OBJECTIVE_NAME` in the config. 
 
 Your `PretrainingObjective` should inherit from `PretrainingObjectiveBase` ([link](https://github.com/neuroailab/physopt/blob/0801ba64506edebe0a56f1a16948d8d42fc7fea3/physopt/objective/base.py#L17)) and requires implmenting the following methods:
 - `get_pretraining_dataloader`: Takes as input params a list of `datapaths` and a bool `train` flag. Returns the dataloader object that can be iterated over for batches of data
@@ -91,7 +62,7 @@ Your `ExtractionObjective` should inherit from `ExtractionObjecitveBase` and req
 - `get_readout_dataloader`: Takes as input params a list of `datapaths`. Returns the dataloader object that can be iterated over for batches of data
 - `extract_feat_step`: Takes as input a batch of data, and outputs a dict with `input_states`, `observed_states`, `simulated_states`, `labels`, and `stimulus_name`
 
-A simple logistic regression readout model is provided, but a different `ReadoutObjective` can be used by inheriting from `ReadoutObjectiveBase` and implementing:
+A simple logistic regression readout model is provided in [Physion](https://github.com/neuroailab/physion/blob/master/physion/objective/objective.py), but a different `ReadoutObjective` can be used by inheriting from `ReadoutObjectiveBase` and implementing:
 - `get_readout_model`: Returns a model object that has the following methods: `fit`, `predict`, and `predict_proba`.
 
 The `PretrainingObjective` and `ExtractionObjective` both also inherit from `PhysOptModel`, which requires implementing:
@@ -101,36 +72,7 @@ The `PretrainingObjective` and `ExtractionObjective` both also inherit from `Phy
 
 An example can be found [here](https://github.com/neuroailab/physion/blob/fe10826dffef59bd866f388202b6dadc5b3f91d4/physion/models/frozen.py).
 
-### Notes
-
-The Postgres/S3 remote tracking server can be used independently of MongoDB, although it is likely that if the workers are distrbuted across multiple machines, a central store for the experimental runs would be preferred. 
-
-To see all available argument options use
-
-`python opt.py --help`
-
 ## Setup
-### MongoDB
-To use MongoDB for `hyperopt`, create a `mongodb.conf` file with the following:
-
-```
-net:
-    # MongoDB server listening port
-    port: [MONGO_PORT]
-storage:
-    # Data store directory
-    dbPath: "/[PATH_TO_DB]"
-    mmapv1:
-        # Reduce data files size and journal files size
-        smallFiles: true
-systemLog:
-    # Write logs to log file
-    destination: file
-    path: "/[PATH_TO_DB]/logs/mongodb.log"
-```
-
-Then run `sudo service mongodb start` and `sudo mongod -f /[PATH_TO_CONF]/mongodb.conf&` to start the MongoDB server.
-
 ### PostgreSQL
 Connect to the PostgreSQL server using `sudo -u postgres psql`. You should see the prompt start with `postgres=#`. Next, create a user with username and password "physopt" using `CREATE USER physopt WITH PASSWORD 'physopt' CREATEDB;`. Verify that the user was created successfully with `\du`. 
 
@@ -153,6 +95,12 @@ If you've trained a model for forward prediction using your own external code-ba
 - Define your `model`: implement the `get_model` function by instantiating your model using the configs listed in `PRETRAINING.MODEL` and loading the pretrained weights. 
 - See [`physion/configs/fitvid.yaml`](https://github.com/neuroailab/physion/blob/external_model/configs/FitVid/fitvid.yaml) and [`physion/configs/physion_only_test.yaml`](https://github.com/neuroailab/physion/blob/external_model/configs/FitVid/physion_only_test.yaml) for an example of how to create these configs. [`physion/physion/objective/FitVidExt.py`](https://github.com/neuroailab/physion/blob/external_model/physion/objective/FitVidExt.py) lists an example of how an external model can be defined. 
   
+## Example
+- Download example (physion) data from [here](https://physics-benchmarking-neurips2021-dataset.s3.amazonaws.com/physion_example_data.zip).
+- Install [physion](https://github.com/neuroailab/physion) (if not already done).
+- Update data directory in [example config](https://github.com/neuroailab/physion/blob/master/configs/example.yaml).
+- In `physion` directory, run `python run.py -C [path_to_example_config]`. Or write your own run script based on [run.py](https://github.com/neuroailab/physion/blob/master/run.py).
+
 ## Citing Physion
 
 If you find this codebase useful in your research, please consider citing:

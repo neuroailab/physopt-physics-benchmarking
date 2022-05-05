@@ -143,6 +143,7 @@ def check_cfg(cfg): # TODO: just check that none are none?
         'PRETRAINING.OBJECTIVE_MODULE',
         'PRETRAINING.MODEL_NAME',
         'EXTRACTION.OBJECTIVE_MODULE',
+        'READOUT.OBJECTIVE_MODULE',
         ]
     for attr in attrs:
         retriever = attrgetter(attr)
