@@ -143,24 +143,29 @@ class ExtractionObjectiveBase(PhysOptModel, PhysOptObjective):
     
     def setup(self):
         super().setup()
-        pretraining_run = self.get_run(PRETRAINING_PHASE_NAME, create_new=False)
-        assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for pretraining run'
+        if not self.pretraining_cfg.MODEL.CUSTOM_CONFIG:
+            pretraining_run = self.get_run(PRETRAINING_PHASE_NAME, create_new=False)
+            assert 'step' in pretraining_run.data.metrics, f'No checkpoint found for pretraining run'
 
-        if self.extraction_cfg.LOAD_STEP is not None: # restore from specified checkpoint
-            self.restore_step = self.extraction_cfg.LOAD_STEP
+            if self.extraction_cfg.LOAD_STEP is not None: # restore from specified checkpoint
+                self.restore_step = self.extraction_cfg.LOAD_STEP
+            else:
+                self.restore_step = self.pretraining_cfg.TRAIN_STEPS
+            client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
+            metric_history = client.get_metric_history(pretraining_run.info.run_id, 'step')
+            available_ckpts = [m.value for m in metric_history]
+            assert self.restore_step in available_ckpts, f'Checkpoint for step {self.restore_step} not found in {available_ckpts}.'
+            restore_run_id = pretraining_run.info.run_id
+            # download ckpt from artifact store and load model
+            model_file = utils.get_ckpt_from_artifact_store(self.tracking_uri, restore_run_id, self.output_dir, artifact_path=f'step_{self.restore_step}/model_ckpts')
+            self.model = self.load_model(model_file)
+            mlflow.log_params({ # log restore settings as params for extraction since features depend on model ckpt
+                'restore_step': self.restore_step,
+                'restore_run_id': restore_run_id,
+                })
         else:
-            self.restore_step = self.pretraining_cfg.TRAIN_STEPS
-        client = mlflow.tracking.MlflowClient(tracking_uri=self.tracking_uri)
-        metric_history = client.get_metric_history(pretraining_run.info.run_id, 'step')
-        available_ckpts = [m.value for m in metric_history]
-        assert self.restore_step in available_ckpts, f'Checkpoint for step {self.restore_step} not found in {available_ckpts}.'
-        restore_run_id = pretraining_run.info.run_id
-        # download ckpt from artifact store and load model
-        model_file = utils.get_ckpt_from_artifact_store(self.tracking_uri, restore_run_id, self.output_dir, artifact_path=f'step_{self.restore_step}/model_ckpts')
-        self.model = self.load_model(model_file)
-        mlflow.log_params({ # log restore settings as params for extraction since features depend on model ckpt
-            'restore_step': self.restore_step,
-            'restore_run_id': restore_run_id,
+            mlflow.log_params({  # log restore settings as params for extraction since features depend on model ckpt
+                'restore_step': 0,
             })
 
     def call(self, args):
