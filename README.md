@@ -97,8 +97,10 @@ If you've trained a model for forward prediction using your own external code-ba
   
 ## Example
 - Download example (physion) data from [here](https://physics-benchmarking-neurips2021-dataset.s3.amazonaws.com/physion_example_data.zip).
+- Install [physopt](https://github.com/neuroailab/physopt-physics-benchmarking) (if not already done)
 - Install [physion](https://github.com/neuroailab/physion) (if not already done).
 - Update data directory in [example config](https://github.com/neuroailab/physion/blob/master/configs/example.yaml).
+- Set the path to your configs and results directory in the `environment.yml` file of the `physion` repo. Please refer to the instructions provided in the file. 
 - In `physion` directory, run `python run.py -C [path_to_example_config]`. Or write your own run script based on [run.py](https://github.com/neuroailab/physion/blob/master/run.py).
 
 ## Citing Physion
