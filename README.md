@@ -53,7 +53,7 @@ An example of how the data spaces can be constructed can be found in the [physic
 ###  Model Specification
 Running a model in `physopt` requires creating an Objective class for each phase (pretraining, extraction, and readout), specified by `[PHASE].OBJECTIVE_MODULE` and `[PHASE].OBJECTIVE_NAME` in the config. 
 
-Your `PretrainingObjective` should inherit from `PretrainingObjectiveBase` ([link](https://github.com/neuroailab/physopt/blob/main/physopt/objective/base.py#L17)) and requires implementing the following methods:
+Your `PretrainingObjective` should inherit from `PretrainingObjectiveBase` ([link](https://github.com/neuroailab/physopt-physics-benchmarking/blob/main/physopt/objective/base.py#L17)) and requires implementing the following methods:
 - `get_pretraining_dataloader`: Takes as input params a list of `datapaths` and a bool `train` flag. Returns the dataloader object that can be iterated over for batches of data
 - `train_step`: Takes as input a batch of data, performs the train optimization step, and returns the scalar loss value for that step
 - `val_step`: Takes as input a batch of data, performs validation on that batch, and returns the scalar metric used for validation
