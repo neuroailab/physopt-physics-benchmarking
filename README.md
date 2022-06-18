@@ -48,7 +48,7 @@ Any `kwargs` for `DATA_SPACE.FUNC` can be specified using `DATA_SPACE.KWARGS`.
 
 The seeds, specified by `DATA_SPACE.SEEDS`, should  be a list  of seeds to use. Each set of pretraining and readout datasets (i.e. each element of the list of dicts returned by `DATA_SPACE.FUNC`) will be run with each seed.
 
-An example of how the data spaces can be constructed can be found in the [Physion](https://github.com/neuroailab/physion/tree/master/physion/data_space) repo.
+An example of how the data spaces can be constructed can be found in the [Physion](https://github.com/neuroailab/physics-models/tree/master/physion/data_space) repo.
 
 ###  Model Specification
 Running a model in `physopt` requires creating an Objective class for each phase (pretraining, extraction, and readout), specified by `[PHASE].OBJECTIVE_MODULE` and `[PHASE].OBJECTIVE_NAME` in the config. 
@@ -62,7 +62,7 @@ Your `ExtractionObjective` should inherit from `ExtractionObjecitveBase` and req
 - `get_readout_dataloader`: Takes as input params a list of `datapaths`. Returns the dataloader object that can be iterated over for batches of data
 - `extract_feat_step`: Takes as input a batch of data, and outputs a dict with `input_states`, `observed_states`, `simulated_states`, `labels`, and `stimulus_name`
 
-A simple logistic regression readout model is provided in [Physion](https://github.com/neuroailab/physion/blob/master/physion/objective/objective.py), but a different `ReadoutObjective` can be used by inheriting from `ReadoutObjectiveBase` and implementing:
+A simple logistic regression readout model is provided in [Physion](https://github.com/neuroailab/physics-models/blob/master/physion/objective/objective.py), but a different `ReadoutObjective` can be used by inheriting from `ReadoutObjectiveBase` and implementing:
 - `get_readout_model`: Returns a model object that has the following methods: `fit`, `predict`, and `predict_proba`.
 
 The `PretrainingObjective` and `ExtractionObjective` both also inherit from `PhysOptModel`, which requires implementing:
@@ -70,7 +70,7 @@ The `PretrainingObjective` and `ExtractionObjective` both also inherit from `Phy
 - `load_model`: Implements loading of the model given a model checkpoint file
 - `save_model`: Implements saving of the model given a model checkpoint file
 
-An example can be found [here](https://github.com/neuroailab/physion/blob/fe10826dffef59bd866f388202b6dadc5b3f91d4/physion/models/frozen.py).
+An example can be found [here](https://github.com/neuroailab/physics-models/blob/fe10826dffef59bd866f388202b6dadc5b3f91d4/physion/models/frozen.py).
 
 ## Setup
 ### PostgreSQL
@@ -93,15 +93,15 @@ If you've trained a model for forward prediction using your own external code-ba
 - Set `SKIP_PRETRAINING = True` in `physion.yaml`
 - Specify a path to the config file pertaining to your external repository in the `PRETRAINING.MODEL.CUSTOM_CONFIG` field of `physion.yaml`. This file should contain the requisite parameter specifications for creating your model. Your config dict will now be stored in `PRETRAINING.MODEL`.
 - Define your `model`: implement the `get_model` function by instantiating your model using the configs listed in `PRETRAINING.MODEL` and loading the pretrained weights. 
-- See [`physion/configs/fitvid.yaml`](https://github.com/neuroailab/physion/blob/external_model/configs/FitVid/fitvid.yaml) and [`physion/configs/physion_only_test.yaml`](https://github.com/neuroailab/physion/blob/external_model/configs/FitVid/physion_only_test.yaml) for an example of how to create these configs. [`physion/physion/objective/FitVidExt.py`](https://github.com/neuroailab/physion/blob/external_model/physion/objective/FitVidExt.py) lists an example of how an external model can be defined. 
+- See [`physics-models/configs/fitvid.yaml`](https://github.com/neuroailab/physics-models/blob/external_model/configs/FitVid/fitvid.yaml) and [`physics-models/configs/physion_only_test.yaml`](https://github.com/neuroailab/physics-models/blob/external_model/configs/FitVid/physion_only_test.yaml) for an example of how to create these configs. [`physics-models/physion/objective/FitVidExt.py`](https://github.com/neuroailab/physics-models/blob/external_model/physion/objective/FitVidExt.py) lists an example of how an external model can be defined. 
   
 ## Example
 - Download example (physion) data from [here](https://physics-benchmarking-neurips2021-dataset.s3.amazonaws.com/physion_example_data.zip).
 - Install [physopt](https://github.com/neuroailab/physopt-physics-benchmarking) (if not already done)
-- Install [physion](https://github.com/neuroailab/physion) (if not already done).
-- Update data directory in [example config](https://github.com/neuroailab/physion/blob/master/configs/example.yaml).
-- Set the path to your configs and results directory in the `environment.yml` file of the `physion` repo. Please refer to the instructions provided in the file. 
-- In `physion` directory, run `python run.py -C [path_to_example_config]`. Or write your own run script based on [run.py](https://github.com/neuroailab/physion/blob/master/run.py).
+- Install [physion](https://github.com/neuroailab/physics-models) (if not already done).
+- Update data directory in [example config](https://github.com/neuroailab/physics-models/blob/master/configs/example.yaml).
+- Set the path to your configs and results directory in the `environment.yml` file of the `physics-models` repo. Please refer to the instructions provided in the file. 
+- In `physics-models` directory, run `python run.py -C [path_to_example_config]`. Or write your own run script based on [run.py](https://github.com/neuroailab/physics-models/blob/master/run.py).
 
 ## Citing Physion
 
