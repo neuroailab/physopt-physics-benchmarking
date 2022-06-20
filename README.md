@@ -101,7 +101,8 @@ If you've trained a model for forward prediction using your own external code-ba
 - Install [physics-models](https://github.com/neuroailab/physics-models) (if not already done).
 - Update data directory in [example config](https://github.com/neuroailab/physics-models/blob/master/configs/example.yaml).
 - Set the path to your configs and results directory in the `environment.yml` file of the `physics-models` repo. Please refer to the instructions provided in the file. 
-- In `physics-models` directory, run `python run.py -C [path_to_example_config]`. Or write your own run script based on [run.py](https://github.com/neuroailab/physics-models/blob/master/run.py).
+- In `physics-models` directory, run `python run.py -C [path_to_example_config]`. You can also write your own run script based on [run.py](https://github.com/neuroailab/physics-models/blob/master/run.py).
+- We also provide a [jupyter notebook](https://github.com/neuroailab/physics-models/blob/master/example_run.ipynb) where the interface to the different phases of the pipeline (i.e pretraining, extraction and readout) have been exposed.    
 
 ## Citing Physion
 
